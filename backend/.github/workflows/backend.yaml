@@ -1,0 +1,68 @@
+name: Backend
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  test-go:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v3
+      with:
+        go-version: 1.19
+
+    - name: Run Go unit tests
+      run: |
+        cd backend
+        go test -count=1 -race -failfast ./...
+  test-cucumber:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v3
+      with:
+        go-version: 1.19
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 16
+
+    - name: Install json-to-messages
+      run: npm install -g @cucumber/json-to-messages
+    - name: Install Godog binary
+      run: go get github.com/cucumber/godog/cmd/godog@v0.12.5
+
+  - uses: isbang/compose-action@v1.4.1
+    with:
+      compose-file: "./docker-compose.yaml"
+
+    - name: Run Godog tests
+      id: tests
+      env:
+        CUCUMBER_PUBLISH_TOKEN: '${{ secrets.CUCUMBER_PUBLISH_TOKEN }}'
+      run: |
+        cd backend
+        echo "ok"
+        go test -count=1 --tags=functional -v ./functional --godog.format=cucumber | sed -i '$ d' > result.json
+        cat result.json
+        cat result.json | json-to-messages > messages.json
+        OUTPUT=$(curl -s -D - -H "Authorization: Bearer $CUCUMBER_PUBLISH_TOKEN" "https://messages.cucumber.io/api/reports")
+        TARGET=$(echo $OUTPUT | grep -Eo 'https://cucumber-messages-app[^ ]+' | tr -d '\r')
+        curl -v --upload-file messages.json "$TARGET"
+        REPORT_LINK=$(echo $OUTPUT | grep -Eo 'https://reports.cucumber.io/reports/[0-9a-z-]+' | tr -d '\r')
+        echo "::set-output name=REPORT_LINK::$REPORT_LINK"
+
+    - uses: mshick/add-pr-comment@v1
+      if: ${{ github.event_name == 'pull_request' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        message: |
+          Cucumber reports available here:
+          ${{ steps.tests.outputs.REPORT_LINK }}
+        allow-repeats: true
