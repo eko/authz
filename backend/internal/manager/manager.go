@@ -10,11 +10,13 @@ import (
 )
 
 type Manager interface {
-	CreateAction(name string) (*model.Action, error)
-	CreatePolicy(name string, resources []map[string]string, actions []string) (*model.Policy, error)
-	UpdatePolicy(identifier int64, name string, resources []map[string]string, actions []string) (*model.Policy, error)
-	CreateResource(kind string, value string) (*model.Resource, error)
-	CreatePrincipal(value string) (*model.Principal, error)
+	CreateAction(identifier string) (*model.Action, error)
+	CreatePolicy(identifier string, resources []string, actions []string) (*model.Policy, error)
+	UpdatePolicy(identifier string, resources []string, actions []string) (*model.Policy, error)
+	CreateResource(identifier string, kind string, value string) (*model.Resource, error)
+	CreateRole(identifier string, policies []string) (*model.Role, error)
+	UpdateRole(identifier string, policies []string) (*model.Role, error)
+	CreatePrincipal(identifier string) (*model.Principal, error)
 	GetActionRepository() *database.Repository[model.Action]
 	GetPolicyRepository() *database.Repository[model.Policy]
 	GetResourceRepository() *database.Repository[model.Resource]
@@ -47,18 +49,18 @@ func New(
 	}
 }
 
-func (m *manager) CreateAction(name string) (*model.Action, error) {
-	exists, err := m.actionRepository.GetByField("name", name)
+func (m *manager) CreateAction(identifier string) (*model.Action, error) {
+	exists, err := m.actionRepository.Get(identifier)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("unable to check for existing action: %v", err)
 	}
 
 	if exists != nil {
-		return nil, fmt.Errorf("an action already exists with name %q", name)
+		return nil, fmt.Errorf("an action already exists with identifier %q", identifier)
 	}
 
 	action := &model.Action{
-		Name: name,
+		ID: identifier,
 	}
 
 	if err := m.actionRepository.Create(action); err != nil {
@@ -68,19 +70,18 @@ func (m *manager) CreateAction(name string) (*model.Action, error) {
 	return action, nil
 }
 
-func (m *manager) CreatePolicy(name string, resources []map[string]string, actions []string) (*model.Policy, error) {
-	exists, err := m.policyRepository.GetByField("name", name)
+func (m *manager) CreatePolicy(identifier string, resources []string, actions []string) (*model.Policy, error) {
+	exists, err := m.policyRepository.Get(identifier)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("unable to check for existing policy: %v", err)
 	}
 
 	if exists != nil {
-		return nil, fmt.Errorf("a policy already exists with name %q", name)
+		return nil, fmt.Errorf("a policy already exists with identifier %q", identifier)
 	}
 
 	policy := &model.Policy{}
-	policy, err = m.attachToPolicy(policy, name, resources, actions)
-	if err != nil {
+	if err := m.attachToPolicy(policy, identifier, resources, actions); err != nil {
 		return nil, err
 	}
 
@@ -91,14 +92,13 @@ func (m *manager) CreatePolicy(name string, resources []map[string]string, actio
 	return policy, nil
 }
 
-func (m *manager) UpdatePolicy(identifier int64, name string, resources []map[string]string, actions []string) (*model.Policy, error) {
+func (m *manager) UpdatePolicy(identifier string, resources []string, actions []string) (*model.Policy, error) {
 	policy, err := m.policyRepository.Get(identifier)
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve policy: %v", err)
 	}
 
-	policy, err = m.attachToPolicy(policy, name, resources, actions)
-	if err != nil {
+	if err := m.attachToPolicy(policy, policy.ID, resources, actions); err != nil {
 		return nil, err
 	}
 
@@ -109,13 +109,13 @@ func (m *manager) UpdatePolicy(identifier int64, name string, resources []map[st
 	return policy, nil
 }
 
-func (m *manager) attachToPolicy(policy *model.Policy, name string, resources []map[string]string, actions []string) (*model.Policy, error) {
+func (m *manager) attachToPolicy(policy *model.Policy, identifier string, resources []string, actions []string) error {
 	var resourceObjects = []*model.Resource{}
 
 	for _, resource := range resources {
-		resourceObject, err := m.resourceRepository.GetByFields(resource)
+		resourceObject, err := m.resourceRepository.Get(resource)
 		if err != nil {
-			return nil, fmt.Errorf("unable to retrieve resource %v: %v", resource, err)
+			return fmt.Errorf("unable to retrieve resource %v: %v", resource, err)
 		}
 
 		resourceObjects = append(resourceObjects, resourceObject)
@@ -124,35 +124,32 @@ func (m *manager) attachToPolicy(policy *model.Policy, name string, resources []
 	var actionObjects = []*model.Action{}
 
 	for _, action := range actions {
-		actionObject, err := m.actionRepository.GetByField("name", action)
+		actionObject, err := m.actionRepository.Get(action)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			actionObject, err = m.CreateAction(action)
 			if err != nil {
-				return nil, fmt.Errorf("unable to create action %q: %v", action, err)
+				return fmt.Errorf("unable to create action %q: %v", action, err)
 			}
 		} else if err != nil {
-			return nil, fmt.Errorf("unable to retrieve action %q: %v", action, err)
+			return fmt.Errorf("unable to retrieve action %q: %v", action, err)
 		}
 
 		actionObjects = append(actionObjects, actionObject)
 	}
 
-	policy.Name = name
+	policy.ID = identifier
 	policy.Resources = resourceObjects
 	policy.Actions = actionObjects
 
-	return policy, nil
+	return nil
 }
 
-func (m *manager) CreateResource(kind string, value string) (*model.Resource, error) {
+func (m *manager) CreateResource(identifier string, kind string, value string) (*model.Resource, error) {
 	if value == "" {
 		value = "*"
 	}
 
-	exists, err := m.resourceRepository.GetByFields(map[string]string{
-		"kind":  kind,
-		"value": value,
-	})
+	exists, err := m.resourceRepository.Get(identifier)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("unable to check for existing resource: %v", err)
 	}
@@ -162,6 +159,7 @@ func (m *manager) CreateResource(kind string, value string) (*model.Resource, er
 	}
 
 	resource := &model.Resource{
+		ID:    identifier,
 		Kind:  kind,
 		Value: value,
 	}
@@ -173,18 +171,18 @@ func (m *manager) CreateResource(kind string, value string) (*model.Resource, er
 	return resource, nil
 }
 
-func (m *manager) CreatePrincipal(value string) (*model.Principal, error) {
-	exists, err := m.principalRepository.GetByField("value", value)
+func (m *manager) CreatePrincipal(identifier string) (*model.Principal, error) {
+	exists, err := m.principalRepository.Get(identifier)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("unable to check for existing principal: %v", err)
 	}
 
 	if exists != nil {
-		return nil, fmt.Errorf("a principal already exists with value %q", value)
+		return nil, fmt.Errorf("a principal already exists with identifier %q", identifier)
 	}
 
 	principal := &model.Principal{
-		Value: value,
+		ID: identifier,
 	}
 
 	if err := m.principalRepository.Create(principal); err != nil {
@@ -194,8 +192,63 @@ func (m *manager) CreatePrincipal(value string) (*model.Principal, error) {
 	return principal, nil
 }
 
-func (m *manager) CreateRole(role *model.Role) error {
-	return m.roleRepository.Create(role)
+func (m *manager) CreateRole(identifier string, policies []string) (*model.Role, error) {
+	exists, err := m.roleRepository.Get(identifier)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("unable to check for existing role: %v", err)
+	}
+
+	if exists != nil {
+		return nil, fmt.Errorf("a role already exists with identifier %q", identifier)
+	}
+
+	var policyObjects = []*model.Policy{}
+
+	for _, policy := range policies {
+		policyObject, err := m.policyRepository.Get(policy)
+		if err != nil {
+			return nil, fmt.Errorf("unable to retrieve policy %v: %v", policy, err)
+		}
+
+		policyObjects = append(policyObjects, policyObject)
+	}
+
+	role := &model.Role{
+		ID:       identifier,
+		Policies: policyObjects,
+	}
+
+	if err := m.roleRepository.Create(role); err != nil {
+		return nil, fmt.Errorf("unable to create role: %v", err)
+	}
+
+	return role, nil
+}
+
+func (m *manager) UpdateRole(identifier string, policies []string) (*model.Role, error) {
+	role, err := m.roleRepository.Get(identifier)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve role: %v", err)
+	}
+
+	var policyObjects = []*model.Policy{}
+
+	for _, policy := range policies {
+		policyObject, err := m.policyRepository.Get(policy)
+		if err != nil {
+			return nil, fmt.Errorf("unable to retrieve policy %v: %v", policy, err)
+		}
+
+		policyObjects = append(policyObjects, policyObject)
+	}
+
+	role.Policies = policyObjects
+
+	if err := m.roleRepository.Update(role); err != nil {
+		return nil, fmt.Errorf("unable to update role: %v", err)
+	}
+
+	return role, nil
 }
 
 func (m *manager) GetActionRepository() *database.Repository[model.Action] {

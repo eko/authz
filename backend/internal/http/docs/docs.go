@@ -85,6 +85,113 @@ const docTemplate = `{
                         }
                     }
                 }
+            }
+        },
+        "/v1/actions/{identifier}": {
+            "get": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authz"
+                ],
+                "summary": "Retrieve an action",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Action"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/policies": {
+            "get": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authz"
+                ],
+                "summary": "Lists policies",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 1000,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "kind:contains:something",
+                        "description": "filter on a field",
+                        "name": "filter",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "kind:desc",
+                        "description": "sort field and order",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Policy"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
             },
             "post": {
                 "security": [
@@ -98,15 +205,15 @@ const docTemplate = `{
                 "tags": [
                     "Authz"
                 ],
-                "summary": "Creates a new action",
+                "summary": "Creates a new policy",
                 "parameters": [
                     {
-                        "description": "Action creation request",
+                        "description": "Policy creation request",
                         "name": "default",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.CreateActionRequest"
+                            "$ref": "#/definitions/handler.CreatePolicyRequest"
                         }
                     }
                 ],
@@ -114,7 +221,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.Action"
+                            "$ref": "#/definitions/model.Policy"
                         }
                     },
                     "400": {
@@ -132,7 +239,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/actions/{identifier}": {
+        "/v1/policies/{identifier}": {
             "get": {
                 "security": [
                     {
@@ -145,12 +252,12 @@ const docTemplate = `{
                 "tags": [
                     "Authz"
                 ],
-                "summary": "Deletes an action",
+                "summary": "Deletes a policy",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.Action"
+                            "$ref": "#/definitions/model.Policy"
                         }
                     },
                     "400": {
@@ -179,15 +286,15 @@ const docTemplate = `{
                 "tags": [
                     "Authz"
                 ],
-                "summary": "Updates an action",
+                "summary": "Updates a policy",
                 "parameters": [
                     {
-                        "description": "Action update request",
+                        "description": "Policy update request",
                         "name": "default",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.UpdateActionRequest"
+                            "$ref": "#/definitions/handler.UpdatePolicyRequest"
                         }
                     }
                 ],
@@ -195,7 +302,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.Action"
+                            "$ref": "#/definitions/model.Policy"
                         }
                     },
                     "400": {
@@ -213,7 +320,76 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/groups": {
+        "/v1/principals": {
+            "get": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authz"
+                ],
+                "summary": "Lists principals",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 1000,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "name:contains:something",
+                        "description": "filter on a field",
+                        "name": "filter",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "name:desc",
+                        "description": "sort field and order",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Principal"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            },
             "post": {
                 "security": [
                     {
@@ -226,15 +402,15 @@ const docTemplate = `{
                 "tags": [
                     "Authz"
                 ],
-                "summary": "Creates a new group",
+                "summary": "Creates a new principal",
                 "parameters": [
                     {
-                        "description": "Group creation request",
+                        "description": "Principal creation request",
                         "name": "default",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.CreateGroupRequest"
+                            "$ref": "#/definitions/handler.CreatePrincipalRequest"
                         }
                     }
                 ],
@@ -242,7 +418,88 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.Group"
+                            "$ref": "#/definitions/model.Principal"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/principals/{identifier}": {
+            "get": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authz"
+                ],
+                "summary": "Deletes a principal",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Principal"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authz"
+                ],
+                "summary": "Updates a principal",
+                "parameters": [
+                    {
+                        "description": "Principal update request",
+                        "name": "default",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.UpdatePrincipalRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Principal"
                         }
                     },
                     "400": {
@@ -389,12 +646,164 @@ const docTemplate = `{
                 "tags": [
                     "Authz"
                 ],
-                "summary": "Deletes an resource",
+                "summary": "Deletes a resource",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/model.Resource"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/roles": {
+            "get": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authz"
+                ],
+                "summary": "Lists roles",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 1000,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "kind:contains:something",
+                        "description": "filter on a field",
+                        "name": "filter",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "kind:desc",
+                        "description": "sort field and order",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Role"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authz"
+                ],
+                "summary": "Creates a new role",
+                "parameters": [
+                    {
+                        "description": "Role creation request",
+                        "name": "default",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.CreateRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Role"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/roles/{identifier}": {
+            "get": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authz"
+                ],
+                "summary": "Deletes a role",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Role"
                         }
                     },
                     "400": {
@@ -423,15 +832,15 @@ const docTemplate = `{
                 "tags": [
                     "Authz"
                 ],
-                "summary": "Updates an resource",
+                "summary": "Updates a role",
                 "parameters": [
                     {
-                        "description": "Resource update request",
+                        "description": "Role update request",
                         "name": "default",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.UpdateResourceRequest"
+                            "$ref": "#/definitions/handler.UpdateRoleRequest"
                         }
                     }
                 ],
@@ -439,7 +848,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.Resource"
+                            "$ref": "#/definitions/model.Role"
                         }
                     },
                     "400": {
@@ -459,28 +868,24 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "handler.CreateActionRequest": {
+        "handler.CreatePolicyRequest": {
             "type": "object",
             "required": [
-                "name"
+                "actions",
+                "id",
+                "resources"
             ],
             "properties": {
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "handler.CreateGroupRequest": {
-            "type": "object",
-            "required": [
-                "name",
-                "roles"
-            ],
-            "properties": {
-                "name": {
+                "actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
                     "type": "string"
                 },
-                "roles": {
+                "resources": {
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -488,12 +893,27 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.CreatePrincipalRequest": {
+            "type": "object",
+            "required": [
+                "id"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.CreateResourceRequest": {
             "type": "object",
             "required": [
+                "id",
                 "kind"
             ],
             "properties": {
+                "id": {
+                    "type": "string"
+                },
                 "kind": {
                     "type": "string"
                 },
@@ -502,28 +922,59 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.UpdateActionRequest": {
+        "handler.CreateRoleRequest": {
             "type": "object",
             "required": [
-                "name"
+                "id",
+                "policies"
             ],
             "properties": {
-                "name": {
+                "id": {
                     "type": "string"
+                },
+                "policies": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
-        "handler.UpdateResourceRequest": {
+        "handler.UpdatePolicyRequest": {
             "type": "object",
             "required": [
-                "kind"
+                "actions",
+                "resources"
             ],
             "properties": {
-                "kind": {
-                    "type": "string"
+                "actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
-                "value": {
-                    "type": "string"
+                "resources": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "handler.UpdatePrincipalRequest": {
+            "type": "object"
+        },
+        "handler.UpdateRoleRequest": {
+            "type": "object",
+            "required": [
+                "policies"
+            ],
+            "properties": {
+                "policies": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -534,13 +985,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "is_locked": {
                     "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
@@ -564,29 +1012,6 @@ const docTemplate = `{
                 }
             }
         },
-        "model.Group": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "roles": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.Role"
-                    }
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
         "model.Policy": {
             "type": "object",
             "properties": {
@@ -600,15 +1025,35 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
-                },
-                "name": {
                     "type": "string"
                 },
                 "resources": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/model.Resource"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.Principal": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_locked": {
+                    "type": "boolean"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Role"
                     }
                 },
                 "updated_at": {
@@ -623,7 +1068,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "is_locked": {
                     "type": "boolean"
@@ -646,9 +1091,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
-                },
-                "name": {
                     "type": "string"
                 },
                 "policies": {

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/eko/authz/backend/internal/database"
 	"github.com/eko/authz/backend/internal/http/handler/model"
@@ -15,11 +14,7 @@ import (
 )
 
 type CreateResourceRequest struct {
-	Kind  string `json:"kind" validate:"required"`
-	Value string `json:"value"`
-}
-
-type UpdateResourceRequest struct {
+	ID    string `json:"id" validate:"required"`
 	Kind  string `json:"kind" validate:"required"`
 	Value string `json:"value"`
 }
@@ -54,7 +49,7 @@ func ResourceCreate(
 		}
 
 		// Create resource
-		resource, err := manager.CreateResource(request.Kind, request.Value)
+		resource, err := manager.CreateResource(request.ID, request.Kind, request.Value)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
 		}
@@ -115,14 +110,7 @@ func ResourceGet(
 	manager manager.Manager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		identifierStr := c.Params("identifier")
-
-		identifier, err := strconv.ParseInt(identifierStr, 10, 64)
-		if err != nil {
-			return returnError(c, http.StatusBadRequest,
-				fmt.Errorf("cannot convert identifier to int64: %v", err),
-			)
-		}
+		identifier := c.Params("identifier")
 
 		// Retrieve resource
 		resource, err := manager.GetResourceRepository().Get(identifier)
@@ -135,66 +123,6 @@ func ResourceGet(
 
 			return returnError(c, statusCode,
 				fmt.Errorf("cannot retrieve resource: %v", err),
-			)
-		}
-
-		return c.JSON(resource)
-	}
-}
-
-// Updates a resource.
-//
-//	@security	Authentication
-//	@Summary	Updates a resource
-//	@Tags		Authz
-//	@Produce	json
-//	@Param		default	body		UpdateResourceRequest	true	"Resource update request"
-//	@Success	200		{object}	model.Resource
-//	@Failure	400		{object}	model.ErrorResponse
-//	@Failure	500		{object}	model.ErrorResponse
-//	@Router		/v1/resources/{identifier} [Put]
-func ResourceUpdate(
-	validate *validator.Validate,
-	manager manager.Manager,
-) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		identifierStr := c.Params("identifier")
-
-		identifier, err := strconv.ParseInt(identifierStr, 10, 64)
-		if err != nil {
-			return returnError(c, http.StatusBadRequest,
-				fmt.Errorf("cannot convert identifier to int64: %v", err),
-			)
-		}
-
-		// Update request
-		request := &UpdateResourceRequest{}
-
-		// Parse request body
-		if err := c.BodyParser(request); err != nil {
-			return returnError(c, http.StatusBadRequest, err)
-		}
-
-		// Validate body
-		if err := validateStruct(validate, request); err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(err)
-		}
-
-		// Retrieve resource
-		resource, err := manager.GetResourceRepository().Get(identifier)
-		if err != nil {
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot retrieve resource: %v", err),
-			)
-		}
-
-		resource.Kind = request.Kind
-		resource.Value = request.Value
-
-		// Update resource
-		if err := manager.GetResourceRepository().Update(resource); err != nil {
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot update resource: %v", err),
 			)
 		}
 
@@ -216,14 +144,7 @@ func ResourceDelete(
 	manager manager.Manager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		identifierStr := c.Params("identifier")
-
-		identifier, err := strconv.ParseInt(identifierStr, 10, 64)
-		if err != nil {
-			return returnError(c, http.StatusBadRequest,
-				fmt.Errorf("cannot convert identifier to int64: %v", err),
-			)
-		}
+		identifier := c.Params("identifier")
 
 		// Retrieve resource
 		resource, err := manager.GetResourceRepository().Get(identifier)

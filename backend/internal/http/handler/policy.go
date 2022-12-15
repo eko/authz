@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/eko/authz/backend/internal/database"
 	"github.com/eko/authz/backend/internal/http/handler/model"
@@ -14,36 +13,15 @@ import (
 	"gorm.io/gorm"
 )
 
-type PolicyResourceRequest struct {
-	Kind  string `json:"kind" validate:"required"`
-	Value string `json:"value" validate:"required"`
-}
-
-type PolicyResourceRequests []PolicyResourceRequest
-
-func (r PolicyResourceRequests) ToMap() []map[string]string {
-	var resources = make([]map[string]string, 0)
-
-	for _, resource := range r {
-		resources = append(resources, map[string]string{
-			"kind":  resource.Kind,
-			"value": resource.Value,
-		})
-	}
-
-	return resources
-}
-
 type CreatePolicyRequest struct {
-	Name      string                 `json:"name" validate:"required"`
-	Resources PolicyResourceRequests `json:"resources" validate:"required"`
-	Actions   []string               `json:"actions" validate:"required"`
+	ID        string   `json:"id" validate:"required"`
+	Resources []string `json:"resources" validate:"required"`
+	Actions   []string `json:"actions" validate:"required"`
 }
 
 type UpdatePolicyRequest struct {
-	Name      string                 `json:"name" validate:"required"`
-	Resources PolicyResourceRequests `json:"resources" validate:"required"`
-	Actions   []string               `json:"actions" validate:"required"`
+	Resources []string `json:"resources" validate:"required"`
+	Actions   []string `json:"actions" validate:"required"`
 }
 
 // Creates a new policy.
@@ -76,7 +54,7 @@ func PolicyCreate(
 		}
 
 		// Create policy
-		policy, err := manager.CreatePolicy(request.Name, request.Resources.ToMap(), request.Actions)
+		policy, err := manager.CreatePolicy(request.ID, request.Resources, request.Actions)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
 		}
@@ -138,14 +116,7 @@ func PolicyGet(
 	manager manager.Manager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		identifierStr := c.Params("identifier")
-
-		identifier, err := strconv.ParseInt(identifierStr, 10, 64)
-		if err != nil {
-			return returnError(c, http.StatusBadRequest,
-				fmt.Errorf("cannot convert identifier to int64: %v", err),
-			)
-		}
+		identifier := c.Params("identifier")
 
 		// Retrieve policy
 		policy, err := manager.GetPolicyRepository().Get(
@@ -184,14 +155,7 @@ func PolicyUpdate(
 	manager manager.Manager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		identifierStr := c.Params("identifier")
-
-		identifier, err := strconv.ParseInt(identifierStr, 10, 64)
-		if err != nil {
-			return returnError(c, http.StatusBadRequest,
-				fmt.Errorf("cannot convert identifier to int64: %v", err),
-			)
-		}
+		identifier := c.Params("identifier")
 
 		// Update request
 		request := &UpdatePolicyRequest{}
@@ -207,7 +171,7 @@ func PolicyUpdate(
 		}
 
 		// Retrieve policy
-		policy, err := manager.UpdatePolicy(identifier, request.Name, request.Resources.ToMap(), request.Actions)
+		policy, err := manager.UpdatePolicy(identifier, request.Resources, request.Actions)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot update policy: %v", err),
@@ -232,14 +196,7 @@ func PolicyDelete(
 	manager manager.Manager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		identifierStr := c.Params("identifier")
-
-		identifier, err := strconv.ParseInt(identifierStr, 10, 64)
-		if err != nil {
-			return returnError(c, http.StatusBadRequest,
-				fmt.Errorf("cannot convert identifier to int64: %v", err),
-			)
-		}
+		identifier := c.Params("identifier")
 
 		// Retrieve policy
 		policy, err := manager.GetPolicyRepository().Get(identifier)

@@ -90,12 +90,12 @@ func (r *Repository[T]) Update(object *T) error {
 }
 
 // Get allows to retrieve a value of the current type from the specified primary key.
-func (r *Repository[T]) Get(identifier int64, options ...QueryOption) (*T, error) {
+func (r *Repository[T]) Get(identifier string, options ...QueryOption) (*T, error) {
 	result := new(T)
 
 	db := r.applyOptions(options)
 
-	if err := db.First(result, identifier).Error; err != nil {
+	if err := db.First(result, "id = ?", identifier).Error; err != nil {
 		return nil, err
 	}
 

@@ -1,4 +1,8 @@
-.PHONY: schema-dump swag test-functional
+.PHONY: lint schema-dump swag test-functional
+
+lint:
+	@command -v golangci-lint > /dev/null || go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.1
+	golangci-lint run
 
 schema-dump:
 	docker-compose exec postgres pg_dump -x -s -U root -w -d root > schema.sql

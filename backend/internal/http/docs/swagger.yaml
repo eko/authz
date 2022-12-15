@@ -1,58 +1,85 @@
 definitions:
-  handler.CreateActionRequest:
+  handler.CreatePolicyRequest:
     properties:
-      name:
+      actions:
+        items:
+          type: string
+        type: array
+      id:
         type: string
-    required:
-    - name
-    type: object
-  handler.CreateGroupRequest:
-    properties:
-      name:
-        type: string
-      roles:
+      resources:
         items:
           type: string
         type: array
     required:
-    - name
-    - roles
+    - actions
+    - id
+    - resources
+    type: object
+  handler.CreatePrincipalRequest:
+    properties:
+      id:
+        type: string
+    required:
+    - id
     type: object
   handler.CreateResourceRequest:
     properties:
+      id:
+        type: string
       kind:
         type: string
       value:
         type: string
     required:
+    - id
     - kind
     type: object
-  handler.UpdateActionRequest:
+  handler.CreateRoleRequest:
     properties:
-      name:
+      id:
         type: string
+      policies:
+        items:
+          type: string
+        type: array
     required:
-    - name
+    - id
+    - policies
     type: object
-  handler.UpdateResourceRequest:
+  handler.UpdatePolicyRequest:
     properties:
-      kind:
-        type: string
-      value:
-        type: string
+      actions:
+        items:
+          type: string
+        type: array
+      resources:
+        items:
+          type: string
+        type: array
     required:
-    - kind
+    - actions
+    - resources
+    type: object
+  handler.UpdatePrincipalRequest:
+    type: object
+  handler.UpdateRoleRequest:
+    properties:
+      policies:
+        items:
+          type: string
+        type: array
+    required:
+    - policies
     type: object
   model.Action:
     properties:
       created_at:
         type: string
       id:
-        type: integer
+        type: string
       is_locked:
         type: boolean
-      name:
-        type: string
       updated_at:
         type: string
     type: object
@@ -67,21 +94,6 @@ definitions:
           $ref: '#/definitions/model.ValidateErrorResponse'
         type: array
     type: object
-  model.Group:
-    properties:
-      created_at:
-        type: string
-      id:
-        type: integer
-      name:
-        type: string
-      roles:
-        items:
-          $ref: '#/definitions/model.Role'
-        type: array
-      updated_at:
-        type: string
-    type: object
   model.Policy:
     properties:
       actions:
@@ -91,12 +103,25 @@ definitions:
       created_at:
         type: string
       id:
-        type: integer
-      name:
         type: string
       resources:
         items:
           $ref: '#/definitions/model.Resource'
+        type: array
+      updated_at:
+        type: string
+    type: object
+  model.Principal:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      is_locked:
+        type: boolean
+      roles:
+        items:
+          $ref: '#/definitions/model.Role'
         type: array
       updated_at:
         type: string
@@ -106,7 +131,7 @@ definitions:
       created_at:
         type: string
       id:
-        type: integer
+        type: string
       is_locked:
         type: boolean
       kind:
@@ -121,8 +146,6 @@ definitions:
       created_at:
         type: string
       id:
-        type: integer
-      name:
         type: string
       policies:
         items:
@@ -190,34 +213,6 @@ paths:
       summary: Lists actions
       tags:
       - Authz
-    post:
-      parameters:
-      - description: Action creation request
-        in: body
-        name: default
-        required: true
-        schema:
-          $ref: '#/definitions/handler.CreateActionRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/model.Action'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/model.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/model.ErrorResponse'
-      security:
-      - Authentication: []
-      summary: Creates a new action
-      tags:
-      - Authz
   /v1/actions/{identifier}:
     get:
       produces:
@@ -227,6 +222,53 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/model.Action'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Retrieve an action
+      tags:
+      - Authz
+  /v1/policies:
+    get:
+      parameters:
+      - description: page number
+        example: 1
+        in: query
+        name: page
+        type: integer
+      - default: 100
+        description: page size
+        in: query
+        maximum: 1000
+        minimum: 1
+        name: size
+        type: integer
+      - description: filter on a field
+        example: kind:contains:something
+        in: query
+        name: filter
+        type: string
+      - description: sort field and order
+        example: kind:desc
+        in: query
+        name: sort
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Policy'
+            type: array
         "400":
           description: Bad Request
           schema:
@@ -237,24 +279,74 @@ paths:
             $ref: '#/definitions/model.ErrorResponse'
       security:
       - Authentication: []
-      summary: Deletes an action
+      summary: Lists policies
+      tags:
+      - Authz
+    post:
+      parameters:
+      - description: Policy creation request
+        in: body
+        name: default
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreatePolicyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Policy'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Creates a new policy
+      tags:
+      - Authz
+  /v1/policies/{identifier}:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Policy'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Deletes a policy
       tags:
       - Authz
     put:
       parameters:
-      - description: Action update request
+      - description: Policy update request
         in: body
         name: default
         required: true
         schema:
-          $ref: '#/definitions/handler.UpdateActionRequest'
+          $ref: '#/definitions/handler.UpdatePolicyRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/model.Action'
+            $ref: '#/definitions/model.Policy'
         "400":
           description: Bad Request
           schema:
@@ -265,25 +357,43 @@ paths:
             $ref: '#/definitions/model.ErrorResponse'
       security:
       - Authentication: []
-      summary: Updates an action
+      summary: Updates a policy
       tags:
       - Authz
-  /v1/groups:
-    post:
+  /v1/principals:
+    get:
       parameters:
-      - description: Group creation request
-        in: body
-        name: default
-        required: true
-        schema:
-          $ref: '#/definitions/handler.CreateGroupRequest'
+      - description: page number
+        example: 1
+        in: query
+        name: page
+        type: integer
+      - default: 100
+        description: page size
+        in: query
+        maximum: 1000
+        minimum: 1
+        name: size
+        type: integer
+      - description: filter on a field
+        example: name:contains:something
+        in: query
+        name: filter
+        type: string
+      - description: sort field and order
+        example: name:desc
+        in: query
+        name: sort
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/model.Group'
+            items:
+              $ref: '#/definitions/model.Principal'
+            type: array
         "400":
           description: Bad Request
           schema:
@@ -294,7 +404,85 @@ paths:
             $ref: '#/definitions/model.ErrorResponse'
       security:
       - Authentication: []
-      summary: Creates a new group
+      summary: Lists principals
+      tags:
+      - Authz
+    post:
+      parameters:
+      - description: Principal creation request
+        in: body
+        name: default
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreatePrincipalRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Principal'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Creates a new principal
+      tags:
+      - Authz
+  /v1/principals/{identifier}:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Principal'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Deletes a principal
+      tags:
+      - Authz
+    put:
+      parameters:
+      - description: Principal update request
+        in: body
+        name: default
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdatePrincipalRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Principal'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Updates a principal
       tags:
       - Authz
   /v1/resources:
@@ -391,24 +579,43 @@ paths:
             $ref: '#/definitions/model.ErrorResponse'
       security:
       - Authentication: []
-      summary: Deletes an resource
+      summary: Deletes a resource
       tags:
       - Authz
-    put:
+  /v1/roles:
+    get:
       parameters:
-      - description: Resource update request
-        in: body
-        name: default
-        required: true
-        schema:
-          $ref: '#/definitions/handler.UpdateResourceRequest'
+      - description: page number
+        example: 1
+        in: query
+        name: page
+        type: integer
+      - default: 100
+        description: page size
+        in: query
+        maximum: 1000
+        minimum: 1
+        name: size
+        type: integer
+      - description: filter on a field
+        example: kind:contains:something
+        in: query
+        name: filter
+        type: string
+      - description: sort field and order
+        example: kind:desc
+        in: query
+        name: sort
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/model.Resource'
+            items:
+              $ref: '#/definitions/model.Role'
+            type: array
         "400":
           description: Bad Request
           schema:
@@ -419,7 +626,85 @@ paths:
             $ref: '#/definitions/model.ErrorResponse'
       security:
       - Authentication: []
-      summary: Updates an resource
+      summary: Lists roles
+      tags:
+      - Authz
+    post:
+      parameters:
+      - description: Role creation request
+        in: body
+        name: default
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Role'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Creates a new role
+      tags:
+      - Authz
+  /v1/roles/{identifier}:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Role'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Deletes a role
+      tags:
+      - Authz
+    put:
+      parameters:
+      - description: Role update request
+        in: body
+        name: default
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Role'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Updates a role
       tags:
       - Authz
 swagger: "2.0"

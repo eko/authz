@@ -18,13 +18,13 @@ func (s *Server) setSwagger() {
 	s.app.Get("/swagger/*", swagger.HandlerDefault)
 }
 
-// @title						Authz API
-// @version					1.0
-// @description				Authorization management HTTP APIs
-// @securitydefinitions.apikey	Authentication
-// @in							header
-// @name						Authorization
-// @BasePath					/v1
+//	@title						Authz API
+//	@version					1.0
+//	@description				Authorization management HTTP APIs
+//	@securitydefinitions.apikey	Authentication
+//	@in							header
+//	@name						Authorization
+//	@BasePath					/v1
 func (s *Server) setRoutes() {
 	s.app.Use(
 		cors.New(cors.Config{
@@ -54,7 +54,13 @@ func (s *Server) setRoutes() {
 		resources.Get("", s.handlers.Get(handler.ResourceListKey))
 		resources.Get("/:identifier", s.handlers.Get(handler.ResourceGetKey))
 		resources.Delete("/:identifier", s.handlers.Get(handler.ResourceDeleteKey))
-		resources.Put("/:identifier", s.handlers.Get(handler.ResourceUpdateKey))
+
+		role := base.Group("/roles")
+		role.Post("", s.handlers.Get(handler.RoleCreateKey))
+		role.Get("", s.handlers.Get(handler.RoleListKey))
+		role.Get("/:identifier", s.handlers.Get(handler.RoleGetKey))
+		role.Delete("/:identifier", s.handlers.Get(handler.RoleDeleteKey))
+		role.Put("/:identifier", s.handlers.Get(handler.RoleUpdateKey))
 
 		principals := base.Group("/principals")
 		principals.Post("", s.handlers.Get(handler.PrincipalCreateKey))

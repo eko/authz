@@ -16,9 +16,13 @@ const (
 	PolicyGetKey       = "policy-get"
 	ResourceCreateKey  = "resource-create"
 	ResourceDeleteKey  = "resource-delete"
-	ResourceUpdateKey  = "resource-update"
 	ResourceListKey    = "resource-list"
 	ResourceGetKey     = "resource-get"
+	RoleCreateKey      = "role-create"
+	RoleDeleteKey      = "role-delete"
+	RoleUpdateKey      = "role-update"
+	RoleListKey        = "role-list"
+	RoleGetKey         = "role-get"
 	PrincipalCreateKey = "principal-create"
 	PrincipalDeleteKey = "principal-delete"
 	PrincipalUpdateKey = "principal-update"
@@ -48,9 +52,13 @@ func NewHandlers(
 		PolicyGetKey:       PolicyGet(manager),
 		ResourceCreateKey:  ResourceCreate(validate, manager),
 		ResourceDeleteKey:  ResourceDelete(manager),
-		ResourceUpdateKey:  ResourceUpdate(validate, manager),
 		ResourceListKey:    ResourceList(manager),
 		ResourceGetKey:     ResourceGet(manager),
+		RoleCreateKey:      RoleCreate(validate, manager),
+		RoleDeleteKey:      RoleDelete(manager),
+		RoleUpdateKey:      RoleUpdate(validate, manager),
+		RoleListKey:        RoleList(manager),
+		RoleGetKey:         RoleGet(manager),
 		PrincipalCreateKey: PrincipalCreate(validate, manager),
 		PrincipalDeleteKey: PrincipalDelete(manager),
 		PrincipalUpdateKey: PrincipalUpdate(validate, manager),

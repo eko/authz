@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/eko/authz/backend/internal/database"
 	"github.com/eko/authz/backend/internal/http/handler/model"
@@ -65,14 +64,7 @@ func ActionGet(
 	manager manager.Manager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		identifierStr := c.Params("identifier")
-
-		identifier, err := strconv.ParseInt(identifierStr, 10, 64)
-		if err != nil {
-			return returnError(c, http.StatusBadRequest,
-				fmt.Errorf("cannot convert identifier to int64: %v", err),
-			)
-		}
+		identifier := c.Params("identifier")
 
 		// Retrieve action
 		action, err := manager.GetActionRepository().Get(identifier)

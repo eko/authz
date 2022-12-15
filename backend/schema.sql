@@ -25,9 +25,8 @@ SET default_table_access_method = heap;
 --
 
 CREATE TABLE public.authz_actions (
-    id bigint NOT NULL,
+    id text NOT NULL,
     is_locked boolean,
-    name text,
     created_at timestamp with time zone,
     updated_at timestamp with time zone
 );
@@ -36,33 +35,11 @@ CREATE TABLE public.authz_actions (
 ALTER TABLE public.authz_actions OWNER TO root;
 
 --
--- Name: authz_actions_id_seq; Type: SEQUENCE; Schema: public; Owner: root
---
-
-CREATE SEQUENCE public.authz_actions_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.authz_actions_id_seq OWNER TO root;
-
---
--- Name: authz_actions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: root
---
-
-ALTER SEQUENCE public.authz_actions_id_seq OWNED BY public.authz_actions.id;
-
-
---
 -- Name: authz_policies; Type: TABLE; Schema: public; Owner: root
 --
 
 CREATE TABLE public.authz_policies (
-    id bigint NOT NULL,
-    name text,
+    id text NOT NULL,
     created_at timestamp with time zone,
     updated_at timestamp with time zone
 );
@@ -75,138 +52,32 @@ ALTER TABLE public.authz_policies OWNER TO root;
 --
 
 CREATE TABLE public.authz_policies_actions (
-    policy_id bigint NOT NULL,
-    action_id bigint NOT NULL
+    policy_id text NOT NULL,
+    action_id text NOT NULL
 );
 
 
 ALTER TABLE public.authz_policies_actions OWNER TO root;
 
 --
--- Name: authz_policies_id_seq; Type: SEQUENCE; Schema: public; Owner: root
---
-
-CREATE SEQUENCE public.authz_policies_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.authz_policies_id_seq OWNER TO root;
-
---
--- Name: authz_policies_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: root
---
-
-ALTER SEQUENCE public.authz_policies_id_seq OWNED BY public.authz_policies.id;
-
-
---
 -- Name: authz_policies_resources; Type: TABLE; Schema: public; Owner: root
 --
 
 CREATE TABLE public.authz_policies_resources (
-    policy_id bigint NOT NULL,
-    resource_id bigint NOT NULL
+    policy_id text NOT NULL,
+    resource_id text NOT NULL
 );
 
 
 ALTER TABLE public.authz_policies_resources OWNER TO root;
 
 --
--- Name: authz_resources; Type: TABLE; Schema: public; Owner: root
---
-
-CREATE TABLE public.authz_resources (
-    id bigint NOT NULL,
-    is_locked boolean,
-    kind text,
-    value text,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone
-);
-
-
-ALTER TABLE public.authz_resources OWNER TO root;
-
---
--- Name: authz_resources_id_seq; Type: SEQUENCE; Schema: public; Owner: root
---
-
-CREATE SEQUENCE public.authz_resources_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.authz_resources_id_seq OWNER TO root;
-
---
--- Name: authz_resources_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: root
---
-
-ALTER SEQUENCE public.authz_resources_id_seq OWNED BY public.authz_resources.id;
-
-
---
--- Name: authz_roles; Type: TABLE; Schema: public; Owner: root
---
-
-CREATE TABLE public.authz_roles (
-    id bigint NOT NULL,
-    name text,
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone
-);
-
-
-ALTER TABLE public.authz_roles OWNER TO root;
-
---
--- Name: authz_roles_id_seq; Type: SEQUENCE; Schema: public; Owner: root
---
-
-CREATE SEQUENCE public.authz_roles_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.authz_roles_id_seq OWNER TO root;
-
---
--- Name: authz_roles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: root
---
-
-ALTER SEQUENCE public.authz_roles_id_seq OWNED BY public.authz_roles.id;
-
-
---
--- Name: authz_roles_policies; Type: TABLE; Schema: public; Owner: root
---
-
-CREATE TABLE public.authz_roles_policies (
-    role_id bigint NOT NULL,
-    policy_id bigint NOT NULL
-);
-
-
-ALTER TABLE public.authz_roles_policies OWNER TO root;
-
---
 -- Name: authz_principals; Type: TABLE; Schema: public; Owner: root
 --
 
 CREATE TABLE public.authz_principals (
-    id bigint NOT NULL,
+    id text NOT NULL,
     is_locked boolean,
-    value text,
     created_at timestamp with time zone,
     updated_at timestamp with time zone
 );
@@ -215,72 +86,57 @@ CREATE TABLE public.authz_principals (
 ALTER TABLE public.authz_principals OWNER TO root;
 
 --
--- Name: authz_principals_id_seq; Type: SEQUENCE; Schema: public; Owner: root
---
-
-CREATE SEQUENCE public.authz_principals_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.authz_principals_id_seq OWNER TO root;
-
---
--- Name: authz_principals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: root
---
-
-ALTER SEQUENCE public.authz_principals_id_seq OWNED BY public.authz_principals.id;
-
-
---
 -- Name: authz_principals_roles; Type: TABLE; Schema: public; Owner: root
 --
 
 CREATE TABLE public.authz_principals_roles (
-    principal_id bigint NOT NULL,
-    role_id bigint NOT NULL
+    principal_id text NOT NULL,
+    role_id text NOT NULL
 );
 
 
 ALTER TABLE public.authz_principals_roles OWNER TO root;
 
 --
--- Name: authz_actions id; Type: DEFAULT; Schema: public; Owner: root
+-- Name: authz_resources; Type: TABLE; Schema: public; Owner: root
 --
 
-ALTER TABLE ONLY public.authz_actions ALTER COLUMN id SET DEFAULT nextval('public.authz_actions_id_seq'::regclass);
+CREATE TABLE public.authz_resources (
+    id text NOT NULL,
+    kind text,
+    value text,
+    is_locked boolean,
+    created_at timestamp with time zone,
+    updated_at timestamp with time zone
+);
 
 
---
--- Name: authz_policies id; Type: DEFAULT; Schema: public; Owner: root
---
-
-ALTER TABLE ONLY public.authz_policies ALTER COLUMN id SET DEFAULT nextval('public.authz_policies_id_seq'::regclass);
-
-
---
--- Name: authz_resources id; Type: DEFAULT; Schema: public; Owner: root
---
-
-ALTER TABLE ONLY public.authz_resources ALTER COLUMN id SET DEFAULT nextval('public.authz_resources_id_seq'::regclass);
-
+ALTER TABLE public.authz_resources OWNER TO root;
 
 --
--- Name: authz_roles id; Type: DEFAULT; Schema: public; Owner: root
+-- Name: authz_roles; Type: TABLE; Schema: public; Owner: root
 --
 
-ALTER TABLE ONLY public.authz_roles ALTER COLUMN id SET DEFAULT nextval('public.authz_roles_id_seq'::regclass);
+CREATE TABLE public.authz_roles (
+    id text NOT NULL,
+    created_at timestamp with time zone,
+    updated_at timestamp with time zone
+);
 
+
+ALTER TABLE public.authz_roles OWNER TO root;
 
 --
--- Name: authz_principals id; Type: DEFAULT; Schema: public; Owner: root
+-- Name: authz_roles_policies; Type: TABLE; Schema: public; Owner: root
 --
 
-ALTER TABLE ONLY public.authz_principals ALTER COLUMN id SET DEFAULT nextval('public.authz_principals_id_seq'::regclass);
+CREATE TABLE public.authz_roles_policies (
+    role_id text NOT NULL,
+    policy_id text NOT NULL
+);
 
+
+ALTER TABLE public.authz_roles_policies OWNER TO root;
 
 --
 -- Name: authz_actions authz_actions_pkey; Type: CONSTRAINT; Schema: public; Owner: root
@@ -315,6 +171,22 @@ ALTER TABLE ONLY public.authz_policies_resources
 
 
 --
+-- Name: authz_principals authz_principals_pkey; Type: CONSTRAINT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_principals
+    ADD CONSTRAINT authz_principals_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: authz_principals_roles authz_principals_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_principals_roles
+    ADD CONSTRAINT authz_principals_roles_pkey PRIMARY KEY (principal_id, role_id);
+
+
+--
 -- Name: authz_resources authz_resources_pkey; Type: CONSTRAINT; Schema: public; Owner: root
 --
 
@@ -336,50 +208,6 @@ ALTER TABLE ONLY public.authz_roles
 
 ALTER TABLE ONLY public.authz_roles_policies
     ADD CONSTRAINT authz_roles_policies_pkey PRIMARY KEY (role_id, policy_id);
-
-
---
--- Name: authz_principals authz_principals_pkey; Type: CONSTRAINT; Schema: public; Owner: root
---
-
-ALTER TABLE ONLY public.authz_principals
-    ADD CONSTRAINT authz_principals_pkey PRIMARY KEY (id);
-
-
---
--- Name: authz_principals_roles authz_principals_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: root
---
-
-ALTER TABLE ONLY public.authz_principals_roles
-    ADD CONSTRAINT authz_principals_roles_pkey PRIMARY KEY (principal_id, role_id);
-
-
---
--- Name: idx_authz_actions_name; Type: INDEX; Schema: public; Owner: root
---
-
-CREATE UNIQUE INDEX idx_authz_actions_name ON public.authz_actions USING btree (name);
-
-
---
--- Name: idx_authz_policies_name; Type: INDEX; Schema: public; Owner: root
---
-
-CREATE UNIQUE INDEX idx_authz_policies_name ON public.authz_policies USING btree (name);
-
-
---
--- Name: idx_authz_roles_name; Type: INDEX; Schema: public; Owner: root
---
-
-CREATE UNIQUE INDEX idx_authz_roles_name ON public.authz_roles USING btree (name);
-
-
---
--- Name: idx_authz_principals_value; Type: INDEX; Schema: public; Owner: root
---
-
-CREATE UNIQUE INDEX idx_authz_principals_value ON public.authz_principals USING btree (value);
 
 
 --
@@ -415,6 +243,22 @@ ALTER TABLE ONLY public.authz_policies_resources
 
 
 --
+-- Name: authz_principals_roles fk_authz_principals_roles_principal; Type: FK CONSTRAINT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_principals_roles
+    ADD CONSTRAINT fk_authz_principals_roles_principal FOREIGN KEY (principal_id) REFERENCES public.authz_principals(id);
+
+
+--
+-- Name: authz_principals_roles fk_authz_principals_roles_role; Type: FK CONSTRAINT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_principals_roles
+    ADD CONSTRAINT fk_authz_principals_roles_role FOREIGN KEY (role_id) REFERENCES public.authz_roles(id);
+
+
+--
 -- Name: authz_roles_policies fk_authz_roles_policies_policy; Type: FK CONSTRAINT; Schema: public; Owner: root
 --
 
@@ -428,22 +272,6 @@ ALTER TABLE ONLY public.authz_roles_policies
 
 ALTER TABLE ONLY public.authz_roles_policies
     ADD CONSTRAINT fk_authz_roles_policies_role FOREIGN KEY (role_id) REFERENCES public.authz_roles(id) ON UPDATE CASCADE ON DELETE CASCADE;
-
-
---
--- Name: authz_principals_roles fk_authz_principals_roles_role; Type: FK CONSTRAINT; Schema: public; Owner: root
---
-
-ALTER TABLE ONLY public.authz_principals_roles
-    ADD CONSTRAINT fk_authz_principals_roles_role FOREIGN KEY (role_id) REFERENCES public.authz_roles(id);
-
-
---
--- Name: authz_principals_roles fk_authz_principals_roles_principal; Type: FK CONSTRAINT; Schema: public; Owner: root
---
-
-ALTER TABLE ONLY public.authz_principals_roles
-    ADD CONSTRAINT fk_authz_principals_roles_principal FOREIGN KEY (principal_id) REFERENCES public.authz_principals(id);
 
 
 --
