@@ -14,10 +14,13 @@ import (
 )
 
 type CreatePrincipalRequest struct {
-	ID string `json:"id" validate:"required"`
+	ID    string   `json:"id" validate:"required,slug"`
+	Roles []string `json:"roles" validate:"dive,slug"`
 }
 
-type UpdatePrincipalRequest struct{}
+type UpdatePrincipalRequest struct {
+	Roles []string `json:"roles" validate:"dive,slug"`
+}
 
 // Creates a new principal.
 //
@@ -48,7 +51,7 @@ func PrincipalCreate(
 		}
 
 		// Create principal
-		principal, err := manager.CreatePrincipal(request.ID)
+		principal, err := manager.CreatePrincipal(request.ID, request.Roles)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
 		}
@@ -161,15 +164,8 @@ func PrincipalUpdate(
 		}
 
 		// Retrieve principal
-		principal, err := manager.GetPrincipalRepository().Get(identifier)
+		principal, err := manager.UpdatePrincipal(identifier, request.Roles)
 		if err != nil {
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot retrieve principal: %v", err),
-			)
-		}
-
-		// Update principal
-		if err := manager.GetPrincipalRepository().Update(principal); err != nil {
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot update principal: %v", err),
 			)

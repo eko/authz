@@ -2,6 +2,7 @@ package http
 
 import (
 	"github.com/eko/authz/backend/internal/http/handler"
+	handler_validator "github.com/eko/authz/backend/internal/http/handler/validator"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/fx"
@@ -19,5 +20,6 @@ func FxModule() fx.Option {
 			handler.NewHandlers,
 			validator.New,
 		),
+		fx.Invoke(handler_validator.Register),
 	)
 }

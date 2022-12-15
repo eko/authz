@@ -1,4 +1,4 @@
-.PHONY: lint schema-dump swag test-functional
+.PHONY: lint schema-dump swag test-functional test-mocks
 
 lint:
 	@command -v golangci-lint > /dev/null || go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.1
@@ -18,3 +18,6 @@ swag:
 
 test-functional:
 	go test -count=1 --tags=functional -v ./functional --godog.tags=$(tags)
+
+test-mocks:
+	mockgen -source=internal/helper/time/clock.go -destination=internal/helper/time/clock_mock.go -package=time

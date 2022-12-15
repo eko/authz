@@ -7,6 +7,11 @@ import (
 	"gorm.io/gorm"
 )
 
+type FieldValue struct {
+	Operator string
+	Value    any
+}
+
 // QueryOption specifies how options should be formatted.
 //
 // An option is a function that takes this private struct
@@ -75,13 +80,27 @@ func NewRepository[T model.Models](db *gorm.DB) *Repository[T] {
 }
 
 // Create allows to create a new entry in a database table.
-func (r *Repository[T]) Create(object *T) error {
+func (r *Repository[T]) Create(object ...*T) error {
 	return r.db.Create(object).Error
 }
 
 // Delete allows to delete the specified entry from the database.
 func (r *Repository[T]) Delete(object *T) error {
 	return r.db.Delete(object).Error
+}
+
+// DeleteByFields allows to delete values of the current type from the database
+// filtered by the given field name and value.
+func (r *Repository[T]) DeleteByFields(fieldValues map[string]FieldValue) error {
+	result := new(T)
+
+	db := r.db
+
+	for field, value := range fieldValues {
+		db = r.db.Where(fmt.Sprintf("%s %s ?", field, value.Operator), value.Value)
+	}
+
+	return db.Delete(result).Error
 }
 
 // Update allows to update the specified entry into the database.
@@ -102,31 +121,15 @@ func (r *Repository[T]) Get(identifier string, options ...QueryOption) (*T, erro
 	return result, nil
 }
 
-// GetByField allows to retrieve a value of the current type from the database
-// filtered by the given field name and value.
-func (r *Repository[T]) GetByField(field, value string, options ...QueryOption) (*T, error) {
-	result := new(T)
-
-	db := r.applyOptions(options)
-
-	if err := db.
-		Where(fmt.Sprintf("%s = ?", field), value).
-		First(result).Error; err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-// GetByField allows to retrieve a value of the current type from the database
-// filtered by the given field name and value.
-func (r *Repository[T]) GetByFields(fieldValues map[string]string, options ...QueryOption) (*T, error) {
+// GetByFields allows to retrieve a value of the current type from the database
+// filtered by the given field names and values.
+func (r *Repository[T]) GetByFields(fieldValues map[string]FieldValue, options ...QueryOption) (*T, error) {
 	result := new(T)
 
 	db := r.applyOptions(options)
 
 	for field, value := range fieldValues {
-		db = db.Where(fmt.Sprintf("%s = ?", field), value)
+		db = db.Where(fmt.Sprintf("%s %s ?", field, value.Operator), value.Value)
 	}
 
 	if err := db.First(result).Error; err != nil {

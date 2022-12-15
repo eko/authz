@@ -9,6 +9,7 @@ import (
 const (
 	ActionListKey      = "action-list"
 	ActionGetKey       = "action-get"
+	CheckKey           = "check"
 	PolicyCreateKey    = "policy-create"
 	PolicyDeleteKey    = "policy-delete"
 	PolicyUpdateKey    = "policy-update"
@@ -45,6 +46,7 @@ func NewHandlers(
 	return Handlers{
 		ActionListKey:      ActionList(manager),
 		ActionGetKey:       ActionGet(manager),
+		CheckKey:           Check(validate, manager),
 		PolicyCreateKey:    PolicyCreate(validate, manager),
 		PolicyDeleteKey:    PolicyDelete(manager),
 		PolicyUpdateKey:    PolicyUpdate(validate, manager),

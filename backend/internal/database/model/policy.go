@@ -8,6 +8,8 @@ type Policy struct {
 	Actions   []*Action   `json:"actions,omitempty" gorm:"many2many:authz_policies_actions;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	CreatedAt time.Time   `json:"created_at"`
 	UpdatedAt time.Time   `json:"updated_at"`
+
+	Roles []*Role `json:"-" gorm:"many2many:authz_roles_policies"`
 }
 
 func (Policy) TableName() string {

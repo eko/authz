@@ -14,14 +14,14 @@ import (
 )
 
 type CreatePolicyRequest struct {
-	ID        string   `json:"id" validate:"required"`
-	Resources []string `json:"resources" validate:"required"`
-	Actions   []string `json:"actions" validate:"required"`
+	ID        string   `json:"id" validate:"required,slug"`
+	Resources []string `json:"resources" validate:"required,dive,slug"`
+	Actions   []string `json:"actions" validate:"required,dive,slug"`
 }
 
 type UpdatePolicyRequest struct {
-	Resources []string `json:"resources" validate:"required"`
-	Actions   []string `json:"actions" validate:"required"`
+	Resources []string `json:"resources" validate:"required,dive,slug"`
+	Actions   []string `json:"actions" validate:"required,dive,slug"`
 }
 
 // Creates a new policy.
@@ -50,7 +50,6 @@ func PolicyCreate(
 		// Validate body
 		if err := validateStruct(validate, request); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(err)
-
 		}
 
 		// Create policy

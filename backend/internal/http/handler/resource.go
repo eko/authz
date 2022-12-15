@@ -14,8 +14,8 @@ import (
 )
 
 type CreateResourceRequest struct {
-	ID    string `json:"id" validate:"required"`
-	Kind  string `json:"kind" validate:"required"`
+	ID    string `json:"id" validate:"required,slug"`
+	Kind  string `json:"kind" validate:"required,slug"`
 	Value string `json:"value"`
 }
 

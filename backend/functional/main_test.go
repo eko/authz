@@ -17,7 +17,10 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/cucumber/godog/colors"
 	"github.com/eko/authz/backend/configs"
+	"github.com/eko/authz/backend/internal/compile"
 	"github.com/eko/authz/backend/internal/database"
+	"github.com/eko/authz/backend/internal/event"
+	"github.com/eko/authz/backend/internal/helper"
 	"github.com/eko/authz/backend/internal/http"
 	"github.com/eko/authz/backend/internal/log"
 	"github.com/eko/authz/backend/internal/manager"
@@ -56,14 +59,25 @@ func TestMain(m *testing.M) {
 		fx.NopLogger,
 		fx.Provide(context.Background),
 
-		configs.FxModule(),
+		compile.FxModule(),
 		database.FxModule(),
+		event.FxModule(),
+		helper.FxModule(),
 		http.FxModule(),
 		log.FxModule(),
 		manager.FxModule(),
 
+		fx.Provide(
+			configs.Load,
+			func(cfg *configs.Base) *configs.Database { return cfg.Database },
+			func(cfg *configs.Base) *configs.HTTPServer { return cfg.HTTPServer },
+			func(cfg *configs.Base) *configs.Logger {
+				cfg.Logger.Level = "ERROR"
+				return cfg.Logger
+			},
+		),
+
 		fx.Invoke(
-			func(cfg *configs.Logger) { cfg.Level = "ERROR" },
 			func(database *gorm.DB) { db = database },
 		),
 
@@ -92,6 +106,7 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 
 	ctx.Before(func(ctx context.Context, sc *godog.Scenario) (context.Context, error) {
 		if err := db.Exec(`TRUNCATE TABLE
+		authz_compiled_policies,
 		authz_roles_policies,
 		authz_roles,
 		authz_principals_roles,
@@ -109,6 +124,10 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 			l.Fatalf("Cannot reset api: %v\n", err)
 		}
 
+		return ctx, nil
+	})
+
+	ctx.After(func(ctx context.Context, sc *godog.Scenario, err error) (context.Context, error) {
 		return ctx, nil
 	})
 

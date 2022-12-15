@@ -35,6 +35,23 @@ CREATE TABLE public.authz_actions (
 ALTER TABLE public.authz_actions OWNER TO root;
 
 --
+-- Name: authz_compiled_policies; Type: TABLE; Schema: public; Owner: root
+--
+
+CREATE TABLE public.authz_compiled_policies (
+    policy_id text,
+    resource_kind text,
+    resource_value text,
+    action_id text,
+    version bigint,
+    created_at timestamp with time zone,
+    updated_at timestamp with time zone
+);
+
+
+ALTER TABLE public.authz_compiled_policies OWNER TO root;
+
+--
 -- Name: authz_policies; Type: TABLE; Schema: public; Owner: root
 --
 
@@ -208,6 +225,34 @@ ALTER TABLE ONLY public.authz_roles
 
 ALTER TABLE ONLY public.authz_roles_policies
     ADD CONSTRAINT authz_roles_policies_pkey PRIMARY KEY (role_id, policy_id);
+
+
+--
+-- Name: idx_authz_compiled_policies_action_id; Type: INDEX; Schema: public; Owner: root
+--
+
+CREATE INDEX idx_authz_compiled_policies_action_id ON public.authz_compiled_policies USING btree (action_id);
+
+
+--
+-- Name: idx_authz_compiled_policies_resource_kind; Type: INDEX; Schema: public; Owner: root
+--
+
+CREATE INDEX idx_authz_compiled_policies_resource_kind ON public.authz_compiled_policies USING btree (resource_kind);
+
+
+--
+-- Name: idx_authz_compiled_policies_resource_value; Type: INDEX; Schema: public; Owner: root
+--
+
+CREATE INDEX idx_authz_compiled_policies_resource_value ON public.authz_compiled_policies USING btree (resource_value);
+
+
+--
+-- Name: idx_authz_compiled_policies_version; Type: INDEX; Schema: public; Owner: root
+--
+
+CREATE INDEX idx_authz_compiled_policies_version ON public.authz_compiled_policies USING btree (version);
 
 
 --

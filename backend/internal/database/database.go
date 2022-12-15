@@ -22,6 +22,7 @@ func New(cfg *configs.Database, slogLogger *slog.Logger) (db *gorm.DB, err error
 
 	// TODO: delete these auto-migrate lines.
 	// db.AutoMigrate(model.Action{})
+	// db.AutoMigrate(model.Compiled{})
 	// db.AutoMigrate(model.Resource{})
 	// db.AutoMigrate(model.Policy{})
 	// db.AutoMigrate(model.Role{})

@@ -15,6 +15,10 @@ func FxModule() fx.Option {
 				return NewRepository[model.Action](db)
 			},
 
+			func(db *gorm.DB) *Repository[model.CompiledPolicy] {
+				return NewRepository[model.CompiledPolicy](db)
+			},
+
 			func(db *gorm.DB) *Repository[model.Policy] {
 				return NewRepository[model.Policy](db)
 			},
