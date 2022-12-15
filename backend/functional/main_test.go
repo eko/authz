@@ -94,8 +94,8 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 		if err := db.Exec(`TRUNCATE TABLE
 		authz_roles_policies,
 		authz_roles,
-		authz_subjects_roles,
-		authz_subjects,
+		authz_principals_roles,
+		authz_principals,
 		authz_policies_actions,
 		authz_policies_resources,
 		authz_policies,

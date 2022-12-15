@@ -14,31 +14,31 @@ import (
 	"gorm.io/gorm"
 )
 
-type CreateSubjectRequest struct {
+type CreatePrincipalRequest struct {
 	Value string `json:"value" validate:"required"`
 }
 
-type UpdateSubjectRequest struct {
+type UpdatePrincipalRequest struct {
 	Value string `json:"value" validate:"required"`
 }
 
-// Creates a new subject.
+// Creates a new principal.
 //
 //	@security	Authentication
-//	@Summary	Creates a new subject
+//	@Summary	Creates a new principal
 //	@Tags		Authz
 //	@Produce	json
-//	@Param		default	body		CreateSubjectRequest	true	"Subject creation request"
-//	@Success	200		{object}	model.Subject
+//	@Param		default	body		CreatePrincipalRequest	true	"Principal creation request"
+//	@Success	200		{object}	model.Principal
 //	@Failure	400		{object}	model.ErrorResponse
 //	@Failure	500		{object}	model.ErrorResponse
-//	@Router		/v1/subjects [Post]
-func SubjectCreate(
+//	@Router		/v1/principals [Post]
+func PrincipalCreate(
 	validate *validator.Validate,
 	manager manager.Manager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		request := &CreateSubjectRequest{}
+		request := &CreatePrincipalRequest{}
 
 		// Parse request body
 		if err := c.BodyParser(request); err != nil {
@@ -50,31 +50,31 @@ func SubjectCreate(
 			return c.Status(fiber.StatusBadRequest).JSON(err)
 		}
 
-		// Create subject
-		subject, err := manager.CreateSubject(request.Value)
+		// Create principal
+		principal, err := manager.CreatePrincipal(request.Value)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
 		}
 
-		return c.JSON(subject)
+		return c.JSON(principal)
 	}
 }
 
-// Lists subjects.
+// Lists principals.
 //
 //	@security	Authentication
-//	@Summary	Lists subjects
+//	@Summary	Lists principals
 //	@Tags		Authz
 //	@Produce	json
 //	@Param		page	query		int		false	"page number"			example(1)
 //	@Param		size	query		int		false	"page size"				minimum(1)	maximum(1000)	default(100)
 //	@Param		filter	query		string	false	"filter on a field"		example(name:contains:something)
 //	@Param		sort	query		string	false	"sort field and order"	example(name:desc)
-//	@Success	200		{object}	[]model.Subject
+//	@Success	200		{object}	[]model.Principal
 //	@Failure	400		{object}	model.ErrorResponse
 //	@Failure	500		{object}	model.ErrorResponse
-//	@Router		/v1/subjects [Get]
-func SubjectList(
+//	@Router		/v1/principals [Get]
+func PrincipalList(
 	manager manager.Manager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -83,8 +83,8 @@ func SubjectList(
 			return returnError(c, http.StatusInternalServerError, err)
 		}
 
-		// List subjects
-		subject, total, err := manager.GetSubjectRepository().Find(
+		// List principals
+		principal, total, err := manager.GetPrincipalRepository().Find(
 			database.WithPage(page),
 			database.WithSize(size),
 			database.WithFilter(httpFilterToORM(c)),
@@ -94,21 +94,21 @@ func SubjectList(
 			return returnError(c, http.StatusInternalServerError, err)
 		}
 
-		return c.JSON(model.NewPaginated(subject, total, page, size))
+		return c.JSON(model.NewPaginated(principal, total, page, size))
 	}
 }
 
-// Retrieve a subject.
+// Retrieve a principal.
 //
 //	@security	Authentication
-//	@Summary	Retrieve a subject
+//	@Summary	Retrieve a principal
 //	@Tags		Authz
 //	@Produce	json
-//	@Success	200	{object}	model.Subject
+//	@Success	200	{object}	model.Principal
 //	@Failure	404	{object}	model.ErrorResponse
 //	@Failure	500	{object}	model.ErrorResponse
-//	@Router		/v1/subjects/{identifier} [Get]
-func SubjectGet(
+//	@Router		/v1/principals/{identifier} [Get]
+func PrincipalGet(
 	manager manager.Manager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -121,8 +121,8 @@ func SubjectGet(
 			)
 		}
 
-		// Retrieve subject
-		subject, err := manager.GetSubjectRepository().Get(identifier)
+		// Retrieve principal
+		principal, err := manager.GetPrincipalRepository().Get(identifier)
 		if err != nil {
 			statusCode := http.StatusInternalServerError
 
@@ -131,26 +131,26 @@ func SubjectGet(
 			}
 
 			return returnError(c, statusCode,
-				fmt.Errorf("cannot retrieve subject: %v", err),
+				fmt.Errorf("cannot retrieve principal: %v", err),
 			)
 		}
 
-		return c.JSON(subject)
+		return c.JSON(principal)
 	}
 }
 
-// Updates a subject.
+// Updates a principal.
 //
 //	@security	Authentication
-//	@Summary	Updates a subject
+//	@Summary	Updates a principal
 //	@Tags		Authz
 //	@Produce	json
-//	@Param		default	body		UpdateSubjectRequest	true	"Subject update request"
-//	@Success	200		{object}	model.Subject
+//	@Param		default	body		UpdatePrincipalRequest	true	"Principal update request"
+//	@Success	200		{object}	model.Principal
 //	@Failure	400		{object}	model.ErrorResponse
 //	@Failure	500		{object}	model.ErrorResponse
-//	@Router		/v1/subjects/{identifier} [Put]
-func SubjectUpdate(
+//	@Router		/v1/principals/{identifier} [Put]
+func PrincipalUpdate(
 	validate *validator.Validate,
 	manager manager.Manager,
 ) fiber.Handler {
@@ -165,7 +165,7 @@ func SubjectUpdate(
 		}
 
 		// Update request
-		request := &UpdateSubjectRequest{}
+		request := &UpdatePrincipalRequest{}
 
 		// Parse request body
 		if err := c.BodyParser(request); err != nil {
@@ -177,38 +177,38 @@ func SubjectUpdate(
 			return c.Status(fiber.StatusBadRequest).JSON(err)
 		}
 
-		// Retrieve subject
-		subject, err := manager.GetSubjectRepository().Get(identifier)
+		// Retrieve principal
+		principal, err := manager.GetPrincipalRepository().Get(identifier)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot retrieve subject: %v", err),
+				fmt.Errorf("cannot retrieve principal: %v", err),
 			)
 		}
 
-		subject.Value = request.Value
+		principal.Value = request.Value
 
-		// Update subject
-		if err := manager.GetSubjectRepository().Update(subject); err != nil {
+		// Update principal
+		if err := manager.GetPrincipalRepository().Update(principal); err != nil {
 			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot update subject: %v", err),
+				fmt.Errorf("cannot update principal: %v", err),
 			)
 		}
 
-		return c.JSON(subject)
+		return c.JSON(principal)
 	}
 }
 
-// Deletes a subject.
+// Deletes a principal.
 //
 //	@security	Authentication
-//	@Summary	Deletes a subject
+//	@Summary	Deletes a principal
 //	@Tags		Authz
 //	@Produce	json
-//	@Success	200	{object}	model.Subject
+//	@Success	200	{object}	model.Principal
 //	@Failure	400	{object}	model.ErrorResponse
 //	@Failure	500	{object}	model.ErrorResponse
-//	@Router		/v1/subjects/{identifier} [Get]
-func SubjectDelete(
+//	@Router		/v1/principals/{identifier} [Get]
+func PrincipalDelete(
 	manager manager.Manager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -221,18 +221,18 @@ func SubjectDelete(
 			)
 		}
 
-		// Retrieve subject
-		subject, err := manager.GetSubjectRepository().Get(identifier)
+		// Retrieve principal
+		principal, err := manager.GetPrincipalRepository().Get(identifier)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot retrieve subject: %v", err),
+				fmt.Errorf("cannot retrieve principal: %v", err),
 			)
 		}
 
-		// Delete subject
-		if err := manager.GetSubjectRepository().Delete(subject); err != nil {
+		// Delete principal
+		if err := manager.GetPrincipalRepository().Delete(principal); err != nil {
 			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot delete subject: %v", err),
+				fmt.Errorf("cannot delete principal: %v", err),
 			)
 		}
 

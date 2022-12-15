@@ -200,10 +200,10 @@ CREATE TABLE public.authz_roles_policies (
 ALTER TABLE public.authz_roles_policies OWNER TO root;
 
 --
--- Name: authz_subjects; Type: TABLE; Schema: public; Owner: root
+-- Name: authz_principals; Type: TABLE; Schema: public; Owner: root
 --
 
-CREATE TABLE public.authz_subjects (
+CREATE TABLE public.authz_principals (
     id bigint NOT NULL,
     is_locked boolean,
     value text,
@@ -212,13 +212,13 @@ CREATE TABLE public.authz_subjects (
 );
 
 
-ALTER TABLE public.authz_subjects OWNER TO root;
+ALTER TABLE public.authz_principals OWNER TO root;
 
 --
--- Name: authz_subjects_id_seq; Type: SEQUENCE; Schema: public; Owner: root
+-- Name: authz_principals_id_seq; Type: SEQUENCE; Schema: public; Owner: root
 --
 
-CREATE SEQUENCE public.authz_subjects_id_seq
+CREATE SEQUENCE public.authz_principals_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -226,26 +226,26 @@ CREATE SEQUENCE public.authz_subjects_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.authz_subjects_id_seq OWNER TO root;
+ALTER TABLE public.authz_principals_id_seq OWNER TO root;
 
 --
--- Name: authz_subjects_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: root
+-- Name: authz_principals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: root
 --
 
-ALTER SEQUENCE public.authz_subjects_id_seq OWNED BY public.authz_subjects.id;
+ALTER SEQUENCE public.authz_principals_id_seq OWNED BY public.authz_principals.id;
 
 
 --
--- Name: authz_subjects_roles; Type: TABLE; Schema: public; Owner: root
+-- Name: authz_principals_roles; Type: TABLE; Schema: public; Owner: root
 --
 
-CREATE TABLE public.authz_subjects_roles (
-    subject_id bigint NOT NULL,
+CREATE TABLE public.authz_principals_roles (
+    principal_id bigint NOT NULL,
     role_id bigint NOT NULL
 );
 
 
-ALTER TABLE public.authz_subjects_roles OWNER TO root;
+ALTER TABLE public.authz_principals_roles OWNER TO root;
 
 --
 -- Name: authz_actions id; Type: DEFAULT; Schema: public; Owner: root
@@ -276,10 +276,10 @@ ALTER TABLE ONLY public.authz_roles ALTER COLUMN id SET DEFAULT nextval('public.
 
 
 --
--- Name: authz_subjects id; Type: DEFAULT; Schema: public; Owner: root
+-- Name: authz_principals id; Type: DEFAULT; Schema: public; Owner: root
 --
 
-ALTER TABLE ONLY public.authz_subjects ALTER COLUMN id SET DEFAULT nextval('public.authz_subjects_id_seq'::regclass);
+ALTER TABLE ONLY public.authz_principals ALTER COLUMN id SET DEFAULT nextval('public.authz_principals_id_seq'::regclass);
 
 
 --
@@ -339,19 +339,19 @@ ALTER TABLE ONLY public.authz_roles_policies
 
 
 --
--- Name: authz_subjects authz_subjects_pkey; Type: CONSTRAINT; Schema: public; Owner: root
+-- Name: authz_principals authz_principals_pkey; Type: CONSTRAINT; Schema: public; Owner: root
 --
 
-ALTER TABLE ONLY public.authz_subjects
-    ADD CONSTRAINT authz_subjects_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.authz_principals
+    ADD CONSTRAINT authz_principals_pkey PRIMARY KEY (id);
 
 
 --
--- Name: authz_subjects_roles authz_subjects_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: root
+-- Name: authz_principals_roles authz_principals_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: root
 --
 
-ALTER TABLE ONLY public.authz_subjects_roles
-    ADD CONSTRAINT authz_subjects_roles_pkey PRIMARY KEY (subject_id, role_id);
+ALTER TABLE ONLY public.authz_principals_roles
+    ADD CONSTRAINT authz_principals_roles_pkey PRIMARY KEY (principal_id, role_id);
 
 
 --
@@ -376,10 +376,10 @@ CREATE UNIQUE INDEX idx_authz_roles_name ON public.authz_roles USING btree (name
 
 
 --
--- Name: idx_authz_subjects_value; Type: INDEX; Schema: public; Owner: root
+-- Name: idx_authz_principals_value; Type: INDEX; Schema: public; Owner: root
 --
 
-CREATE UNIQUE INDEX idx_authz_subjects_value ON public.authz_subjects USING btree (value);
+CREATE UNIQUE INDEX idx_authz_principals_value ON public.authz_principals USING btree (value);
 
 
 --
@@ -431,19 +431,19 @@ ALTER TABLE ONLY public.authz_roles_policies
 
 
 --
--- Name: authz_subjects_roles fk_authz_subjects_roles_role; Type: FK CONSTRAINT; Schema: public; Owner: root
+-- Name: authz_principals_roles fk_authz_principals_roles_role; Type: FK CONSTRAINT; Schema: public; Owner: root
 --
 
-ALTER TABLE ONLY public.authz_subjects_roles
-    ADD CONSTRAINT fk_authz_subjects_roles_role FOREIGN KEY (role_id) REFERENCES public.authz_roles(id);
+ALTER TABLE ONLY public.authz_principals_roles
+    ADD CONSTRAINT fk_authz_principals_roles_role FOREIGN KEY (role_id) REFERENCES public.authz_roles(id);
 
 
 --
--- Name: authz_subjects_roles fk_authz_subjects_roles_subject; Type: FK CONSTRAINT; Schema: public; Owner: root
+-- Name: authz_principals_roles fk_authz_principals_roles_principal; Type: FK CONSTRAINT; Schema: public; Owner: root
 --
 
-ALTER TABLE ONLY public.authz_subjects_roles
-    ADD CONSTRAINT fk_authz_subjects_roles_subject FOREIGN KEY (subject_id) REFERENCES public.authz_subjects(id);
+ALTER TABLE ONLY public.authz_principals_roles
+    ADD CONSTRAINT fk_authz_principals_roles_principal FOREIGN KEY (principal_id) REFERENCES public.authz_principals(id);
 
 
 --

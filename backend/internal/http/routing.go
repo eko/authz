@@ -39,11 +39,8 @@ func (s *Server) setRoutes() {
 	base := s.app.Group("/v1")
 	{
 		actions := base.Group("/actions")
-		actions.Post("", s.handlers.Get(handler.ActionCreateKey))
 		actions.Get("", s.handlers.Get(handler.ActionListKey))
 		actions.Get("/:identifier", s.handlers.Get(handler.ActionGetKey))
-		actions.Delete("/:identifier", s.handlers.Get(handler.ActionDeleteKey))
-		actions.Put("/:identifier", s.handlers.Get(handler.ActionUpdateKey))
 
 		policies := base.Group("/policies")
 		policies.Post("", s.handlers.Get(handler.PolicyCreateKey))
@@ -59,11 +56,11 @@ func (s *Server) setRoutes() {
 		resources.Delete("/:identifier", s.handlers.Get(handler.ResourceDeleteKey))
 		resources.Put("/:identifier", s.handlers.Get(handler.ResourceUpdateKey))
 
-		subjects := base.Group("/subjects")
-		subjects.Post("", s.handlers.Get(handler.SubjectCreateKey))
-		subjects.Get("", s.handlers.Get(handler.SubjectListKey))
-		subjects.Get("/:identifier", s.handlers.Get(handler.SubjectGetKey))
-		subjects.Delete("/:identifier", s.handlers.Get(handler.SubjectDeleteKey))
-		subjects.Put("/:identifier", s.handlers.Get(handler.SubjectUpdateKey))
+		principals := base.Group("/principals")
+		principals.Post("", s.handlers.Get(handler.PrincipalCreateKey))
+		principals.Get("", s.handlers.Get(handler.PrincipalListKey))
+		principals.Get("/:identifier", s.handlers.Get(handler.PrincipalGetKey))
+		principals.Delete("/:identifier", s.handlers.Get(handler.PrincipalDeleteKey))
+		principals.Put("/:identifier", s.handlers.Get(handler.PrincipalUpdateKey))
 	}
 }

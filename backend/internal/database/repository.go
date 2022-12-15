@@ -111,7 +111,7 @@ func (r *Repository[T]) GetByField(field, value string, options ...QueryOption) 
 
 	if err := db.
 		Where(fmt.Sprintf("%s = ?", field), value).
-		Find(result).Error; err != nil {
+		First(result).Error; err != nil {
 		return nil, err
 	}
 
@@ -129,7 +129,7 @@ func (r *Repository[T]) GetByFields(fieldValues map[string]string, options ...Qu
 		db = db.Where(fmt.Sprintf("%s = ?", field), value)
 	}
 
-	if err := db.Find(result).Error; err != nil {
+	if err := db.First(result).Error; err != nil {
 		return nil, err
 	}
 

@@ -26,7 +26,7 @@ func New(cfg *configs.Database, slogLogger *slog.Logger) (db *gorm.DB, err error
 	// db.AutoMigrate(model.Policy{})
 	// db.AutoMigrate(model.Role{})
 	// db.AutoMigrate(model.Group{})
-	// db.AutoMigrate(model.Subject{})
+	// db.AutoMigrate(model.Principal{})
 
 	return db, nil
 }

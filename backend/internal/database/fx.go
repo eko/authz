@@ -27,8 +27,8 @@ func FxModule() fx.Option {
 				return NewRepository[model.Role](db)
 			},
 
-			func(db *gorm.DB) *Repository[model.Subject] {
-				return NewRepository[model.Subject](db)
+			func(db *gorm.DB) *Repository[model.Principal] {
+				return NewRepository[model.Principal](db)
 			},
 		),
 	)

@@ -3,12 +3,7 @@ Feature: policy
   Test policy-related APIs
 
   Scenario: Create a new policy
-    Given I send "POST" request to "/v1/actions" with payload:
-      """
-      {"name": "create"}
-      """
-    And the response code should be 200
-    And I send "POST" request to "/v1/resources" with payload:
+    Given I send "POST" request to "/v1/resources" with payload:
       """
       {"kind": "post", "value": "123"}
       """
@@ -54,17 +49,7 @@ Feature: policy
       """
 
   Scenario: Update a policy
-    Given I send "POST" request to "/v1/actions" with payload:
-      """
-      {"name": "create"}
-      """
-    And the response code should be 200
-    And I send "POST" request to "/v1/actions" with payload:
-      """
-      {"name": "update"}
-      """
-    And the response code should be 200
-    And I send "POST" request to "/v1/resources" with payload:
+    Given I send "POST" request to "/v1/resources" with payload:
       """
       {"kind": "post", "value": "123"}
       """
@@ -126,12 +111,7 @@ Feature: policy
       """
 
   Scenario: Retrieve a single policy
-    Given I send "POST" request to "/v1/actions" with payload:
-      """
-      {"name": "create"}
-      """
-    And the response code should be 200
-    And I send "POST" request to "/v1/resources" with payload:
+    Given I send "POST" request to "/v1/resources" with payload:
       """
       {"kind": "post", "value": "123"}
       """
@@ -179,12 +159,7 @@ Feature: policy
       """
 
   Scenario: Delete a single policy
-    Given I send "POST" request to "/v1/actions" with payload:
-      """
-      {"name": "create"}
-      """
-    And the response code should be 200
-    And I send "POST" request to "/v1/resources" with payload:
+    Given I send "POST" request to "/v1/resources" with payload:
       """
       {"kind": "post", "value": "123"}
       """
@@ -208,16 +183,11 @@ Feature: policy
         "success": true
       }
       """
-    And I send "GET" request to "/v1/subjects/1"
+    And I send "GET" request to "/v1/principals/1"
     And the response code should be 404
 
   Scenario: Retrieve a list of policies
-    Given I send "POST" request to "/v1/actions" with payload:
-      """
-      {"name": "create"}
-      """
-    And the response code should be 200
-    And I send "POST" request to "/v1/resources" with payload:
+    Given I send "POST" request to "/v1/resources" with payload:
       """
       {"kind": "post", "value": "123"}
       """

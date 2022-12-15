@@ -1,9 +1,9 @@
-@subject
-Feature: subject
-  Test subject-related APIs
+@principal
+Feature: principal
+  Test principal-related APIs
 
-  Scenario: Create a new subject
-    Given I send "POST" request to "/v1/subjects" with payload:
+  Scenario: Create a new principal
+    Given I send "POST" request to "/v1/principals" with payload:
       """
       {"value": "f438dfb8-4ae9-4668-9545-f98dba4b2337"}
       """
@@ -19,13 +19,13 @@ Feature: subject
       }
       """
 
-  Scenario: Update a subject
-    Given I send "POST" request to "/v1/subjects" with payload:
+  Scenario: Update a principal
+    Given I send "POST" request to "/v1/principals" with payload:
       """
       {"value": "f438dfb8-4ae9-4668-9545-f98dba4b2337"}
       """
     And the response code should be 200
-    When I send "PUT" request to "/v1/subjects/1" with payload:
+    When I send "PUT" request to "/v1/principals/1" with payload:
       """
       {"value": "my-new-value"}
       """
@@ -41,13 +41,13 @@ Feature: subject
       }
       """
 
-  Scenario: Retrieve a single subject
-    Given I send "POST" request to "/v1/subjects" with payload:
+  Scenario: Retrieve a single principal
+    Given I send "POST" request to "/v1/principals" with payload:
       """
       {"value": "f438dfb8-4ae9-4668-9545-f98dba4b2337"}
       """
     And the response code should be 200
-    When I send "GET" request to "/v1/subjects/1"
+    When I send "GET" request to "/v1/principals/1"
     Then the response code should be 200
     And the response should match json:
       """
@@ -60,13 +60,13 @@ Feature: subject
       }
       """
 
-  Scenario: Delete a single subject
-    Given I send "POST" request to "/v1/subjects" with payload:
+  Scenario: Delete a single principal
+    Given I send "POST" request to "/v1/principals" with payload:
       """
       {"value": "f438dfb8-4ae9-4668-9545-f98dba4b2337"}
       """
     And the response code should be 200
-    When I send "DELETE" request to "/v1/subjects/1"
+    When I send "DELETE" request to "/v1/principals/1"
     And the response code should be 200
     And the response should match json:
       """
@@ -74,21 +74,21 @@ Feature: subject
         "success": true
       }
       """
-    And I send "GET" request to "/v1/subjects/1"
+    And I send "GET" request to "/v1/principals/1"
     And the response code should be 404
 
-  Scenario: Retrieve a list of subjects
-    Given I send "POST" request to "/v1/subjects" with payload:
+  Scenario: Retrieve a list of principals
+    Given I send "POST" request to "/v1/principals" with payload:
       """
       {"value": "f438dfb8-4ae9-4668-9545-f98dba4b2337"}
       """
     And the response code should be 200
-    And I send "POST" request to "/v1/subjects" with payload:
+    And I send "POST" request to "/v1/principals" with payload:
       """
       {"value": "another.value"}
       """
     And the response code should be 200
-    When I send "GET" request to "/v1/subjects"
+    When I send "GET" request to "/v1/principals"
     Then the response code should be 200
     And the response should match json:
       """
