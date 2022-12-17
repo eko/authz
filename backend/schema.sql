@@ -35,11 +35,46 @@ CREATE TABLE public.authz_actions (
 ALTER TABLE public.authz_actions OWNER TO root;
 
 --
+-- Name: authz_attributes; Type: TABLE; Schema: public; Owner: root
+--
+
+CREATE TABLE public.authz_attributes (
+    id bigint NOT NULL,
+    key text,
+    value text
+);
+
+
+ALTER TABLE public.authz_attributes OWNER TO root;
+
+--
+-- Name: authz_attributes_id_seq; Type: SEQUENCE; Schema: public; Owner: root
+--
+
+CREATE SEQUENCE public.authz_attributes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.authz_attributes_id_seq OWNER TO root;
+
+--
+-- Name: authz_attributes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: root
+--
+
+ALTER SEQUENCE public.authz_attributes_id_seq OWNED BY public.authz_attributes.id;
+
+
+--
 -- Name: authz_compiled_policies; Type: TABLE; Schema: public; Owner: root
 --
 
 CREATE TABLE public.authz_compiled_policies (
     policy_id text,
+    principal_id text,
     resource_kind text,
     resource_value text,
     action_id text,
@@ -57,6 +92,7 @@ ALTER TABLE public.authz_compiled_policies OWNER TO root;
 
 CREATE TABLE public.authz_policies (
     id text NOT NULL,
+    attribute_rules text[],
     created_at timestamp with time zone,
     updated_at timestamp with time zone
 );
@@ -103,6 +139,18 @@ CREATE TABLE public.authz_principals (
 ALTER TABLE public.authz_principals OWNER TO root;
 
 --
+-- Name: authz_principals_attributes; Type: TABLE; Schema: public; Owner: root
+--
+
+CREATE TABLE public.authz_principals_attributes (
+    principal_id text NOT NULL,
+    attribute_id bigint NOT NULL
+);
+
+
+ALTER TABLE public.authz_principals_attributes OWNER TO root;
+
+--
 -- Name: authz_principals_roles; Type: TABLE; Schema: public; Owner: root
 --
 
@@ -131,6 +179,18 @@ CREATE TABLE public.authz_resources (
 ALTER TABLE public.authz_resources OWNER TO root;
 
 --
+-- Name: authz_resources_attributes; Type: TABLE; Schema: public; Owner: root
+--
+
+CREATE TABLE public.authz_resources_attributes (
+    resource_id text NOT NULL,
+    attribute_id bigint NOT NULL
+);
+
+
+ALTER TABLE public.authz_resources_attributes OWNER TO root;
+
+--
 -- Name: authz_roles; Type: TABLE; Schema: public; Owner: root
 --
 
@@ -156,11 +216,26 @@ CREATE TABLE public.authz_roles_policies (
 ALTER TABLE public.authz_roles_policies OWNER TO root;
 
 --
+-- Name: authz_attributes id; Type: DEFAULT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_attributes ALTER COLUMN id SET DEFAULT nextval('public.authz_attributes_id_seq'::regclass);
+
+
+--
 -- Name: authz_actions authz_actions_pkey; Type: CONSTRAINT; Schema: public; Owner: root
 --
 
 ALTER TABLE ONLY public.authz_actions
     ADD CONSTRAINT authz_actions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: authz_attributes authz_attributes_pkey; Type: CONSTRAINT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_attributes
+    ADD CONSTRAINT authz_attributes_pkey PRIMARY KEY (id);
 
 
 --
@@ -188,6 +263,14 @@ ALTER TABLE ONLY public.authz_policies_resources
 
 
 --
+-- Name: authz_principals_attributes authz_principals_attributes_pkey; Type: CONSTRAINT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_principals_attributes
+    ADD CONSTRAINT authz_principals_attributes_pkey PRIMARY KEY (principal_id, attribute_id);
+
+
+--
 -- Name: authz_principals authz_principals_pkey; Type: CONSTRAINT; Schema: public; Owner: root
 --
 
@@ -201,6 +284,14 @@ ALTER TABLE ONLY public.authz_principals
 
 ALTER TABLE ONLY public.authz_principals_roles
     ADD CONSTRAINT authz_principals_roles_pkey PRIMARY KEY (principal_id, role_id);
+
+
+--
+-- Name: authz_resources_attributes authz_resources_attributes_pkey; Type: CONSTRAINT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_resources_attributes
+    ADD CONSTRAINT authz_resources_attributes_pkey PRIMARY KEY (resource_id, attribute_id);
 
 
 --
@@ -232,6 +323,20 @@ ALTER TABLE ONLY public.authz_roles_policies
 --
 
 CREATE INDEX idx_authz_compiled_policies_action_id ON public.authz_compiled_policies USING btree (action_id);
+
+
+--
+-- Name: idx_authz_compiled_policies_policy_id; Type: INDEX; Schema: public; Owner: root
+--
+
+CREATE INDEX idx_authz_compiled_policies_policy_id ON public.authz_compiled_policies USING btree (policy_id);
+
+
+--
+-- Name: idx_authz_compiled_policies_principal_id; Type: INDEX; Schema: public; Owner: root
+--
+
+CREATE INDEX idx_authz_compiled_policies_principal_id ON public.authz_compiled_policies USING btree (principal_id);
 
 
 --
@@ -288,6 +393,22 @@ ALTER TABLE ONLY public.authz_policies_resources
 
 
 --
+-- Name: authz_principals_attributes fk_authz_principals_attributes_attribute; Type: FK CONSTRAINT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_principals_attributes
+    ADD CONSTRAINT fk_authz_principals_attributes_attribute FOREIGN KEY (attribute_id) REFERENCES public.authz_attributes(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: authz_principals_attributes fk_authz_principals_attributes_principal; Type: FK CONSTRAINT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_principals_attributes
+    ADD CONSTRAINT fk_authz_principals_attributes_principal FOREIGN KEY (principal_id) REFERENCES public.authz_principals(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
 -- Name: authz_principals_roles fk_authz_principals_roles_principal; Type: FK CONSTRAINT; Schema: public; Owner: root
 --
 
@@ -301,6 +422,22 @@ ALTER TABLE ONLY public.authz_principals_roles
 
 ALTER TABLE ONLY public.authz_principals_roles
     ADD CONSTRAINT fk_authz_principals_roles_role FOREIGN KEY (role_id) REFERENCES public.authz_roles(id);
+
+
+--
+-- Name: authz_resources_attributes fk_authz_resources_attributes_attribute; Type: FK CONSTRAINT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_resources_attributes
+    ADD CONSTRAINT fk_authz_resources_attributes_attribute FOREIGN KEY (attribute_id) REFERENCES public.authz_attributes(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: authz_resources_attributes fk_authz_resources_attributes_resource; Type: FK CONSTRAINT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_resources_attributes
+    ADD CONSTRAINT fk_authz_resources_attributes_resource FOREIGN KEY (resource_id) REFERENCES public.authz_resources(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --

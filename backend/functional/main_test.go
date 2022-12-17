@@ -131,6 +131,15 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 		return ctx, nil
 	})
 
+	ctx.Step(`^I wait "([^"]*)"$`, func(value string) error {
+		duration, err := time.ParseDuration(value)
+		if err != nil {
+			return err
+		}
+
+		time.Sleep(duration)
+		return nil
+	})
 	ctx.Step(`^I send "(GET|POST|PUT|DELETE)" request to "([^"]*)"$`, api.iSendRequestTo)
 	ctx.Step(`^I send "(GET|POST|PUT|DELETE)" request to "([^"]*)" with payload:$`, api.iSendRequestToWithPayload)
 	ctx.Step(`^the response code should be (\d+)$`, api.theResponseCodeShouldBe)

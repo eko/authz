@@ -14,9 +14,10 @@ import (
 )
 
 type CreateResourceRequest struct {
-	ID    string `json:"id" validate:"required,slug"`
-	Kind  string `json:"kind" validate:"required,slug"`
-	Value string `json:"value"`
+	ID         string         `json:"id" validate:"required,slug"`
+	Kind       string         `json:"kind" validate:"required,slug"`
+	Value      string         `json:"value"`
+	Attributes map[string]any `json:"attributes"`
 }
 
 // Creates a new resource.
@@ -49,7 +50,7 @@ func ResourceCreate(
 		}
 
 		// Create resource
-		resource, err := manager.CreateResource(request.ID, request.Kind, request.Value)
+		resource, err := manager.CreateResource(request.ID, request.Kind, request.Value, request.Attributes)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
 		}
@@ -87,6 +88,7 @@ func ResourceList(
 			database.WithSize(size),
 			database.WithFilter(httpFilterToORM(c)),
 			database.WithSort(httpSortToORM(c)),
+			database.WithPreloads("Attributes"),
 		)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
@@ -113,7 +115,10 @@ func ResourceGet(
 		identifier := c.Params("identifier")
 
 		// Retrieve resource
-		resource, err := manager.GetResourceRepository().Get(identifier)
+		resource, err := manager.GetResourceRepository().Get(
+			identifier,
+			database.WithPreloads("Attributes"),
+		)
 		if err != nil {
 			statusCode := http.StatusInternalServerError
 

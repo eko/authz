@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/eko/authz/backend/internal/attribute"
 	"github.com/eko/authz/backend/internal/database"
 	"github.com/eko/authz/backend/internal/database/model"
 	"github.com/eko/authz/backend/internal/event"
@@ -17,45 +18,51 @@ const (
 type Manager interface {
 	CreateAction(identifier string) (*model.Action, error)
 	CreateCompiledPolicy(compiledPolicy []*model.CompiledPolicy) error
-	CreatePolicy(identifier string, resources []string, actions []string) (*model.Policy, error)
-	CreatePrincipal(identifier string, roles []string) (*model.Principal, error)
-	CreateResource(identifier string, kind string, value string) (*model.Resource, error)
+	CreatePolicy(identifier string, resources []string, actions []string, attributeRules []string) (*model.Policy, error)
+	CreatePrincipal(identifier string, roles []string, attributes map[string]any) (*model.Principal, error)
+	CreateResource(identifier string, kind string, value string, attributes map[string]any) (*model.Resource, error)
 	CreateRole(identifier string, policies []string) (*model.Role, error)
 	GetActionRepository() *database.Repository[model.Action]
 	GetCompiledPolicyRepository() *database.Repository[model.CompiledPolicy]
 	GetPolicyRepository() *database.Repository[model.Policy]
 	GetPrincipalRepository() *database.Repository[model.Principal]
-	GetResourceRepository() *database.Repository[model.Resource]
+	GetResourceRepository() *database.ResourceRepository
 	GetRoleRepository() *database.Repository[model.Role]
 	IsAllowed(principalID string, resourceKind string, resourceValue string, actionID string) (bool, error)
-	UpdatePolicy(identifier string, resources []string, actions []string) (*model.Policy, error)
-	UpdatePrincipal(identifier string, roles []string) (*model.Principal, error)
+	UpdatePolicy(identifier string, resources []string, actions []string, attributeRules []string) (*model.Policy, error)
+	UpdatePrincipal(identifier string, roles []string, attributes map[string]any) (*model.Principal, error)
 	UpdateRole(identifier string, policies []string) (*model.Role, error)
 }
 
 type manager struct {
 	dispatcher               event.Dispatcher
+	db                       *gorm.DB
 	actionRepository         *database.Repository[model.Action]
+	attributeRepository      *database.Repository[model.Attribute]
 	compiledPolicyRepository *database.Repository[model.CompiledPolicy]
 	policyRepository         *database.Repository[model.Policy]
-	resourceRepository       *database.Repository[model.Resource]
+	resourceRepository       *database.ResourceRepository
 	roleRepository           *database.Repository[model.Role]
 	principalRepository      *database.Repository[model.Principal]
 }
 
 func New(
 	dispatcher event.Dispatcher,
+	db *gorm.DB,
 	actionRepository *database.Repository[model.Action],
+	attributeRepository *database.Repository[model.Attribute],
 	compiledPolicyRepository *database.Repository[model.CompiledPolicy],
 	policyRepository *database.Repository[model.Policy],
-	resourceRepository *database.Repository[model.Resource],
+	resourceRepository *database.ResourceRepository,
 	roleRepository *database.Repository[model.Role],
 	principalRepository *database.Repository[model.Principal],
 
 ) *manager {
 	return &manager{
 		dispatcher:               dispatcher,
+		db:                       db,
 		actionRepository:         actionRepository,
+		attributeRepository:      attributeRepository,
 		compiledPolicyRepository: compiledPolicyRepository,
 		policyRepository:         policyRepository,
 		resourceRepository:       resourceRepository,
@@ -93,7 +100,7 @@ func (m *manager) CreateCompiledPolicy(compiledPolicy []*model.CompiledPolicy) e
 	return nil
 }
 
-func (m *manager) CreatePolicy(identifier string, resources []string, actions []string) (*model.Policy, error) {
+func (m *manager) CreatePolicy(identifier string, resources []string, actions []string, attributeRules []string) (*model.Policy, error) {
 	exists, err := m.policyRepository.Get(identifier)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("unable to check for existing policy: %v", err)
@@ -104,7 +111,7 @@ func (m *manager) CreatePolicy(identifier string, resources []string, actions []
 	}
 
 	policy := &model.Policy{}
-	if err := m.attachToPolicy(policy, identifier, resources, actions); err != nil {
+	if err := m.attachToPolicy(policy, identifier, resources, actions, attributeRules); err != nil {
 		return nil, err
 	}
 
@@ -119,13 +126,13 @@ func (m *manager) CreatePolicy(identifier string, resources []string, actions []
 	return policy, nil
 }
 
-func (m *manager) UpdatePolicy(identifier string, resources []string, actions []string) (*model.Policy, error) {
+func (m *manager) UpdatePolicy(identifier string, resources []string, actions []string, attributeRules []string) (*model.Policy, error) {
 	policy, err := m.policyRepository.Get(identifier)
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve policy: %v", err)
 	}
 
-	if err := m.attachToPolicy(policy, policy.ID, resources, actions); err != nil {
+	if err := m.attachToPolicy(policy, policy.ID, resources, actions, attributeRules); err != nil {
 		return nil, err
 	}
 
@@ -140,12 +147,25 @@ func (m *manager) UpdatePolicy(identifier string, resources []string, actions []
 	return policy, nil
 }
 
-func (m *manager) attachToPolicy(policy *model.Policy, identifier string, resources []string, actions []string) error {
+func (m *manager) attachToPolicy(policy *model.Policy, identifier string, resources []string, actions []string, attributeRules []string) error {
+	for _, attributeRule := range attributeRules {
+		if _, err := attribute.ConvertStringToRuleOperator(attributeRule); err != nil {
+			return fmt.Errorf("unable to convert attribute rule %q to rule operator: %v", attributeRule, err)
+		}
+	}
+
 	var resourceObjects = []*model.Resource{}
 
 	for _, resource := range resources {
 		resourceObject, err := m.resourceRepository.Get(resource)
-		if err != nil {
+		kind, value := ResourceSplit(resource)
+
+		if errors.Is(err, gorm.ErrRecordNotFound) && value == WildcardValue {
+			resourceObject, err = m.CreateResource(resource, kind, value, map[string]any{})
+			if err != nil {
+				return fmt.Errorf("unable to create wildcard resource %v: %v", resource, err)
+			}
+		} else if err != nil {
 			return fmt.Errorf("unable to retrieve resource %v: %v", resource, err)
 		}
 
@@ -171,11 +191,12 @@ func (m *manager) attachToPolicy(policy *model.Policy, identifier string, resour
 	policy.ID = identifier
 	policy.Resources = resourceObjects
 	policy.Actions = actionObjects
+	policy.AttributeRules = attributeRules
 
 	return nil
 }
 
-func (m *manager) CreateResource(identifier string, kind string, value string) (*model.Resource, error) {
+func (m *manager) CreateResource(identifier string, kind string, value string, attributes map[string]any) (*model.Resource, error) {
 	if value == "" {
 		value = WildcardValue
 	}
@@ -189,20 +210,30 @@ func (m *manager) CreateResource(identifier string, kind string, value string) (
 		return nil, fmt.Errorf("a resource already exists with kind %q and value %q", kind, value)
 	}
 
+	attributeObjects, err := m.attributesMapToSlice(attributes)
+	if err != nil {
+		return nil, fmt.Errorf("unable to convert attributes to slice: %v", err)
+	}
+
 	resource := &model.Resource{
-		ID:    identifier,
-		Kind:  kind,
-		Value: value,
+		ID:         identifier,
+		Kind:       kind,
+		Value:      value,
+		Attributes: attributeObjects,
 	}
 
 	if err := m.resourceRepository.Create(resource); err != nil {
 		return nil, fmt.Errorf("unable to create resource: %v", err)
 	}
 
+	if err := m.dispatcher.Dispatch(event.EventTypeResource, resource.ID); err != nil {
+		return nil, fmt.Errorf("unable to dispatch event: %v", err)
+	}
+
 	return resource, nil
 }
 
-func (m *manager) CreatePrincipal(identifier string, roles []string) (*model.Principal, error) {
+func (m *manager) CreatePrincipal(identifier string, roles []string, attributes map[string]any) (*model.Principal, error) {
 	exists, err := m.principalRepository.Get(identifier)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("unable to check for existing principal: %v", err)
@@ -223,19 +254,29 @@ func (m *manager) CreatePrincipal(identifier string, roles []string) (*model.Pri
 		roleObjects = append(roleObjects, roleObject)
 	}
 
+	attributeObjects, err := m.attributesMapToSlice(attributes)
+	if err != nil {
+		return nil, fmt.Errorf("unable to convert attributes to slice: %v", err)
+	}
+
 	principal := &model.Principal{
-		ID:    identifier,
-		Roles: roleObjects,
+		ID:         identifier,
+		Roles:      roleObjects,
+		Attributes: attributeObjects,
 	}
 
 	if err := m.principalRepository.Create(principal); err != nil {
 		return nil, fmt.Errorf("unable to create principal: %v", err)
 	}
 
+	if err := m.dispatcher.Dispatch(event.EventTypePrincipal, principal.ID); err != nil {
+		return nil, fmt.Errorf("unable to dispatch event: %v", err)
+	}
+
 	return principal, nil
 }
 
-func (m *manager) UpdatePrincipal(identifier string, roles []string) (*model.Principal, error) {
+func (m *manager) UpdatePrincipal(identifier string, roles []string, attributes map[string]any) (*model.Principal, error) {
 	principal, err := m.principalRepository.Get(identifier)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("unable to retrieve principal: %v", err)
@@ -254,8 +295,19 @@ func (m *manager) UpdatePrincipal(identifier string, roles []string) (*model.Pri
 
 	principal.Roles = roleObjects
 
+	attributeObjects, err := m.attributesMapToSlice(attributes)
+	if err != nil {
+		return nil, fmt.Errorf("unable to convert attributes to slice: %v", err)
+	}
+
+	principal.Attributes = attributeObjects
+
 	if err := m.principalRepository.Update(principal); err != nil {
 		return nil, fmt.Errorf("unable to create principal: %v", err)
+	}
+
+	if err := m.dispatcher.Dispatch(event.EventTypePrincipal, principal.ID); err != nil {
+		return nil, fmt.Errorf("unable to dispatch event: %v", err)
 	}
 
 	return principal, nil
@@ -332,7 +384,7 @@ func (m *manager) GetPolicyRepository() *database.Repository[model.Policy] {
 	return m.policyRepository
 }
 
-func (m *manager) GetResourceRepository() *database.Repository[model.Resource] {
+func (m *manager) GetResourceRepository() *database.ResourceRepository {
 	return m.resourceRepository
 }
 
@@ -357,7 +409,19 @@ func (m *manager) IsAllowed(principalID string, resourceKind string, resourceVal
 		}
 	}
 
-	return m.isPolicyAllowed(policyIDs, resourceKind, resourceValue, actionID)
+	isAllowed, err := m.isPolicyAllowed(policyIDs, resourceKind, resourceValue, actionID)
+	if err != nil {
+		return false, err
+	}
+
+	if !isAllowed {
+		isAllowed, err = m.isPrincipalAllowed(principalID, resourceKind, resourceValue, actionID)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	return isAllowed, err
 }
 
 func (m *manager) isPolicyAllowed(policyIDs []string, resourceKind string, resourceValue string, actionID string) (bool, error) {
@@ -380,4 +444,52 @@ func (m *manager) isPolicyAllowed(policyIDs []string, resourceKind string, resou
 	}
 
 	return true, nil
+}
+
+func (m *manager) isPrincipalAllowed(principalID string, resourceKind string, resourceValue string, actionID string) (bool, error) {
+	fields := map[string]database.FieldValue{
+		"principal_id":   {Operator: "=", Value: principalID},
+		"resource_kind":  {Operator: "=", Value: resourceKind},
+		"resource_value": {Operator: "=", Value: resourceValue},
+		"action_id":      {Operator: "=", Value: actionID},
+	}
+
+	_, err := m.compiledPolicyRepository.GetByFields(fields)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		if resourceValue != WildcardValue {
+			return m.isPrincipalAllowed(principalID, resourceKind, WildcardValue, actionID)
+		}
+
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf("unable to retrieve compiled policies: %v", err)
+	}
+
+	return true, nil
+}
+
+func (m *manager) attributesMapToSlice(attributes map[string]any) ([]*model.Attribute, error) {
+	var attributeObjects = make([]*model.Attribute, 0)
+
+	for attributeKey, attributeValue := range attributes {
+		value, err := CastAnyToString(attributeValue)
+		if err != nil {
+			return nil, fmt.Errorf("unable to cast attribute value to string: %v", err)
+		}
+
+		attribute, err := m.attributeRepository.GetByFields(map[string]database.FieldValue{
+			"key":   {Operator: "=", Value: attributeKey},
+			"value": {Operator: "=", Value: value},
+		})
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("unable to check for existing attribute: %v", err)
+		}
+		if attribute == nil {
+			attribute = &model.Attribute{Key: attributeKey, Value: value}
+		}
+
+		attributeObjects = append(attributeObjects, attribute)
+	}
+
+	return attributeObjects, nil
 }

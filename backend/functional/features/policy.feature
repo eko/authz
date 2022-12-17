@@ -34,11 +34,11 @@ Feature: policy
         "resources": [
           {
             "id": "post.123",
-            "kind": "post",
-            "value": "123",
             "is_locked": false,
+            "kind": "post",
             "created_at": "2100-01-01T02:00:00+01:00",
-            "updated_at": "2100-01-01T02:00:00+01:00"
+            "updated_at": "2100-01-01T02:00:00+01:00",
+            "value": "123"
           }
         ],
         "created_at": "2100-01-01T02:00:00+01:00",
@@ -81,7 +81,6 @@ Feature: policy
     And the response should match json:
       """
       {
-        "id": "my-post-policy",
         "actions": [
           {
             "id": "update",
@@ -90,14 +89,15 @@ Feature: policy
             "updated_at": "2100-01-01T02:00:00+01:00"
           }
         ],
+        "id": "my-post-policy",
         "resources": [
           {
             "id": "post.456",
-            "kind": "post",
-            "value": "456",
             "is_locked": false,
+            "kind": "post",
             "created_at": "2100-01-01T02:00:00+01:00",
-            "updated_at": "2100-01-01T02:00:00+01:00"
+            "updated_at": "2100-01-01T02:00:00+01:00",
+            "value": "456"
           }
         ],
         "created_at": "2100-01-01T02:00:00+01:00",
@@ -127,7 +127,6 @@ Feature: policy
     And the response should match json:
       """
       {
-        "id": "my-post-123-policy",
         "actions": [
           {
             "id": "create",
@@ -136,14 +135,15 @@ Feature: policy
             "updated_at": "2100-01-01T02:00:00+01:00"
           }
         ],
+        "id": "my-post-123-policy",
         "resources": [
           {
             "id": "post.123",
-            "kind": "post",
-            "value": "123",
             "is_locked": false,
+            "kind": "post",
             "created_at": "2100-01-01T02:00:00+01:00",
-            "updated_at": "2100-01-01T02:00:00+01:00"
+            "updated_at": "2100-01-01T02:00:00+01:00",
+            "value": "123"
           }
         ],
         "created_at": "2100-01-01T02:00:00+01:00",
@@ -226,11 +226,11 @@ Feature: policy
             "resources": [
               {
                 "id": "post.123",
-                "kind": "post",
-                "value": "123",
                 "is_locked": false,
+                "kind": "post",
                 "created_at": "2100-01-01T02:00:00+01:00",
-                "updated_at": "2100-01-01T02:00:00+01:00"
+                "updated_at": "2100-01-01T02:00:00+01:00",
+                "value": "123"
               }
             ],
             "created_at": "2100-01-01T02:00:00+01:00",
@@ -249,11 +249,11 @@ Feature: policy
             "resources": [
               {
                 "id": "post.123",
-                "kind": "post",
-                "value": "123",
                 "is_locked": false,
+                "kind": "post",
                 "created_at": "2100-01-01T02:00:00+01:00",
-                "updated_at": "2100-01-01T02:00:00+01:00"
+                "updated_at": "2100-01-01T02:00:00+01:00",
+                "value": "123"
               }
             ],
             "created_at": "2100-01-01T02:00:00+01:00",

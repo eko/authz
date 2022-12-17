@@ -1,4 +1,38 @@
 definitions:
+  handler.CheckQuery:
+    properties:
+      action:
+        type: string
+      principal:
+        type: string
+      resource_kind:
+        type: string
+      resource_value:
+        type: string
+      result:
+        type: string
+    required:
+    - action
+    - principal
+    - resource_kind
+    - resource_value
+    type: object
+  handler.CheckRequest:
+    properties:
+      checks:
+        items:
+          $ref: '#/definitions/handler.CheckQuery'
+        type: array
+    required:
+    - checks
+    type: object
+  handler.CheckResponse:
+    properties:
+      checks:
+        items:
+          $ref: '#/definitions/handler.CheckQuery'
+        type: array
+    type: object
   handler.CreatePolicyRequest:
     properties:
       actions:
@@ -18,13 +52,25 @@ definitions:
     type: object
   handler.CreatePrincipalRequest:
     properties:
+      attributes:
+        additionalProperties:
+          type: string
+        type: object
       id:
         type: string
+      roles:
+        items:
+          type: string
+        type: array
     required:
     - id
     type: object
   handler.CreateResourceRequest:
     properties:
+      attributes:
+        additionalProperties:
+          type: string
+        type: object
       id:
         type: string
       kind:
@@ -62,6 +108,15 @@ definitions:
     - resources
     type: object
   handler.UpdatePrincipalRequest:
+    properties:
+      attributes:
+        additionalProperties:
+          type: string
+        type: object
+      roles:
+        items:
+          type: string
+        type: array
     type: object
   handler.UpdateRoleRequest:
     properties:
@@ -100,6 +155,10 @@ definitions:
         items:
           $ref: '#/definitions/model.Action'
         type: array
+      attribute_rules:
+        items:
+          type: string
+        type: array
       created_at:
         type: string
       id:
@@ -113,6 +172,8 @@ definitions:
     type: object
   model.Principal:
     properties:
+      attributes:
+        type: object
       created_at:
         type: string
       id:
@@ -128,6 +189,8 @@ definitions:
     type: object
   model.Resource:
     properties:
+      attributes:
+        type: object
       created_at:
         type: string
       id:

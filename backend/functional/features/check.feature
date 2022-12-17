@@ -2,7 +2,7 @@
 Feature: check
   Test check-related APIs
 
-  Scenario: Check for access
+  Scenario: Check for access (using RBAC)
     Given I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "post.123", "kind": "post", "value": "123"}
@@ -51,6 +51,7 @@ Feature: check
       }
       """
     And the response code should be 200
+    And I wait "500ms"
     When I send "POST" request to "/v1/check" with payload:
       """
       {
@@ -92,28 +93,185 @@ Feature: check
             "principal": "my-principal",
             "resource_kind": "post",
             "resource_value": "123",
-            "result": "allowed"
+            "is_allowed": true
           },
           {
             "action": "update",
             "principal": "my-principal",
             "resource_kind": "post",
             "resource_value": "123",
-            "result": "allowed"
+            "is_allowed": true
           },
           {
             "action": "delete",
             "principal": "my-principal",
             "resource_kind": "post",
             "resource_value": "123",
-            "result": "denied"
+            "is_allowed": false
           },
           {
             "action": "update",
             "principal": "my-principal",
             "resource_kind": "post",
             "resource_value": "*",
-            "result": "denied"
+            "is_allowed": false
+          }
+        ]
+      }
+      """
+
+  Scenario: Check for access (using ABAC)
+    Given I send "POST" request to "/v1/resources" with payload:
+      """
+      {
+        "id": "post.123",
+        "kind": "post",
+        "value": "123",
+        "attributes": {
+          "owner_id": "owner-123"
+        }
+      }
+      """
+    And the response code should be 200
+    And I send "POST" request to "/v1/resources" with payload:
+      """
+      {
+        "id": "post.456",
+        "kind": "post",
+        "value": "456",
+        "attributes": {
+          "owner_id": "owner-456"
+        }
+      }
+      """
+    And the response code should be 200
+    And I send "POST" request to "/v1/resources" with payload:
+      """
+      {
+        "id": "post.789",
+        "kind": "post",
+        "value": "789",
+        "attributes": {
+          "is_editable": true
+        }
+      }
+      """
+    And the response code should be 200
+    And I send "POST" request to "/v1/principals" with payload:
+      """
+      {
+        "id": "my-principal",
+        "attributes": {
+          "owner_id": "owner-123"
+        }
+      }
+      """
+    And the response code should be 200
+    And I send "POST" request to "/v1/policies" with payload:
+      """
+      {
+        "id": "my-post-123-policy-create",
+        "resources": [
+            "post.*"
+        ],
+        "actions": ["create"],
+        "attribute_rules": [
+          "principal.owner_id == resource.owner_id",
+          "resource.is_editable == true"
+        ]
+      }
+      """
+    And the response code should be 200
+    And I wait "500ms"
+    And I send "POST" request to "/v1/resources" with payload:
+      """
+      {
+        "id": "post.10-updated-after",
+        "kind": "post",
+        "value": "10-updated-after",
+        "attributes": {
+          "is_editable": true
+        }
+      }
+      """
+    And the response code should be 200
+    And I wait "1s"
+    When I send "POST" request to "/v1/check" with payload:
+      """
+      {
+        "checks": [
+          {
+            "principal": "my-principal",
+            "resource_kind": "post",
+            "resource_value": "123",
+            "action": "create"
+          },
+          {
+            "principal": "my-principal",
+            "resource_kind": "post",
+            "resource_value": "123",
+            "action": "update"
+          },
+          {
+            "principal": "my-principal",
+            "resource_kind": "post",
+            "resource_value": "456",
+            "action": "create"
+          },
+          {
+            "principal": "my-principal",
+            "resource_kind": "post",
+            "resource_value": "789",
+            "action": "create"
+          },
+          {
+            "principal": "my-principal",
+            "resource_kind": "post",
+            "resource_value": "10-updated-after",
+            "action": "create"
+          }
+        ]
+      }
+      """
+    And the response code should be 200
+    And the response should match json:
+      """
+      {
+        "checks": [
+          {
+            "action": "create",
+            "principal": "my-principal",
+            "resource_kind": "post",
+            "resource_value": "123",
+            "is_allowed": true
+          },
+          {
+            "action": "update",
+            "principal": "my-principal",
+            "resource_kind": "post",
+            "resource_value": "123",
+            "is_allowed": false
+          },
+          {
+            "principal": "my-principal",
+            "resource_kind": "post",
+            "resource_value": "456",
+            "action": "create",
+            "is_allowed": false
+          },
+          {
+            "principal": "my-principal",
+            "resource_kind": "post",
+            "resource_value": "789",
+            "action": "create",
+            "is_allowed": true
+          },
+          {
+            "principal": "my-principal",
+            "resource_kind": "post",
+            "resource_value": "10-updated-after",
+            "action": "create",
+            "is_allowed": true
           }
         ]
       }

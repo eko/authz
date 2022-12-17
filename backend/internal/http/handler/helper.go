@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/eko/authz/backend/internal/database"
 	"github.com/eko/authz/backend/internal/http/handler/model"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -60,9 +61,11 @@ func convertStringToInt64(value string) (int64, error) {
 	return intValue, nil
 }
 
-func httpFilterToORM(c *fiber.Ctx) (query string, value string) {
+func httpFilterToORM(c *fiber.Ctx) map[string]database.FieldValue {
+	var result = map[string]database.FieldValue{}
+
 	if c == nil {
-		return "", ""
+		return result
 	}
 
 	filter := c.Query("filter")
@@ -73,20 +76,19 @@ func httpFilterToORM(c *fiber.Ctx) (query string, value string) {
 	// - operator
 	// - value
 	if len(values) != 3 {
-		return "", ""
+		return result
 	}
 
 	field, operator, value := values[0], values[1], values[2]
 
 	switch operator {
 	case "contains":
-		return fmt.Sprintf("%s LIKE ?", field), "%" + value + "%"
-
+		result[field] = database.FieldValue{Operator: "LIKE", Value: "%" + value + "%"}
 	case "is":
-		return fmt.Sprintf("%s = ?", field), value
+		result[field] = database.FieldValue{Operator: "=", Value: value}
 	}
 
-	return "", ""
+	return result
 }
 
 func httpSortToORM(c *fiber.Ctx) string {

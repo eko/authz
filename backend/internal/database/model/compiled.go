@@ -4,6 +4,7 @@ import "time"
 
 type CompiledPolicy struct {
 	PolicyID      string    `gorm:"index"`
+	PrincipalID   string    `gorm:"index"`
 	ResourceKind  string    `gorm:"index"`
 	ResourceValue string    `gorm:"index"`
 	ActionID      string    `gorm:"index"`

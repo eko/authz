@@ -14,14 +14,16 @@ import (
 )
 
 type CreatePolicyRequest struct {
-	ID        string   `json:"id" validate:"required,slug"`
-	Resources []string `json:"resources" validate:"required,dive,slug"`
-	Actions   []string `json:"actions" validate:"required,dive,slug"`
+	ID             string   `json:"id" validate:"required,slug"`
+	Resources      []string `json:"resources" validate:"required,dive,slug"`
+	Actions        []string `json:"actions" validate:"required,dive,slug"`
+	AttributeRules []string `json:"attribute_rules"`
 }
 
 type UpdatePolicyRequest struct {
-	Resources []string `json:"resources" validate:"required,dive,slug"`
-	Actions   []string `json:"actions" validate:"required,dive,slug"`
+	Resources      []string `json:"resources" validate:"required,dive,slug"`
+	Actions        []string `json:"actions" validate:"required,dive,slug"`
+	AttributeRules []string `json:"attribute_rules"`
 }
 
 // Creates a new policy.
@@ -53,7 +55,12 @@ func PolicyCreate(
 		}
 
 		// Create policy
-		policy, err := manager.CreatePolicy(request.ID, request.Resources, request.Actions)
+		policy, err := manager.CreatePolicy(
+			request.ID,
+			request.Resources,
+			request.Actions,
+			request.AttributeRules,
+		)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
 		}
@@ -170,7 +177,12 @@ func PolicyUpdate(
 		}
 
 		// Retrieve policy
-		policy, err := manager.UpdatePolicy(identifier, request.Resources, request.Actions)
+		policy, err := manager.UpdatePolicy(
+			identifier,
+			request.Resources,
+			request.Actions,
+			request.AttributeRules,
+		)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot update policy: %v", err),

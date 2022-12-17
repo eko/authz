@@ -18,13 +18,13 @@ func (s *Server) setSwagger() {
 	s.app.Get("/swagger/*", swagger.HandlerDefault)
 }
 
-// @title						Authz API
-// @version					1.0
-// @description				Authorization management HTTP APIs
-// @securitydefinitions.apikey	Authentication
-// @in							header
-// @name						Authorization
-// @BasePath					/v1
+//	@title						Authz API
+//	@version					1.0
+//	@description				Authorization management HTTP APIs
+//	@securitydefinitions.apikey	Authentication
+//	@in							header
+//	@name						Authorization
+//	@BasePath					/v1
 func (s *Server) setRoutes() {
 	s.app.Use(
 		cors.New(cors.Config{

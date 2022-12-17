@@ -10,6 +10,7 @@ import (
 type FieldValue struct {
 	Operator string
 	Value    any
+	Raw      any
 }
 
 // QueryOption specifies how options should be formatted.
@@ -19,13 +20,19 @@ type FieldValue struct {
 type QueryOption func(*queryOptions)
 
 type queryOptions struct {
+	joins          []string
 	preloads       []string
 	page           int64
 	size           int64
-	filterQuery    string
-	filterValue    string
+	filter         map[string]FieldValue
 	sort           string
 	skipPagination bool
+}
+
+func WithJoin(joins ...string) QueryOption {
+	return func(o *queryOptions) {
+		o.joins = joins
+	}
 }
 
 // WithPreloads allows to specify relationships you want to preload with the
@@ -48,10 +55,9 @@ func WithSize(size int64) QueryOption {
 	}
 }
 
-func WithFilter(filterQuery, filterValue string) QueryOption {
+func WithFilter(filter map[string]FieldValue) QueryOption {
 	return func(o *queryOptions) {
-		o.filterQuery = filterQuery
-		o.filterValue = filterValue
+		o.filter = filter
 	}
 }
 
@@ -97,7 +103,11 @@ func (r *Repository[T]) DeleteByFields(fieldValues map[string]FieldValue) error 
 	db := r.db
 
 	for field, value := range fieldValues {
-		db = r.db.Where(fmt.Sprintf("%s %s ?", field, value.Operator), value.Value)
+		if value.Raw != nil {
+			db = db.Where(value.Raw)
+		} else {
+			db = db.Where(fmt.Sprintf("%s %s ?", field, value.Operator), value.Value)
+		}
 	}
 
 	return db.Delete(result).Error
@@ -129,7 +139,11 @@ func (r *Repository[T]) GetByFields(fieldValues map[string]FieldValue, options .
 	db := r.applyOptions(options)
 
 	for field, value := range fieldValues {
-		db = db.Where(fmt.Sprintf("%s %s ?", field, value.Operator), value.Value)
+		if value.Raw != nil {
+			db = db.Where(value.Raw)
+		} else {
+			db = db.Where(fmt.Sprintf("%s %s ?", field, value.Operator), value.Value)
+		}
 	}
 
 	if err := db.First(result).Error; err != nil {
@@ -169,6 +183,12 @@ func (r *Repository[T]) applyOptions(options []QueryOption) *gorm.DB {
 		option(opts)
 	}
 
+	if joins := opts.joins; len(joins) > 0 {
+		for _, join := range joins {
+			db = db.Joins(join)
+		}
+	}
+
 	if preloads := opts.preloads; len(preloads) > 0 {
 		for _, preload := range preloads {
 			db = db.Preload(preload)
@@ -185,8 +205,14 @@ func (r *Repository[T]) applyOptions(options []QueryOption) *gorm.DB {
 		}
 	}
 
-	if opts.filterQuery != "" && opts.filterValue != "" {
-		db = db.Where(opts.filterQuery, opts.filterValue)
+	if len(opts.filter) > 0 {
+		for field, value := range opts.filter {
+			if value.Raw != nil {
+				db = db.Where(value.Raw)
+			} else {
+				db = db.Where(fmt.Sprintf("%s %s ?", field, value.Operator), value.Value)
+			}
+		}
 	}
 
 	if sort := opts.sort; sort != "" {

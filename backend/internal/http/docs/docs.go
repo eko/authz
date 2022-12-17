@@ -868,6 +868,57 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "handler.CheckQuery": {
+            "type": "object",
+            "required": [
+                "action",
+                "principal",
+                "resource_kind",
+                "resource_value"
+            ],
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "principal": {
+                    "type": "string"
+                },
+                "resource_kind": {
+                    "type": "string"
+                },
+                "resource_value": {
+                    "type": "string"
+                },
+                "result": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.CheckRequest": {
+            "type": "object",
+            "required": [
+                "checks"
+            ],
+            "properties": {
+                "checks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.CheckQuery"
+                    }
+                }
+            }
+        },
+        "handler.CheckResponse": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.CheckQuery"
+                    }
+                }
+            }
+        },
         "handler.CreatePolicyRequest": {
             "type": "object",
             "required": [
@@ -899,8 +950,20 @@ const docTemplate = `{
                 "id"
             ],
             "properties": {
+                "attributes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "id": {
                     "type": "string"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -911,6 +974,12 @@ const docTemplate = `{
                 "kind"
             ],
             "properties": {
+                "attributes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "id": {
                     "type": "string"
                 },
@@ -962,7 +1031,21 @@ const docTemplate = `{
             }
         },
         "handler.UpdatePrincipalRequest": {
-            "type": "object"
+            "type": "object",
+            "properties": {
+                "attributes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
         },
         "handler.UpdateRoleRequest": {
             "type": "object",
@@ -1021,6 +1104,12 @@ const docTemplate = `{
                         "$ref": "#/definitions/model.Action"
                     }
                 },
+                "attribute_rules": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -1041,6 +1130,9 @@ const docTemplate = `{
         "model.Principal": {
             "type": "object",
             "properties": {
+                "attributes": {
+                    "type": "object"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -1064,6 +1156,9 @@ const docTemplate = `{
         "model.Resource": {
             "type": "object",
             "properties": {
+                "attributes": {
+                    "type": "object"
+                },
                 "created_at": {
                     "type": "string"
                 },

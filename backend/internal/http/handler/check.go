@@ -8,17 +8,12 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-const (
-	CheckResultAllowed = "allowed"
-	CheckResultDenied  = "denied"
-)
-
 type CheckQuery struct {
 	Principal     string `json:"principal" validate:"required,slug"`
 	ResourceKind  string `json:"resource_kind" validate:"required,slug"`
 	ResourceValue string `json:"resource_value" validate:"required,slug"`
 	Action        string `json:"action" validate:"required,slug"`
-	Result        string `json:"result"`
+	IsAllowed     bool   `json:"is_allowed"`
 }
 
 type CheckRequest struct {
@@ -36,7 +31,7 @@ type CheckResponse struct {
 //	@Tags		Authz
 //	@Produce	json
 //	@Param		default	body		CheckRequest	true	"Check request"
-//	@Success	200		{object}	model.CheckResponse
+//	@Success	200		{object}	CheckResponse
 //	@Failure	400		{object}	model.ErrorResponse
 //	@Failure	500		{object}	model.ErrorResponse
 //	@Router		/v1/policies [Post]
@@ -65,11 +60,7 @@ func Check(
 				return returnError(c, http.StatusInternalServerError, err)
 			}
 
-			if isAllowed {
-				check.Result = CheckResultAllowed
-			} else {
-				check.Result = CheckResultDenied
-			}
+			check.IsAllowed = isAllowed
 		}
 
 		return c.JSON(&CheckResponse{

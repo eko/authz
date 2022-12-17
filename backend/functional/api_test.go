@@ -2,13 +2,11 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"reflect"
 	"strings"
 
@@ -34,33 +32,6 @@ func (a *apiFeature) reset(*godog.Scenario) error {
 
 func (a *apiFeature) iSendRequestTo(method, endpoint string) error {
 	return a.httpCall(method, endpoint, nil, nil)
-}
-
-func (a *apiFeature) iSendMultipartRequestTo(endpoint, fieldName, packagePath string) error {
-	var body bytes.Buffer
-	var fw io.Writer
-	var err error
-
-	writer := multipart.NewWriter(&body)
-
-	file, err := os.Open(packagePath)
-	if err != nil {
-		return fmt.Errorf("unable to open package file: %v", err)
-	}
-
-	if fw, err = writer.CreateFormFile("package", file.Name()); err != nil {
-		return fmt.Errorf("error creating writer: %v", err)
-	}
-
-	if _, err = io.Copy(fw, file); err != nil {
-		return fmt.Errorf("error when copying file content to writer: %v", err)
-	}
-
-	writer.Close()
-
-	return a.httpCall("POST", endpoint, &godog.DocString{
-		Content: body.String(),
-	}, writer)
 }
 
 func (a *apiFeature) iSendRequestToWithPayload(method, endpoint string, body *godog.DocString) error {
