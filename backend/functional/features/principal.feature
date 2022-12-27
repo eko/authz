@@ -3,7 +3,8 @@ Feature: principal
   Test principal-related APIs
 
   Scenario: Create a new principal
-    Given I send "POST" request to "/v1/principals" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/principals" with payload:
       """
       {"id": "f438dfb8-4ae9-4668-9545-f98dba4b2337"}
       """
@@ -19,7 +20,8 @@ Feature: principal
       """
 
   Scenario: Retrieve a single principal
-    Given I send "POST" request to "/v1/principals" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/principals" with payload:
       """
       {"id": "f438dfb8-4ae9-4668-9545-f98dba4b2337"}
       """
@@ -37,7 +39,8 @@ Feature: principal
       """
 
   Scenario: Delete a single principal
-    Given I send "POST" request to "/v1/principals" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/principals" with payload:
       """
       {"id": "f438dfb8-4ae9-4668-9545-f98dba4b2337"}
       """
@@ -54,7 +57,8 @@ Feature: principal
     And the response code should be 404
 
   Scenario: Retrieve a list of principals
-    Given I send "POST" request to "/v1/principals" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/principals" with payload:
       """
       {"id": "f438dfb8-4ae9-4668-9545-f98dba4b2337"}
       """

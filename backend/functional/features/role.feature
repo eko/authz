@@ -3,7 +3,8 @@ Feature: role
   Test role-related APIs
 
   Scenario: Create a new role
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "post.123", "kind": "post", "value": "123"}
       """
@@ -46,7 +47,8 @@ Feature: role
       """
 
   Scenario: Update a role
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "post.123", "kind": "post", "value": "123"}
       """
@@ -109,7 +111,8 @@ Feature: role
       """
 
   Scenario: Retrieve a single role
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "post.123", "kind": "post", "value": "123"}
       """
@@ -154,7 +157,8 @@ Feature: role
       """
 
   Scenario: Delete a single role
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "post.123", "kind": "post", "value": "123"}
       """
@@ -192,7 +196,8 @@ Feature: role
     And the response code should be 404
 
   Scenario: Retrieve a list of roles
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "post.123", "kind": "post", "value": "123"}
       """

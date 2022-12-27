@@ -3,13 +3,13 @@ definitions:
     properties:
       action:
         type: string
+      is_allowed:
+        type: boolean
       principal:
         type: string
       resource_kind:
         type: string
       resource_value:
-        type: string
-      result:
         type: string
     required:
     - action
@@ -39,6 +39,10 @@ definitions:
         items:
           type: string
         type: array
+      attribute_rules:
+        items:
+          type: string
+        type: array
       id:
         type: string
       resources:
@@ -53,8 +57,7 @@ definitions:
   handler.CreatePrincipalRequest:
     properties:
       attributes:
-        additionalProperties:
-          type: string
+        additionalProperties: {}
         type: object
       id:
         type: string
@@ -68,8 +71,7 @@ definitions:
   handler.CreateResourceRequest:
     properties:
       attributes:
-        additionalProperties:
-          type: string
+        additionalProperties: {}
         type: object
       id:
         type: string
@@ -93,9 +95,38 @@ definitions:
     - id
     - policies
     type: object
+  handler.TokenRequest:
+    properties:
+      client_id:
+        example: 0be4e0e0-6788-4b99-8e00-e0af5b4945b1
+        type: string
+      client_secret:
+        example: EXCAdNZjCz0qJ_8uYA2clkxVdp_f1tm7
+        type: string
+      grant_type:
+        example: client_credentials
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  handler.TokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+    type: object
   handler.UpdatePolicyRequest:
     properties:
       actions:
+        items:
+          type: string
+        type: array
+      attribute_rules:
         items:
           type: string
         type: array
@@ -110,8 +141,7 @@ definitions:
   handler.UpdatePrincipalRequest:
     properties:
       attributes:
-        additionalProperties:
-          type: string
+        additionalProperties: {}
         type: object
       roles:
         items:
@@ -138,6 +168,15 @@ definitions:
       updated_at:
         type: string
     type: object
+  model.Attribute:
+    properties:
+      id:
+        type: integer
+      key:
+        type: string
+      value:
+        type: string
+    type: object
   model.ErrorResponse:
     properties:
       error:
@@ -156,9 +195,7 @@ definitions:
           $ref: '#/definitions/model.Action'
         type: array
       attribute_rules:
-        items:
-          type: string
-        type: array
+        type: object
       created_at:
         type: string
       id:
@@ -173,7 +210,9 @@ definitions:
   model.Principal:
     properties:
       attributes:
-        type: object
+        items:
+          $ref: '#/definitions/model.Attribute'
+        type: array
       created_at:
         type: string
       id:
@@ -190,7 +229,9 @@ definitions:
   model.Resource:
     properties:
       attributes:
-        type: object
+        items:
+          $ref: '#/definitions/model.Attribute'
+        type: array
       created_at:
         type: string
       id:
@@ -768,6 +809,35 @@ paths:
       security:
       - Authentication: []
       summary: Updates a role
+      tags:
+      - Authz
+  /v1/token:
+    post:
+      parameters:
+      - description: Token request
+        in: body
+        name: default
+        required: true
+        schema:
+          $ref: '#/definitions/handler.TokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Retrieve a client token
       tags:
       - Authz
 swagger: "2.0"

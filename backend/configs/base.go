@@ -8,17 +8,25 @@ import (
 	"github.com/heetch/confita/backend/env"
 )
 
+const (
+	ApplicationName = "authz"
+)
+
 type Base struct {
+	Auth       *Auth
 	Database   *Database
 	Logger     *Logger
 	HTTPServer *HTTPServer
+	User       *User
 }
 
 func Load(ctx context.Context) *Base {
 	var cfg = &Base{
+		Auth:       newAuth(),
 		Database:   newDatabase(),
 		Logger:     newLogger(),
 		HTTPServer: newHTTPServer(),
+		User:       newUser(),
 	}
 
 	loader := confita.NewLoader(

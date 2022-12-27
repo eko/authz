@@ -10,6 +10,6 @@ func Register(
 	validate *validator.Validate,
 ) {
 	if err := validate.RegisterValidation("slug", ValidateSlug); err != nil {
-		logger.Error("unable to register slug validation rule", err)
+		logger.Error("Unable to register slug validation rule", err)
 	}
 }

@@ -9,7 +9,9 @@ import (
 	// replace with your own docs folder, usually "github.com/username/reponame/docs"
 	_ "github.com/eko/authz/backend/internal/http/docs"
 	"github.com/eko/authz/backend/internal/http/handler"
+	"github.com/eko/authz/backend/internal/http/middleware"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
@@ -18,13 +20,13 @@ func (s *Server) setSwagger() {
 	s.app.Get("/swagger/*", swagger.HandlerDefault)
 }
 
-//	@title						Authz API
-//	@version					1.0
-//	@description				Authorization management HTTP APIs
-//	@securitydefinitions.apikey	Authentication
-//	@in							header
-//	@name						Authorization
-//	@BasePath					/v1
+// @title						Authz API
+// @version					1.0
+// @description				Authorization management HTTP APIs
+// @securitydefinitions.apikey	Authentication
+// @in							header
+// @name						Authorization
+// @BasePath					/v1
 func (s *Server) setRoutes() {
 	s.app.Use(
 		cors.New(cors.Config{
@@ -38,37 +40,56 @@ func (s *Server) setRoutes() {
 
 	base := s.app.Group("/v1")
 	{
-		base.Post("/check", s.handlers.Get(handler.CheckKey))
+		base.Post("/auth", s.handlers.Get(handler.AuthAuthenticateKey))
+		base.Post("/token", s.handlers.Get(handler.AuthTokenNewKey))
 
-		actions := base.Group("/actions")
-		actions.Get("", s.handlers.Get(handler.ActionListKey))
-		actions.Get("/:identifier", s.handlers.Get(handler.ActionGetKey))
+		authenticated := base.Use(s.middlewares.Get(middleware.AuthenticationKey))
 
-		policies := base.Group("/policies")
+		clients := authenticated.Group("/clients")
+		clients.Post("", s.handlers.Get(handler.ClientCreateKey))
+		clients.Get("", s.handlers.Get(handler.ClientListKey))
+
+		authenticated.Post("/check", s.handlers.Get(handler.CheckKey))
+
+		actions := authenticated.Group("/actions")
+		actions.Get("", s.authorized("authz.actions", "list", s.handlers.Get(handler.ActionListKey))...)
+		actions.Get("/:identifier", s.authorized("authz.actions", "get", s.handlers.Get(handler.ActionGetKey))...)
+
+		policies := authenticated.Group("/policies")
 		policies.Post("", s.handlers.Get(handler.PolicyCreateKey))
 		policies.Get("", s.handlers.Get(handler.PolicyListKey))
 		policies.Get("/:identifier", s.handlers.Get(handler.PolicyGetKey))
 		policies.Delete("/:identifier", s.handlers.Get(handler.PolicyDeleteKey))
 		policies.Put("/:identifier", s.handlers.Get(handler.PolicyUpdateKey))
 
-		resources := base.Group("/resources")
+		resources := authenticated.Group("/resources")
 		resources.Post("", s.handlers.Get(handler.ResourceCreateKey))
 		resources.Get("", s.handlers.Get(handler.ResourceListKey))
 		resources.Get("/:identifier", s.handlers.Get(handler.ResourceGetKey))
 		resources.Delete("/:identifier", s.handlers.Get(handler.ResourceDeleteKey))
 
-		role := base.Group("/roles")
+		role := authenticated.Group("/roles")
 		role.Post("", s.handlers.Get(handler.RoleCreateKey))
 		role.Get("", s.handlers.Get(handler.RoleListKey))
 		role.Get("/:identifier", s.handlers.Get(handler.RoleGetKey))
 		role.Delete("/:identifier", s.handlers.Get(handler.RoleDeleteKey))
 		role.Put("/:identifier", s.handlers.Get(handler.RoleUpdateKey))
 
-		principals := base.Group("/principals")
+		principals := authenticated.Group("/principals")
 		principals.Post("", s.handlers.Get(handler.PrincipalCreateKey))
 		principals.Get("", s.handlers.Get(handler.PrincipalListKey))
 		principals.Get("/:identifier", s.handlers.Get(handler.PrincipalGetKey))
 		principals.Delete("/:identifier", s.handlers.Get(handler.PrincipalDeleteKey))
 		principals.Put("/:identifier", s.handlers.Get(handler.PrincipalUpdateKey))
 	}
+}
+
+func (s *Server) authorized(resourceKind string, action string, handler fiber.Handler) []fiber.Handler {
+	var handlers = []fiber.Handler{
+		middleware.DiscoverResource(resourceKind, action),
+		s.middlewares.Get(middleware.AuthorizationKey),
+		handler,
+	}
+
+	return handlers
 }

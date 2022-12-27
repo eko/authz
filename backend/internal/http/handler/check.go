@@ -50,7 +50,6 @@ func Check(
 		// Validate body
 		if err := validateStruct(validate, request); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(err)
-
 		}
 
 		// Create policy

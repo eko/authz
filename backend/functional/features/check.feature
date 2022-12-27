@@ -3,7 +3,8 @@ Feature: check
   Test check-related APIs
 
   Scenario: Check for access (using RBAC)
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "post.123", "kind": "post", "value": "123"}
       """
@@ -121,7 +122,8 @@ Feature: check
       """
 
   Scenario: Check for access (using ABAC)
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {
         "id": "post.123",

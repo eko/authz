@@ -3,7 +3,8 @@ Feature: resource
   Test resource-related APIs
 
   Scenario: Create a new resource (without value)
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "all-posts", "kind": "post"}
       """
@@ -21,7 +22,8 @@ Feature: resource
       """
 
   Scenario: Create a new resource (with value)
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "custom-post", "kind": "post", "value": "97fdb1dc-b1e0-4652-ab82-5d174031a681"}
       """
@@ -39,7 +41,8 @@ Feature: resource
       """
 
   Scenario: Retrieve a single resource
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "all-posts", "kind": "post", "value": "*"}
       """
@@ -59,7 +62,8 @@ Feature: resource
       """
 
   Scenario: Delete a single resource
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "all-posts", "kind": "post", "value": "*"}
       """
@@ -76,7 +80,8 @@ Feature: resource
     And the response code should be 404
 
   Scenario: Retrieve a list of resources
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "all-posts", "kind": "post", "value": "*"}
       """

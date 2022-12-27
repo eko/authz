@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -122,6 +124,21 @@ func returnError(c *fiber.Ctx, statusCode int, err error) error {
 		Error:   true,
 		Message: err.Error(),
 	})
+}
+
+func returnHTTPError(w http.ResponseWriter, statusCode int, err error) {
+	w.WriteHeader(statusCode)
+
+	responseBytes, err := json.Marshal(model.ErrorResponse{
+		Error:   true,
+		Message: err.Error(),
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	_, _ = w.Write(responseBytes)
 }
 
 func validateStruct(validate *validator.Validate, request any) *model.ErrorResponse {

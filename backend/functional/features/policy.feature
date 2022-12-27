@@ -3,7 +3,8 @@ Feature: policy
   Test policy-related APIs
 
   Scenario: Create a new policy
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "post.123", "kind": "post", "value": "123"}
       """
@@ -25,7 +26,6 @@ Feature: policy
         "actions": [
           {
             "id": "create",
-            "is_locked": false,
             "created_at": "2100-01-01T02:00:00+01:00",
             "updated_at": "2100-01-01T02:00:00+01:00"
           }
@@ -47,7 +47,8 @@ Feature: policy
       """
 
   Scenario: Update a policy
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "post.123", "kind": "post", "value": "123"}
       """
@@ -84,7 +85,6 @@ Feature: policy
         "actions": [
           {
             "id": "update",
-            "is_locked": false,
             "created_at": "2100-01-01T02:00:00+01:00",
             "updated_at": "2100-01-01T02:00:00+01:00"
           }
@@ -106,7 +106,8 @@ Feature: policy
       """
 
   Scenario: Retrieve a single policy
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "post.123", "kind": "post", "value": "123"}
       """
@@ -130,7 +131,6 @@ Feature: policy
         "actions": [
           {
             "id": "create",
-            "is_locked": false,
             "created_at": "2100-01-01T02:00:00+01:00",
             "updated_at": "2100-01-01T02:00:00+01:00"
           }
@@ -152,7 +152,8 @@ Feature: policy
       """
 
   Scenario: Delete a single policy
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "post.123", "kind": "post", "value": "123"}
       """
@@ -180,7 +181,8 @@ Feature: policy
     And the response code should be 404
 
   Scenario: Retrieve a list of policies
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "post.123", "kind": "post", "value": "123"}
       """
@@ -217,7 +219,6 @@ Feature: policy
             "actions": [
               {
                 "id": "create",
-                "is_locked": false,
                 "created_at": "2100-01-01T02:00:00+01:00",
                 "updated_at": "2100-01-01T02:00:00+01:00"
               }
@@ -240,7 +241,6 @@ Feature: policy
             "actions": [
               {
                 "id": "update",
-                "is_locked": false,
                 "created_at": "2100-01-01T02:00:00+01:00",
                 "updated_at": "2100-01-01T02:00:00+01:00"
               }

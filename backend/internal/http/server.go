@@ -10,13 +10,15 @@ import (
 
 	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/http/handler"
+	"github.com/eko/authz/backend/internal/http/middleware"
 )
 
 type Server struct {
-	cfg      *configs.HTTPServer
-	logger   *slog.Logger
-	app      *fiber.App
-	handlers handler.Handlers
+	cfg         *configs.HTTPServer
+	logger      *slog.Logger
+	app         *fiber.App
+	handlers    handler.Handlers
+	middlewares middleware.Middlewares
 }
 
 func NewServer(
@@ -24,12 +26,14 @@ func NewServer(
 	cfg *configs.HTTPServer,
 	logger *slog.Logger,
 	handlers handler.Handlers,
+	middlewares middleware.Middlewares,
 ) *Server {
 	server := &Server{
-		cfg:      cfg,
-		logger:   logger,
-		app:      app,
-		handlers: handlers,
+		cfg:         cfg,
+		logger:      logger,
+		app:         app,
+		handlers:    handlers,
+		middlewares: middlewares,
 	}
 
 	server.setSwagger()

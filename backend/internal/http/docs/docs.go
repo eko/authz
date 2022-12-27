@@ -865,6 +865,53 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/v1/token": {
+            "post": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Authz"
+                ],
+                "summary": "Retrieve a client token",
+                "parameters": [
+                    {
+                        "description": "Token request",
+                        "name": "default",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.TokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.TokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -880,6 +927,9 @@ const docTemplate = `{
                 "action": {
                     "type": "string"
                 },
+                "is_allowed": {
+                    "type": "boolean"
+                },
                 "principal": {
                     "type": "string"
                 },
@@ -887,9 +937,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "resource_value": {
-                    "type": "string"
-                },
-                "result": {
                     "type": "string"
                 }
             }
@@ -933,6 +980,12 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "attribute_rules": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "id": {
                     "type": "string"
                 },
@@ -952,9 +1005,7 @@ const docTemplate = `{
             "properties": {
                 "attributes": {
                     "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
+                    "additionalProperties": {}
                 },
                 "id": {
                     "type": "string"
@@ -976,9 +1027,7 @@ const docTemplate = `{
             "properties": {
                 "attributes": {
                     "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
+                    "additionalProperties": {}
                 },
                 "id": {
                     "type": "string"
@@ -1009,6 +1058,43 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.TokenRequest": {
+            "type": "object",
+            "properties": {
+                "client_id": {
+                    "type": "string",
+                    "example": "0be4e0e0-6788-4b99-8e00-e0af5b4945b1"
+                },
+                "client_secret": {
+                    "type": "string",
+                    "example": "EXCAdNZjCz0qJ_8uYA2clkxVdp_f1tm7"
+                },
+                "grant_type": {
+                    "type": "string",
+                    "example": "client_credentials"
+                },
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.TokenResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "expires_in": {
+                    "type": "integer"
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
+                "token_type": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.UpdatePolicyRequest": {
             "type": "object",
             "required": [
@@ -1017,6 +1103,12 @@ const docTemplate = `{
             ],
             "properties": {
                 "actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "attribute_rules": {
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -1035,9 +1127,7 @@ const docTemplate = `{
             "properties": {
                 "attributes": {
                     "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
+                    "additionalProperties": {}
                 },
                 "roles": {
                     "type": "array",
@@ -1078,6 +1168,20 @@ const docTemplate = `{
                 }
             }
         },
+        "model.Attribute": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "model.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -1105,10 +1209,7 @@ const docTemplate = `{
                     }
                 },
                 "attribute_rules": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                    "type": "object"
                 },
                 "created_at": {
                     "type": "string"
@@ -1131,7 +1232,10 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "attributes": {
-                    "type": "object"
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Attribute"
+                    }
                 },
                 "created_at": {
                     "type": "string"
@@ -1157,7 +1261,10 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "attributes": {
-                    "type": "object"
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Attribute"
+                    }
                 },
                 "created_at": {
                     "type": "string"

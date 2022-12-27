@@ -23,6 +23,7 @@ func ResourceSplit(resource string) (string, string) {
 	return kind, value
 }
 
+// CastAnyToString casts a value of any type to a string.
 func CastAnyToString(value any) (string, error) {
 	switch v := value.(type) {
 	case string:

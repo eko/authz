@@ -1,38 +1,45 @@
 package handler
 
 import (
+	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/manager"
+	"github.com/eko/authz/backend/internal/security/paseto"
+	"github.com/go-oauth2/oauth2/v4/server"
 	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
 )
 
 const (
-	ActionListKey      = "action-list"
-	ActionGetKey       = "action-get"
-	CheckKey           = "check"
-	PolicyCreateKey    = "policy-create"
-	PolicyDeleteKey    = "policy-delete"
-	PolicyUpdateKey    = "policy-update"
-	PolicyListKey      = "policy-list"
-	PolicyGetKey       = "policy-get"
-	ResourceCreateKey  = "resource-create"
-	ResourceDeleteKey  = "resource-delete"
-	ResourceListKey    = "resource-list"
-	ResourceGetKey     = "resource-get"
-	RoleCreateKey      = "role-create"
-	RoleDeleteKey      = "role-delete"
-	RoleUpdateKey      = "role-update"
-	RoleListKey        = "role-list"
-	RoleGetKey         = "role-get"
-	PrincipalCreateKey = "principal-create"
-	PrincipalDeleteKey = "principal-delete"
-	PrincipalUpdateKey = "principal-update"
-	PrincipalListKey   = "principal-list"
-	PrincipalGetKey    = "principal-get"
+	ActionGetKey        = "action-get"
+	ActionListKey       = "action-list"
+	AuthAuthenticateKey = "auth-authenticate"
+	AuthTokenNewKey     = "auth-token-new"
+	CheckKey            = "check"
+	ClientCreateKey     = "client-create-key"
+	ClientListKey       = "client-list-key"
+	PolicyCreateKey     = "policy-create"
+	PolicyDeleteKey     = "policy-delete"
+	PolicyGetKey        = "policy-get"
+	PolicyListKey       = "policy-list"
+	PolicyUpdateKey     = "policy-update"
+	PrincipalCreateKey  = "principal-create"
+	PrincipalDeleteKey  = "principal-delete"
+	PrincipalGetKey     = "principal-get"
+	PrincipalListKey    = "principal-list"
+	PrincipalUpdateKey  = "principal-update"
+	ResourceCreateKey   = "resource-create"
+	ResourceDeleteKey   = "resource-delete"
+	ResourceGetKey      = "resource-get"
+	ResourceListKey     = "resource-list"
+	RoleCreateKey       = "role-create"
+	RoleDeleteKey       = "role-delete"
+	RoleGetKey          = "role-get"
+	RoleListKey         = "role-list"
+	RoleUpdateKey       = "role-update"
 )
 
 type Handler fiber.Handler
-
 type Handlers map[string]Handler
 
 func (h Handlers) Get(name string) Handler {
@@ -40,31 +47,38 @@ func (h Handlers) Get(name string) Handler {
 }
 
 func NewHandlers(
+	authCfg *configs.Auth,
 	validate *validator.Validate,
 	manager manager.Manager,
+	tokenManager paseto.Manager,
+	oauthServer *server.Server,
 ) Handlers {
 	return Handlers{
-		ActionListKey:      ActionList(manager),
-		ActionGetKey:       ActionGet(manager),
-		CheckKey:           Check(validate, manager),
-		PolicyCreateKey:    PolicyCreate(validate, manager),
-		PolicyDeleteKey:    PolicyDelete(manager),
-		PolicyUpdateKey:    PolicyUpdate(validate, manager),
-		PolicyListKey:      PolicyList(manager),
-		PolicyGetKey:       PolicyGet(manager),
-		ResourceCreateKey:  ResourceCreate(validate, manager),
-		ResourceDeleteKey:  ResourceDelete(manager),
-		ResourceListKey:    ResourceList(manager),
-		ResourceGetKey:     ResourceGet(manager),
-		RoleCreateKey:      RoleCreate(validate, manager),
-		RoleDeleteKey:      RoleDelete(manager),
-		RoleUpdateKey:      RoleUpdate(validate, manager),
-		RoleListKey:        RoleList(manager),
-		RoleGetKey:         RoleGet(manager),
-		PrincipalCreateKey: PrincipalCreate(validate, manager),
-		PrincipalDeleteKey: PrincipalDelete(manager),
-		PrincipalUpdateKey: PrincipalUpdate(validate, manager),
-		PrincipalListKey:   PrincipalList(manager),
-		PrincipalGetKey:    PrincipalGet(manager),
+		ActionGetKey:        ActionGet(manager),
+		ActionListKey:       ActionList(manager),
+		AuthAuthenticateKey: Authenticate(validate, manager, authCfg, tokenManager),
+		AuthTokenNewKey:     adaptor.HTTPHandlerFunc(TokenNew(oauthServer)),
+		CheckKey:            Check(validate, manager),
+		ClientCreateKey:     ClientCreate(validate, manager, authCfg),
+		ClientListKey:       ClientList(manager),
+		PolicyCreateKey:     PolicyCreate(validate, manager),
+		PolicyDeleteKey:     PolicyDelete(manager),
+		PolicyGetKey:        PolicyGet(manager),
+		PolicyListKey:       PolicyList(manager),
+		PolicyUpdateKey:     PolicyUpdate(validate, manager),
+		PrincipalCreateKey:  PrincipalCreate(validate, manager),
+		PrincipalDeleteKey:  PrincipalDelete(manager),
+		PrincipalGetKey:     PrincipalGet(manager),
+		PrincipalListKey:    PrincipalList(manager),
+		PrincipalUpdateKey:  PrincipalUpdate(validate, manager),
+		ResourceCreateKey:   ResourceCreate(validate, manager),
+		ResourceDeleteKey:   ResourceDelete(manager),
+		ResourceGetKey:      ResourceGet(manager),
+		ResourceListKey:     ResourceList(manager),
+		RoleCreateKey:       RoleCreate(validate, manager),
+		RoleDeleteKey:       RoleDelete(manager),
+		RoleGetKey:          RoleGet(manager),
+		RoleListKey:         RoleList(manager),
+		RoleUpdateKey:       RoleUpdate(validate, manager),
 	}
 }

@@ -26,7 +26,6 @@ SET default_table_access_method = heap;
 
 CREATE TABLE public.authz_actions (
     id text NOT NULL,
-    is_locked boolean,
     created_at timestamp with time zone,
     updated_at timestamp with time zone
 );
@@ -69,6 +68,23 @@ ALTER SEQUENCE public.authz_attributes_id_seq OWNED BY public.authz_attributes.i
 
 
 --
+-- Name: authz_clients; Type: TABLE; Schema: public; Owner: root
+--
+
+CREATE TABLE public.authz_clients (
+    id text NOT NULL,
+    name text,
+    secret character varying(512),
+    domain character varying(512),
+    data text,
+    created_at timestamp with time zone,
+    updated_at timestamp with time zone
+);
+
+
+ALTER TABLE public.authz_clients OWNER TO root;
+
+--
 -- Name: authz_compiled_policies; Type: TABLE; Schema: public; Owner: root
 --
 
@@ -85,6 +101,45 @@ CREATE TABLE public.authz_compiled_policies (
 
 
 ALTER TABLE public.authz_compiled_policies OWNER TO root;
+
+--
+-- Name: authz_oauth_tokens; Type: TABLE; Schema: public; Owner: root
+--
+
+CREATE TABLE public.authz_oauth_tokens (
+    id bigint NOT NULL,
+    code character varying(512),
+    access character varying(512),
+    refresh character varying(512),
+    data text,
+    expired_at bigint,
+    created_at timestamp with time zone,
+    updated_at timestamp with time zone
+);
+
+
+ALTER TABLE public.authz_oauth_tokens OWNER TO root;
+
+--
+-- Name: authz_oauth_tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: root
+--
+
+CREATE SEQUENCE public.authz_oauth_tokens_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.authz_oauth_tokens_id_seq OWNER TO root;
+
+--
+-- Name: authz_oauth_tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: root
+--
+
+ALTER SEQUENCE public.authz_oauth_tokens_id_seq OWNED BY public.authz_oauth_tokens.id;
+
 
 --
 -- Name: authz_policies; Type: TABLE; Schema: public; Owner: root
@@ -155,8 +210,8 @@ ALTER TABLE public.authz_principals_attributes OWNER TO root;
 --
 
 CREATE TABLE public.authz_principals_roles (
-    principal_id text NOT NULL,
-    role_id text NOT NULL
+    role_id text NOT NULL,
+    principal_id text NOT NULL
 );
 
 
@@ -216,10 +271,31 @@ CREATE TABLE public.authz_roles_policies (
 ALTER TABLE public.authz_roles_policies OWNER TO root;
 
 --
+-- Name: authz_users; Type: TABLE; Schema: public; Owner: root
+--
+
+CREATE TABLE public.authz_users (
+    username text NOT NULL,
+    password_hash text,
+    created_at timestamp with time zone,
+    updated_at timestamp with time zone
+);
+
+
+ALTER TABLE public.authz_users OWNER TO root;
+
+--
 -- Name: authz_attributes id; Type: DEFAULT; Schema: public; Owner: root
 --
 
 ALTER TABLE ONLY public.authz_attributes ALTER COLUMN id SET DEFAULT nextval('public.authz_attributes_id_seq'::regclass);
+
+
+--
+-- Name: authz_oauth_tokens id; Type: DEFAULT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_oauth_tokens ALTER COLUMN id SET DEFAULT nextval('public.authz_oauth_tokens_id_seq'::regclass);
 
 
 --
@@ -236,6 +312,22 @@ ALTER TABLE ONLY public.authz_actions
 
 ALTER TABLE ONLY public.authz_attributes
     ADD CONSTRAINT authz_attributes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: authz_clients authz_clients_pkey; Type: CONSTRAINT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_clients
+    ADD CONSTRAINT authz_clients_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: authz_oauth_tokens authz_oauth_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_oauth_tokens
+    ADD CONSTRAINT authz_oauth_tokens_pkey PRIMARY KEY (id);
 
 
 --
@@ -283,7 +375,7 @@ ALTER TABLE ONLY public.authz_principals
 --
 
 ALTER TABLE ONLY public.authz_principals_roles
-    ADD CONSTRAINT authz_principals_roles_pkey PRIMARY KEY (principal_id, role_id);
+    ADD CONSTRAINT authz_principals_roles_pkey PRIMARY KEY (role_id, principal_id);
 
 
 --
@@ -316,6 +408,14 @@ ALTER TABLE ONLY public.authz_roles
 
 ALTER TABLE ONLY public.authz_roles_policies
     ADD CONSTRAINT authz_roles_policies_pkey PRIMARY KEY (role_id, policy_id);
+
+
+--
+-- Name: authz_users authz_users_pkey; Type: CONSTRAINT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_users
+    ADD CONSTRAINT authz_users_pkey PRIMARY KEY (username);
 
 
 --

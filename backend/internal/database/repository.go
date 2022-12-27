@@ -85,6 +85,13 @@ func NewRepository[T model.Models](db *gorm.DB) *Repository[T] {
 	}
 }
 
+// WithTransaction returns a new repository instance using a transaction database.
+func (r *Repository[T]) WithTransaction(transaction Transaction) *Repository[T] {
+	return &Repository[T]{
+		db: transaction.DB(),
+	}
+}
+
 // Create allows to create a new entry in a database table.
 func (r *Repository[T]) Create(object ...*T) error {
 	return r.db.Create(object).Error

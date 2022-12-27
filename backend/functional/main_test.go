@@ -20,10 +20,13 @@ import (
 	"github.com/eko/authz/backend/internal/compile"
 	"github.com/eko/authz/backend/internal/database"
 	"github.com/eko/authz/backend/internal/event"
+	"github.com/eko/authz/backend/internal/fixtures"
 	"github.com/eko/authz/backend/internal/helper"
 	"github.com/eko/authz/backend/internal/http"
 	"github.com/eko/authz/backend/internal/log"
 	"github.com/eko/authz/backend/internal/manager"
+	"github.com/eko/authz/backend/internal/oauth"
+	"github.com/eko/authz/backend/internal/security"
 	"github.com/spf13/pflag"
 	"go.uber.org/fx"
 	"gorm.io/gorm"
@@ -62,10 +65,13 @@ func TestMain(m *testing.M) {
 		compile.FxModule(),
 		database.FxModule(),
 		event.FxModule(),
+		fixtures.FxModule(),
 		helper.FxModule(),
 		http.FxModule(),
 		log.FxModule(),
 		manager.FxModule(),
+		oauth.FxModule(),
+		security.FxModule(),
 
 		fx.Provide(
 			configs.Load,
@@ -75,6 +81,8 @@ func TestMain(m *testing.M) {
 				cfg.Logger.Level = "ERROR"
 				return cfg.Logger
 			},
+			func(cfg *configs.Base) *configs.Auth { return cfg.Auth },
+			func(cfg *configs.Base) *configs.User { return cfg.User },
 		),
 
 		fx.Invoke(
@@ -87,7 +95,7 @@ func TestMain(m *testing.M) {
 	app.Start(ctx)
 
 	status := godog.TestSuite{
-		Name:                "authz",
+		Name:                configs.ApplicationName,
 		ScenarioInitializer: InitializeScenario,
 		Options:             &opts,
 	}.Run()
@@ -115,6 +123,8 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 		authz_policies_resources,
 		authz_policies,
 		authz_resources,
+		authz_clients,
+		authz_oauth_tokens,
 		authz_actions RESTART IDENTITY CASCADE
 		;`).Error; err != nil {
 			l.Fatalf("Unable to truncate tables: %v\n", err)
@@ -140,6 +150,7 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 		time.Sleep(duration)
 		return nil
 	})
+	ctx.Step(`^I authenticate with username "([^"]*)" and password "([^"]*)"$`, api.iAuthenticateWithUsernameAndPassword)
 	ctx.Step(`^I send "(GET|POST|PUT|DELETE)" request to "([^"]*)"$`, api.iSendRequestTo)
 	ctx.Step(`^I send "(GET|POST|PUT|DELETE)" request to "([^"]*)" with payload:$`, api.iSendRequestToWithPayload)
 	ctx.Step(`^the response code should be (\d+)$`, api.theResponseCodeShouldBe)

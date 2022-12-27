@@ -11,6 +11,8 @@ func FxModule() fx.Option {
 			func(cfg *Base) *Database { return cfg.Database },
 			func(cfg *Base) *Logger { return cfg.Logger },
 			func(cfg *Base) *HTTPServer { return cfg.HTTPServer },
+			func(cfg *Base) *Auth { return cfg.Auth },
+			func(cfg *Base) *User { return cfg.User },
 		),
 	)
 }

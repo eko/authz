@@ -3,7 +3,8 @@ Feature: action
   Test action-related APIs
 
   Scenario: Retrieve a single action
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "post.123", "kind": "post", "value": "123"}
       """
@@ -25,14 +26,14 @@ Feature: action
       """
       {
         "id": "create",
-        "is_locked": false,
         "created_at": "2100-01-01T02:00:00+01:00",
         "updated_at": "2100-01-01T02:00:00+01:00"
       }
       """
 
   Scenario: Retrieve a list of actions
-    Given I send "POST" request to "/v1/resources" with payload:
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
       """
       {"id": "post.123", "kind": "post", "value": "123"}
       """
@@ -56,13 +57,11 @@ Feature: action
         "data": [
           {
             "id": "create",
-            "is_locked": false,
             "created_at": "2100-01-01T02:00:00+01:00",
             "updated_at": "2100-01-01T02:00:00+01:00"
           },
           {
             "id": "delete",
-            "is_locked": false,
             "created_at": "2100-01-01T02:00:00+01:00",
             "updated_at": "2100-01-01T02:00:00+01:00"
           }

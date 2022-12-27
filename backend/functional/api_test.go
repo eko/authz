@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/cucumber/godog"
+	"github.com/eko/authz/backend/internal/http/handler"
 )
 
 var (
@@ -30,24 +31,43 @@ func (a *apiFeature) reset(*godog.Scenario) error {
 	return nil
 }
 
+func (a *apiFeature) iAuthenticateWithUsernameAndPassword(username, password string) error {
+	content := strings.NewReader(fmt.Sprintf(`{"username": "%s", "password": "%s"}`, username, password))
+
+	if err := a.httpCall(http.MethodPost, "/v1/auth", content, nil); err != nil {
+		return err
+	}
+
+	defer a.resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(a.resp.Body)
+	if err != nil {
+		return fmt.Errorf("unable to read authentication response body: %v", err)
+	}
+
+	response := &handler.AuthResponse{}
+	if err := json.Unmarshal(bodyBytes, response); err != nil {
+		return fmt.Errorf("unable to unmarshal authentication response: %v", err)
+	}
+
+	a.token = response.AccessToken
+
+	return nil
+}
+
 func (a *apiFeature) iSendRequestTo(method, endpoint string) error {
 	return a.httpCall(method, endpoint, nil, nil)
 }
 
 func (a *apiFeature) iSendRequestToWithPayload(method, endpoint string, body *godog.DocString) error {
-	return a.httpCall(method, endpoint, body, nil)
+	reader := strings.NewReader(body.Content)
+	return a.httpCall(method, endpoint, reader, nil)
 }
 
-func (a *apiFeature) httpCall(method, endpoint string, body *godog.DocString, writer *multipart.Writer) error {
-	var reader io.Reader
-
-	if body != nil {
-		reader = strings.NewReader(body.Content)
-	}
-
+func (a *apiFeature) httpCall(method, endpoint string, content io.Reader, writer *multipart.Writer) error {
 	url := baseURL + endpoint
 
-	req, err := http.NewRequest(method, url, reader)
+	req, err := http.NewRequest(method, url, content)
 	if err != nil {
 		return fmt.Errorf("unable to prepare http request: %w", err)
 	}

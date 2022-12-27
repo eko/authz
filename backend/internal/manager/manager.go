@@ -4,10 +4,15 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/attribute"
 	"github.com/eko/authz/backend/internal/database"
 	"github.com/eko/authz/backend/internal/database/model"
 	"github.com/eko/authz/backend/internal/event"
+	"github.com/eko/authz/backend/internal/helper/token"
+	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
 
@@ -17,17 +22,21 @@ const (
 
 type Manager interface {
 	CreateAction(identifier string) (*model.Action, error)
+	CreateClient(name string, domain string) (*model.Client, error)
 	CreateCompiledPolicy(compiledPolicy []*model.CompiledPolicy) error
 	CreatePolicy(identifier string, resources []string, actions []string, attributeRules []string) (*model.Policy, error)
 	CreatePrincipal(identifier string, roles []string, attributes map[string]any) (*model.Principal, error)
 	CreateResource(identifier string, kind string, value string, attributes map[string]any) (*model.Resource, error)
 	CreateRole(identifier string, policies []string) (*model.Role, error)
+	CreateUser(username string, password string) (*model.User, error)
 	GetActionRepository() *database.Repository[model.Action]
+	GetClientRepository() *database.Repository[model.Client]
 	GetCompiledPolicyRepository() *database.Repository[model.CompiledPolicy]
 	GetPolicyRepository() *database.Repository[model.Policy]
 	GetPrincipalRepository() *database.Repository[model.Principal]
 	GetResourceRepository() *database.ResourceRepository
 	GetRoleRepository() *database.Repository[model.Role]
+	GetUserRepository() *database.Repository[model.User]
 	IsAllowed(principalID string, resourceKind string, resourceValue string, actionID string) (bool, error)
 	UpdatePolicy(identifier string, resources []string, actions []string, attributeRules []string) (*model.Policy, error)
 	UpdatePrincipal(identifier string, roles []string, attributes map[string]any) (*model.Principal, error)
@@ -35,39 +44,53 @@ type Manager interface {
 }
 
 type manager struct {
-	dispatcher               event.Dispatcher
+	logger                   *slog.Logger
 	db                       *gorm.DB
+	transactionManager       database.TransactionManager
+	dispatcher               event.Dispatcher
+	tokenGenerator           token.Generator
 	actionRepository         *database.Repository[model.Action]
 	attributeRepository      *database.Repository[model.Attribute]
+	clientRepository         *database.Repository[model.Client]
 	compiledPolicyRepository *database.Repository[model.CompiledPolicy]
 	policyRepository         *database.Repository[model.Policy]
 	resourceRepository       *database.ResourceRepository
 	roleRepository           *database.Repository[model.Role]
 	principalRepository      *database.Repository[model.Principal]
+	userRepository           *database.Repository[model.User]
 }
 
 func New(
-	dispatcher event.Dispatcher,
+	logger *slog.Logger,
 	db *gorm.DB,
+	transactionManager database.TransactionManager,
+	dispatcher event.Dispatcher,
+	tokenGenerator token.Generator,
 	actionRepository *database.Repository[model.Action],
 	attributeRepository *database.Repository[model.Attribute],
+	clientRepository *database.Repository[model.Client],
 	compiledPolicyRepository *database.Repository[model.CompiledPolicy],
 	policyRepository *database.Repository[model.Policy],
 	resourceRepository *database.ResourceRepository,
 	roleRepository *database.Repository[model.Role],
 	principalRepository *database.Repository[model.Principal],
-
+	userRepository *database.Repository[model.User],
 ) *manager {
 	return &manager{
-		dispatcher:               dispatcher,
+		logger:                   logger,
 		db:                       db,
+		transactionManager:       transactionManager,
+		dispatcher:               dispatcher,
+		tokenGenerator:           tokenGenerator,
 		actionRepository:         actionRepository,
 		attributeRepository:      attributeRepository,
+		clientRepository:         clientRepository,
 		compiledPolicyRepository: compiledPolicyRepository,
 		policyRepository:         policyRepository,
 		resourceRepository:       resourceRepository,
 		roleRepository:           roleRepository,
 		principalRepository:      principalRepository,
+		userRepository:           userRepository,
 	}
 }
 
@@ -90,6 +113,42 @@ func (m *manager) CreateAction(identifier string) (*model.Action, error) {
 	}
 
 	return action, nil
+}
+
+func (m *manager) CreateClient(name string, domain string) (*model.Client, error) {
+	exists, err := m.clientRepository.GetByFields(map[string]database.FieldValue{
+		"name": {Operator: "=", Value: name},
+	})
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("unable to check for existing client: %v", err)
+	}
+
+	if exists != nil {
+		return nil, fmt.Errorf("a client already exists with name %q", name)
+	}
+
+	clientID, err := uuid.NewUUID()
+	if err != nil {
+		return nil, fmt.Errorf("unable to generate client identifier: %v", err)
+	}
+
+	secret, err := m.tokenGenerator.Generate(48)
+	if err != nil {
+		return nil, fmt.Errorf("unable to generate client secret: %v", err)
+	}
+
+	client := &model.Client{
+		ID:     clientID.String(),
+		Secret: secret,
+		Domain: domain,
+		Name:   name,
+	}
+
+	if err := m.clientRepository.Create(client); err != nil {
+		return nil, fmt.Errorf("unable to create client: %v", err)
+	}
+
+	return client, nil
 }
 
 func (m *manager) CreateCompiledPolicy(compiledPolicy []*model.CompiledPolicy) error {
@@ -346,6 +405,53 @@ func (m *manager) CreateRole(identifier string, policies []string) (*model.Role,
 	return role, nil
 }
 
+func (m *manager) CreateUser(username string, password string) (*model.User, error) {
+	exists, err := m.userRepository.GetByFields(map[string]database.FieldValue{
+		"username": {Operator: "=", Value: username},
+	})
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("unable to check for existing user: %v", err)
+	}
+
+	if exists != nil {
+		return nil, fmt.Errorf("a user already exists with username %q", username)
+	}
+
+	if password == "" {
+		password, err = m.tokenGenerator.Generate(10)
+		if err != nil {
+			return nil, fmt.Errorf("unable to generate a random password: %v", err)
+		}
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
+	if err != nil {
+		return nil, err
+	}
+
+	transaction := m.transactionManager.New()
+	defer func() { _ = transaction.Commit() }()
+
+	user := &model.User{
+		Username:     username,
+		PasswordHash: string(hashedPassword),
+	}
+
+	if err := m.userRepository.WithTransaction(transaction).Create(user); err != nil {
+		_ = transaction.Rollback()
+		return nil, fmt.Errorf("unable to create user: %v", err)
+	}
+
+	if err := m.principalRepository.WithTransaction(transaction).Create(&model.Principal{
+		ID: fmt.Sprintf("%s-%s", configs.ApplicationName, user.Username),
+	}); err != nil {
+		_ = transaction.Rollback()
+		return nil, fmt.Errorf("unable to create user: %v", err)
+	}
+
+	return user, nil
+}
+
 func (m *manager) UpdateRole(identifier string, policies []string) (*model.Role, error) {
 	role, err := m.roleRepository.Get(identifier)
 	if err != nil {
@@ -376,6 +482,10 @@ func (m *manager) GetActionRepository() *database.Repository[model.Action] {
 	return m.actionRepository
 }
 
+func (m *manager) GetClientRepository() *database.Repository[model.Client] {
+	return m.clientRepository
+}
+
 func (m *manager) GetCompiledPolicyRepository() *database.Repository[model.CompiledPolicy] {
 	return m.compiledPolicyRepository
 }
@@ -394,6 +504,10 @@ func (m *manager) GetRoleRepository() *database.Repository[model.Role] {
 
 func (m *manager) GetPrincipalRepository() *database.Repository[model.Principal] {
 	return m.principalRepository
+}
+
+func (m *manager) GetUserRepository() *database.Repository[model.User] {
+	return m.userRepository
 }
 
 func (m *manager) IsAllowed(principalID string, resourceKind string, resourceValue string, actionID string) (bool, error) {
@@ -420,6 +534,15 @@ func (m *manager) IsAllowed(principalID string, resourceKind string, resourceVal
 			return false, err
 		}
 	}
+
+	m.logger.Debug(
+		"Call to IsAllowed method",
+		slog.String("principal_id", principalID),
+		slog.String("resource_kind", resourceKind),
+		slog.String("resource_value", resourceValue),
+		slog.String("action_id", actionID),
+		slog.Bool("result", isAllowed),
+	)
 
 	return isAllowed, err
 }
