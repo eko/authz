@@ -29,12 +29,14 @@ import (
 	"github.com/eko/authz/backend/internal/security"
 	"github.com/spf13/pflag"
 	"go.uber.org/fx"
+	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
 
 var (
-	db   *gorm.DB
-	opts = godog.Options{
+	db          *gorm.DB
+	initializer fixtures.Initializer
+	opts        = godog.Options{
 		Output: colors.Colored(os.Stdout),
 	}
 )
@@ -65,13 +67,17 @@ func TestMain(m *testing.M) {
 		compile.FxModule(),
 		database.FxModule(),
 		event.FxModule(),
-		fixtures.FxModule(),
 		helper.FxModule(),
 		http.FxModule(),
 		log.FxModule(),
 		manager.FxModule(),
 		oauth.FxModule(),
 		security.FxModule(),
+
+		fx.Provide(func(cfg *configs.User, logger *slog.Logger, manager manager.Manager) fixtures.Initializer {
+			initializer = fixtures.NewInitializer(cfg, logger, manager)
+			return initializer
+		}),
 
 		fx.Provide(
 			configs.Load,
@@ -90,6 +96,11 @@ func TestMain(m *testing.M) {
 		),
 
 		fx.Invoke(http.Run),
+		fx.Invoke(func(initializer fixtures.Initializer) {
+			if err := initializer.Initialize(); err != nil {
+				l.Fatalf("Cannot initialize fixtures: %v\n", err)
+			}
+		}),
 	)
 
 	app.Start(ctx)
@@ -124,6 +135,7 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 		authz_policies,
 		authz_resources,
 		authz_clients,
+		authz_users,
 		authz_oauth_tokens,
 		authz_actions RESTART IDENTITY CASCADE
 		;`).Error; err != nil {
@@ -132,6 +144,10 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 
 		if err := api.reset(sc); err != nil {
 			l.Fatalf("Cannot reset api: %v\n", err)
+		}
+
+		if err := initializer.Initialize(); err != nil {
+			l.Fatalf("Cannot initialize fixtures: %v\n", err)
 		}
 
 		return ctx, nil

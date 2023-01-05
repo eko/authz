@@ -91,7 +91,7 @@ Feature: resource
       {"id": "custom-post", "kind": "post", "value": "97fdb1dc-b1e0-4652-ab82-5d174031a681"}
       """
     And the response code should be 200
-    When I send "GET" request to "/v1/resources"
+    When I send "GET" request to "/v1/resources?filter=kind:contains:post"
     Then the response code should be 200
     And the response should match json:
       """

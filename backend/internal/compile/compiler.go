@@ -156,6 +156,12 @@ func (c *compiler) compilePolicyAttributesWithValue(
 	}
 
 	for _, resource := range opts.resources {
+		if resource.Value == manager.WildcardValue {
+			// Don't handle wildcard resources to compiled policies
+			// in case of attribute rules.
+			continue
+		}
+
 		for _, principal := range opts.principals {
 			for _, action := range policy.Actions {
 				if len(compiled) == 100 {
@@ -251,7 +257,10 @@ func (c *compiler) retrieveResources(resources []*model.Resource, rule *attribut
 		}
 
 		var filters = map[string]database.FieldValue{
-			"kind": {Operator: "=", Value: resource.Kind},
+			"authz_resources.kind": {Operator: "=", Value: resource.Kind},
+			// Don't handle wildcard resources to compiled policies
+			// in case of attribute rules.
+			"authz_resources.value": {Operator: "<>", Value: manager.WildcardValue},
 		}
 
 		if rule.ResourceAttribute != "" && rule.Value != "" {

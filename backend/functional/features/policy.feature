@@ -209,7 +209,7 @@ Feature: policy
       }
       """
     And the response code should be 200
-    When I send "GET" request to "/v1/policies"
+    When I send "GET" request to "/v1/policies?filter=id:contains:my-post"
     Then the response code should be 200
     And the response should match json:
       """

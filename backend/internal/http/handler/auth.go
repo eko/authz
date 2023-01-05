@@ -8,6 +8,7 @@ import (
 
 	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/database"
+	"github.com/eko/authz/backend/internal/database/model"
 	"github.com/eko/authz/backend/internal/manager"
 	"github.com/eko/authz/backend/internal/security/paseto"
 	"github.com/go-oauth2/oauth2/v4/server"
@@ -22,9 +23,10 @@ type AuthRequest struct {
 }
 
 type AuthResponse struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	ExpiresIn   int64  `json:"expires_in"`
+	AccessToken string      `json:"access_token"`
+	TokenType   string      `json:"token_type"`
+	ExpiresIn   int64       `json:"expires_in"`
+	User        *model.User `json:"user"`
 }
 
 type TokenRequest struct {
@@ -91,6 +93,7 @@ func Authenticate(
 			AccessToken: token.Token,
 			TokenType:   token.TokenType,
 			ExpiresIn:   token.ExpiresIn,
+			User:        user,
 		})
 	}
 }

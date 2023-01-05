@@ -10,7 +10,7 @@ func FxModule() fx.Option {
 			NewInitializer,
 		),
 		fx.Invoke(
-			func(initializer *initializer) error {
+			func(initializer Initializer) error {
 				return initializer.Initialize()
 			},
 		),

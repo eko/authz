@@ -125,6 +125,11 @@ func (r *Repository[T]) Update(object *T) error {
 	return r.db.Save(object).Error
 }
 
+// UpdateAssociation allows to update the specified association entry into the database.
+func (r *Repository[T]) UpdateAssociation(object *T, associationName string, data any) error {
+	return r.db.Model(object).Association(associationName).Replace(data)
+}
+
 // Get allows to retrieve a value of the current type from the specified primary key.
 func (r *Repository[T]) Get(identifier string, options ...QueryOption) (*T, error) {
 	result := new(T)

@@ -75,20 +75,26 @@ Feature: principal
       {
         "data": [
           {
-            "id": "f438dfb8-4ae9-4668-9545-f98dba4b2337",
-            "is_locked": false,
             "created_at": "2100-01-01T02:00:00+01:00",
+            "id": "authz-admin",
+            "is_locked": true,
             "updated_at": "2100-01-01T02:00:00+01:00"
           },
           {
+            "created_at": "2100-01-01T02:00:00+01:00",
+            "id": "f438dfb8-4ae9-4668-9545-f98dba4b2337",
+            "is_locked": false,
+            "updated_at": "2100-01-01T02:00:00+01:00"
+          },
+          {
+            "created_at": "2100-01-01T02:00:00+01:00",
             "id": "another.value",
             "is_locked": false,
-            "created_at": "2100-01-01T02:00:00+01:00",
             "updated_at": "2100-01-01T02:00:00+01:00"
           }
         ],
         "page": 0,
         "size": 100,
-        "total": 2
+        "total": 3
       }
       """

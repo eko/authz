@@ -1,0 +1,9 @@
+/* Disable header cell on focus */
+div.MuiDataGrid-columnHeader:focus-within {
+    outline: none !important;
+}
+
+/* Disable cell border on focus */
+div.MuiDataGrid-row div.MuiDataGrid-cell:focus-within {
+    outline: none !important;
+}

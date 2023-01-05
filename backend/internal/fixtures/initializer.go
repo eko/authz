@@ -6,6 +6,7 @@ import (
 
 	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/database"
+	"github.com/eko/authz/backend/internal/database/model"
 	"github.com/eko/authz/backend/internal/manager"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
@@ -26,6 +27,10 @@ var (
 	}
 )
 
+type Initializer interface {
+	Initialize() error
+}
+
 type initializer struct {
 	cfg      *configs.User
 	logger   *slog.Logger
@@ -37,7 +42,7 @@ func NewInitializer(
 	cfg *configs.User,
 	logger *slog.Logger,
 	manager manager.Manager,
-) *initializer {
+) Initializer {
 	return &initializer{
 		cfg:      cfg,
 		logger:   logger,
@@ -148,12 +153,26 @@ func (i *initializer) initializeUser() error {
 	}
 
 	// Create user "admin" and principal named "authz-admin"
-	if _, err := i.manager.CreateUser(defaultAdminUsername, i.cfg.AdminDefaultPassword); err != nil {
-		return err
+	user, err := i.manager.CreateUser(defaultAdminUsername, i.cfg.AdminDefaultPassword)
+	if err != nil {
+		return fmt.Errorf("unable to create default admin user: %v", err)
 	}
 
-	// Attach role "authz-admin" to user "authz-admin"
-	_, err = i.manager.UpdatePrincipal("authz-admin", []string{"authz-admin"}, nil)
+	// Retrieve principal created following the user creation
+	principal, err := i.manager.GetPrincipalRepository().Get(fmt.Sprintf("authz-%s", user.Username))
+	if err != nil {
+		return fmt.Errorf("unable to retrieve admin principal: %v", err)
+	}
 
-	return err
+	principal.IsLocked = true
+
+	// Attach role "authz-admin" to user principal "authz-admin"
+	role, err := i.manager.GetRoleRepository().Get(fmt.Sprintf("%s-admin", configs.ApplicationName))
+	if err != nil {
+		return fmt.Errorf("unable to retrieve admin role: %v", err)
+	}
+
+	principal.Roles = []*model.Role{role}
+
+	return i.manager.GetPrincipalRepository().Update(principal)
 }

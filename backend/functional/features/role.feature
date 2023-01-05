@@ -244,7 +244,7 @@ Feature: role
       }
       """
     And the response code should be 200
-    When I send "GET" request to "/v1/roles"
+    When I send "GET" request to "/v1/roles?filter=id:contains:my-post"
     Then the response code should be 200
     And the response should match json:
       """

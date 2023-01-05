@@ -195,18 +195,41 @@ func (m *manager) UpdatePolicy(identifier string, resources []string, actions []
 		return nil, err
 	}
 
-	if err := m.policyRepository.Update(policy); err != nil {
+	transaction := m.transactionManager.New()
+	defer func() { _ = transaction.Commit() }()
+
+	policyRepository := m.policyRepository.WithTransaction(transaction)
+
+	if err := policyRepository.UpdateAssociation(policy, "Resources", policy.Resources); err != nil {
+		_ = transaction.Rollback()
+		return nil, fmt.Errorf("unable to update policy resources association: %v", err)
+	}
+
+	if err := policyRepository.UpdateAssociation(policy, "Actions", policy.Actions); err != nil {
+		_ = transaction.Rollback()
+		return nil, fmt.Errorf("unable to update policy actions association: %v", err)
+	}
+
+	if err := policyRepository.Update(policy); err != nil {
+		_ = transaction.Rollback()
 		return nil, fmt.Errorf("unable to update policy: %v", err)
 	}
 
 	if err := m.dispatcher.Dispatch(event.EventTypePolicy, policy.ID); err != nil {
+		_ = transaction.Rollback()
 		return nil, fmt.Errorf("unable to dispatch event: %v", err)
 	}
 
 	return policy, nil
 }
 
-func (m *manager) attachToPolicy(policy *model.Policy, identifier string, resources []string, actions []string, attributeRules []string) error {
+func (m *manager) attachToPolicy(
+	policy *model.Policy,
+	identifier string,
+	resources []string,
+	actions []string,
+	attributeRules []string,
+) error {
 	for _, attributeRule := range attributeRules {
 		if _, err := attribute.ConvertStringToRuleOperator(attributeRule); err != nil {
 			return fmt.Errorf("unable to convert attribute rule %q to rule operator: %v", attributeRule, err)
@@ -471,7 +494,18 @@ func (m *manager) UpdateRole(identifier string, policies []string) (*model.Role,
 
 	role.Policies = policyObjects
 
-	if err := m.roleRepository.Update(role); err != nil {
+	transaction := m.transactionManager.New()
+	defer func() { _ = transaction.Commit() }()
+
+	roleRepository := m.roleRepository.WithTransaction(transaction)
+
+	if err := roleRepository.UpdateAssociation(role, "Policies", role.Policies); err != nil {
+		_ = transaction.Rollback()
+		return nil, fmt.Errorf("unable to update role policies association: %v", err)
+	}
+
+	if err := roleRepository.Update(role); err != nil {
+		_ = transaction.Rollback()
 		return nil, fmt.Errorf("unable to update role: %v", err)
 	}
 

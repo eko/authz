@@ -47,11 +47,12 @@ func (r *ResourceRepository) FindMatchingAttributesWithPrincipals(
 	err := tx.
 		Select("authz_principals_attributes.principal_id AS principal_id, authz_resources.kind AS resource_kind, authz_resources.value AS resource_value").
 		Model(&model.Resource{}).
-		Joins("LEFT JOIN authz_resources_attributes ON authz_resources.id = authz_resources_attributes.resource_id").
-		Joins("LEFT JOIN authz_attributes ON authz_resources_attributes.attribute_id = authz_attributes.id").
-		Joins("LEFT JOIN authz_principals_attributes ON authz_attributes.id = authz_principals_attributes.attribute_id").
+		Joins("INNER JOIN authz_resources_attributes ON authz_resources.id = authz_resources_attributes.resource_id").
+		Joins("INNER JOIN authz_attributes ON authz_resources_attributes.attribute_id = authz_attributes.id").
+		Joins("INNER JOIN authz_principals_attributes ON authz_attributes.id = authz_principals_attributes.attribute_id").
 		Where("authz_attributes.key = ? OR authz_attributes.key = ?", resourceAttribute, principalAttribute).
 		Where("authz_principals_attributes.principal_id IS NOT NULL").
+		Where("authz_resources.value <> ?", "*").
 		Scan(&matches).Error
 	if err != nil {
 		return nil, err
