@@ -16,7 +16,7 @@ import (
 //
 //	@security	Authentication
 //	@Summary	Lists actions
-//	@Tags		Authz
+//	@Tags		Action
 //	@Produce	json
 //	@Param		page	query		int		false	"page number"			example(1)
 //	@Param		size	query		int		false	"page size"				minimum(1)	maximum(1000)	default(100)
@@ -54,7 +54,7 @@ func ActionList(
 //
 //	@security	Authentication
 //	@Summary	Retrieve an action
-//	@Tags		Authz
+//	@Tags		Action
 //	@Produce	json
 //	@Success	200	{object}	model.Action
 //	@Failure	404	{object}	model.ErrorResponse

@@ -28,7 +28,7 @@ type UpdatePrincipalRequest struct {
 //
 //	@security	Authentication
 //	@Summary	Creates a new principal
-//	@Tags		Authz
+//	@Tags		Principal
 //	@Produce	json
 //	@Param		default	body		CreatePrincipalRequest	true	"Principal creation request"
 //	@Success	200		{object}	model.Principal
@@ -66,7 +66,7 @@ func PrincipalCreate(
 //
 //	@security	Authentication
 //	@Summary	Lists principals
-//	@Tags		Authz
+//	@Tags		Principal
 //	@Produce	json
 //	@Param		page	query		int		false	"page number"			example(1)
 //	@Param		size	query		int		false	"page size"				minimum(1)	maximum(1000)	default(100)
@@ -104,7 +104,7 @@ func PrincipalList(
 //
 //	@security	Authentication
 //	@Summary	Retrieve a principal
-//	@Tags		Authz
+//	@Tags		Principal
 //	@Produce	json
 //	@Success	200	{object}	model.Principal
 //	@Failure	404	{object}	model.ErrorResponse
@@ -138,7 +138,7 @@ func PrincipalGet(
 //
 //	@security	Authentication
 //	@Summary	Updates a principal
-//	@Tags		Authz
+//	@Tags		Principal
 //	@Produce	json
 //	@Param		default	body		UpdatePrincipalRequest	true	"Principal update request"
 //	@Success	200		{object}	model.Principal
@@ -181,7 +181,7 @@ func PrincipalUpdate(
 //
 //	@security	Authentication
 //	@Summary	Deletes a principal
-//	@Tags		Authz
+//	@Tags		Principal
 //	@Produce	json
 //	@Success	200	{object}	model.Principal
 //	@Failure	400	{object}	model.ErrorResponse

@@ -47,13 +47,13 @@ type TokenResponse struct {
 //
 //	@security	Authentication
 //	@Summary	Authenticates a user
-//	@Tags		Authz
+//	@Tags		Auth
 //	@Produce	json
 //	@Param		default	body		AuthRequest	true	"Authentication request"
 //	@Success	200		{object}	AuthResponse
 //	@Failure	400		{object}	model.ErrorResponse
 //	@Failure	500		{object}	model.ErrorResponse
-//	@Router		/v1/token [Post]
+//	@Router		/v1/auth [Post]
 func Authenticate(
 	validate *validator.Validate,
 	manager manager.Manager,
@@ -102,7 +102,7 @@ func Authenticate(
 //
 //	@security	Authentication
 //	@Summary	Retrieve a client token
-//	@Tags		Authz
+//	@Tags		Auth
 //	@Produce	json
 //	@Param		default	body		TokenRequest	true	"Token request"
 //	@Success	200		{object}	TokenResponse

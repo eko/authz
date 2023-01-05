@@ -24,7 +24,7 @@ type CreateResourceRequest struct {
 //
 //	@security	Authentication
 //	@Summary	Creates a new resource
-//	@Tags		Authz
+//	@Tags		Resource
 //	@Produce	json
 //	@Param		default	body		CreateResourceRequest	true	"Resource creation request"
 //	@Success	200		{object}	model.Resource
@@ -63,7 +63,7 @@ func ResourceCreate(
 //
 //	@security	Authentication
 //	@Summary	Lists resources
-//	@Tags		Authz
+//	@Tags		Resource
 //	@Produce	json
 //	@Param		page	query		int		false	"page number"			example(1)
 //	@Param		size	query		int		false	"page size"				minimum(1)	maximum(1000)	default(100)
@@ -102,7 +102,7 @@ func ResourceList(
 //
 //	@security	Authentication
 //	@Summary	Retrieve a resource
-//	@Tags		Authz
+//	@Tags		Resource
 //	@Produce	json
 //	@Success	200	{object}	model.Resource
 //	@Failure	404	{object}	model.ErrorResponse
@@ -139,7 +139,7 @@ func ResourceGet(
 //
 //	@security	Authentication
 //	@Summary	Deletes a resource
-//	@Tags		Authz
+//	@Tags		Resource
 //	@Produce	json
 //	@Success	200	{object}	model.Resource
 //	@Failure	400	{object}	model.ErrorResponse

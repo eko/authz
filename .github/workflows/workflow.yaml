@@ -73,3 +73,15 @@ jobs:
             Cucumber reports available here:
             ${{ steps.tests.outputs.REPORT_LINK }}
           allow-repeats: true
+  frontend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - name: Run tests
+        run: |
+          cd frontend
+          npm install
+          npm run test

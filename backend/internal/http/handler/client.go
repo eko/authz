@@ -19,7 +19,7 @@ type ClientCreateRequest struct {
 //
 //	@security	Authentication
 //	@Summary	Creates a new client
-//	@Tags		Authz
+//	@Tags		Client
 //	@Produce	json
 //	@Param		default	body		ClientCreateRequest	true	"Client creation request"
 //	@Success	200		{object}	model.Client
@@ -57,7 +57,7 @@ func ClientCreate(
 //
 //	@security	Authentication
 //	@Summary	Lists clients
-//	@Tags		Authz
+//	@Tags		Client
 //	@Produce	json
 //	@Param		page	query		int		false	"page number"			example(1)
 //	@Param		size	query		int		false	"page size"				minimum(1)	maximum(1000)	default(100)

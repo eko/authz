@@ -1,4 +1,24 @@
 definitions:
+  handler.AuthRequest:
+    properties:
+      password:
+        example: mypassword
+        type: string
+      username:
+        example: john.doe
+        type: string
+    type: object
+  handler.AuthResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      token_type:
+        type: string
+      user:
+        $ref: '#/definitions/model.User'
+    type: object
   handler.CheckQuery:
     properties:
       action:
@@ -32,6 +52,14 @@ definitions:
         items:
           $ref: '#/definitions/handler.CheckQuery'
         type: array
+    type: object
+  handler.ClientCreateRequest:
+    properties:
+      name:
+        example: my-client
+        type: string
+    required:
+    - name
     type: object
   handler.CreatePolicyRequest:
     properties:
@@ -163,8 +191,6 @@ definitions:
         type: string
       id:
         type: string
-      is_locked:
-        type: boolean
       updated_at:
         type: string
     type: object
@@ -175,6 +201,23 @@ definitions:
       key:
         type: string
       value:
+        type: string
+    type: object
+  model.Client:
+    properties:
+      client_id:
+        type: string
+      client_secret:
+        type: string
+      created_at:
+        type: string
+      data:
+        type: string
+      domain:
+        type: string
+      name:
+        type: string
+      updated_at:
         type: string
     type: object
   model.ErrorResponse:
@@ -258,6 +301,15 @@ definitions:
       updated_at:
         type: string
     type: object
+  model.User:
+    properties:
+      created_at:
+        type: string
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
   model.ValidateErrorResponse:
     properties:
       field:
@@ -316,7 +368,7 @@ paths:
       - Authentication: []
       summary: Lists actions
       tags:
-      - Authz
+      - Action
   /v1/actions/{identifier}:
     get:
       produces:
@@ -338,7 +390,111 @@ paths:
       - Authentication: []
       summary: Retrieve an action
       tags:
-      - Authz
+      - Action
+  /v1/auth:
+    post:
+      parameters:
+      - description: Authentication request
+        in: body
+        name: default
+        required: true
+        schema:
+          $ref: '#/definitions/handler.AuthRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Authenticates a user
+      tags:
+      - Auth
+  /v1/clients:
+    get:
+      parameters:
+      - description: page number
+        example: 1
+        in: query
+        name: page
+        type: integer
+      - default: 100
+        description: page size
+        in: query
+        maximum: 1000
+        minimum: 1
+        name: size
+        type: integer
+      - description: filter on a field
+        example: name:contains:something
+        in: query
+        name: filter
+        type: string
+      - description: sort field and order
+        example: name:desc
+        in: query
+        name: sort
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Client'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Lists clients
+      tags:
+      - Client
+    post:
+      parameters:
+      - description: Client creation request
+        in: body
+        name: default
+        required: true
+        schema:
+          $ref: '#/definitions/handler.ClientCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Client'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Creates a new client
+      tags:
+      - Client
   /v1/policies:
     get:
       parameters:
@@ -385,7 +541,7 @@ paths:
       - Authentication: []
       summary: Lists policies
       tags:
-      - Authz
+      - Policy
     post:
       parameters:
       - description: Policy creation request
@@ -413,7 +569,7 @@ paths:
       - Authentication: []
       summary: Creates a new policy
       tags:
-      - Authz
+      - Policy
   /v1/policies/{identifier}:
     get:
       produces:
@@ -435,7 +591,7 @@ paths:
       - Authentication: []
       summary: Deletes a policy
       tags:
-      - Authz
+      - Policy
     put:
       parameters:
       - description: Policy update request
@@ -463,7 +619,7 @@ paths:
       - Authentication: []
       summary: Updates a policy
       tags:
-      - Authz
+      - Policy
   /v1/principals:
     get:
       parameters:
@@ -510,7 +666,7 @@ paths:
       - Authentication: []
       summary: Lists principals
       tags:
-      - Authz
+      - Principal
     post:
       parameters:
       - description: Principal creation request
@@ -538,7 +694,7 @@ paths:
       - Authentication: []
       summary: Creates a new principal
       tags:
-      - Authz
+      - Principal
   /v1/principals/{identifier}:
     get:
       produces:
@@ -560,7 +716,7 @@ paths:
       - Authentication: []
       summary: Deletes a principal
       tags:
-      - Authz
+      - Principal
     put:
       parameters:
       - description: Principal update request
@@ -588,7 +744,7 @@ paths:
       - Authentication: []
       summary: Updates a principal
       tags:
-      - Authz
+      - Principal
   /v1/resources:
     get:
       parameters:
@@ -635,7 +791,7 @@ paths:
       - Authentication: []
       summary: Lists resources
       tags:
-      - Authz
+      - Resource
     post:
       parameters:
       - description: Resource creation request
@@ -663,7 +819,7 @@ paths:
       - Authentication: []
       summary: Creates a new resource
       tags:
-      - Authz
+      - Resource
   /v1/resources/{identifier}:
     get:
       produces:
@@ -685,7 +841,7 @@ paths:
       - Authentication: []
       summary: Deletes a resource
       tags:
-      - Authz
+      - Resource
   /v1/roles:
     get:
       parameters:
@@ -732,7 +888,7 @@ paths:
       - Authentication: []
       summary: Lists roles
       tags:
-      - Authz
+      - Role
     post:
       parameters:
       - description: Role creation request
@@ -760,7 +916,7 @@ paths:
       - Authentication: []
       summary: Creates a new role
       tags:
-      - Authz
+      - Role
   /v1/roles/{identifier}:
     get:
       produces:
@@ -782,7 +938,7 @@ paths:
       - Authentication: []
       summary: Deletes a role
       tags:
-      - Authz
+      - Role
     put:
       parameters:
       - description: Role update request
@@ -810,7 +966,7 @@ paths:
       - Authentication: []
       summary: Updates a role
       tags:
-      - Authz
+      - Role
   /v1/token:
     post:
       parameters:
@@ -839,5 +995,5 @@ paths:
       - Authentication: []
       summary: Retrieve a client token
       tags:
-      - Authz
+      - Auth
 swagger: "2.0"

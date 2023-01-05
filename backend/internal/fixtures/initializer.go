@@ -77,7 +77,7 @@ func (i *initializer) Initialize() error {
 }
 
 func (i *initializer) initializeResources() error {
-	for resourceType, _ := range resources {
+	for resourceType := range resources {
 		resource, err := i.manager.CreateResource(
 			fmt.Sprintf("%s.%s.%s", configs.ApplicationName, resourceType, "*"),
 			fmt.Sprintf("%s.%s", configs.ApplicationName, resourceType),

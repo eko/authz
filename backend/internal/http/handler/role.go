@@ -26,7 +26,7 @@ type UpdateRoleRequest struct {
 //
 //	@security	Authentication
 //	@Summary	Creates a new role
-//	@Tags		Authz
+//	@Tags		Role
 //	@Produce	json
 //	@Param		default	body		CreateRoleRequest	true	"Role creation request"
 //	@Success	200		{object}	model.Role
@@ -65,7 +65,7 @@ func RoleCreate(
 //
 //	@security	Authentication
 //	@Summary	Lists roles
-//	@Tags		Authz
+//	@Tags		Role
 //	@Produce	json
 //	@Param		page	query		int		false	"page number"			example(1)
 //	@Param		size	query		int		false	"page size"				minimum(1)	maximum(1000)	default(100)
@@ -104,7 +104,7 @@ func RoleList(
 //
 //	@security	Authentication
 //	@Summary	Retrieve a role
-//	@Tags		Authz
+//	@Tags		Role
 //	@Produce	json
 //	@Success	200	{object}	model.Role
 //	@Failure	404	{object}	model.ErrorResponse
@@ -141,7 +141,7 @@ func RoleGet(
 //
 //	@security	Authentication
 //	@Summary	Updates a role
-//	@Tags		Authz
+//	@Tags		Role
 //	@Produce	json
 //	@Param		default	body		UpdateRoleRequest	true	"Role update request"
 //	@Success	200		{object}	model.Role
@@ -184,7 +184,7 @@ func RoleUpdate(
 //
 //	@security	Authentication
 //	@Summary	Deletes a role
-//	@Tags		Authz
+//	@Tags		Role
 //	@Produce	json
 //	@Success	200	{object}	model.Role
 //	@Failure	400	{object}	model.ErrorResponse

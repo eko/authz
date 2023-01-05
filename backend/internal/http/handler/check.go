@@ -28,7 +28,7 @@ type CheckResponse struct {
 //
 //	@security	Authentication
 //	@Summary	Check if a principal has access to do action on resource
-//	@Tags		Authz
+//	@Tags		Check
 //	@Produce	json
 //	@Param		default	body		CheckRequest	true	"Check request"
 //	@Success	200		{object}	CheckResponse

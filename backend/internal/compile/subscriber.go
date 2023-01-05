@@ -56,7 +56,7 @@ func (s *subscriber) subscribeToPolicies(lc fx.Lifecycle) {
 func (s *subscriber) handlePolicyEvents(eventChan chan *event.Event) {
 	for event := range eventChan {
 		if err := s.compiler.CompilePolicy(event.ID); err != nil {
-			s.logger.Error(
+			s.logger.Warn(
 				"Compiler: unable to compile policy",
 				err,
 				slog.Any("policy_id", event.ID),
@@ -68,7 +68,7 @@ func (s *subscriber) handlePolicyEvents(eventChan chan *event.Event) {
 func (s *subscriber) handleResourceEvents(eventChan chan *event.Event) {
 	for event := range eventChan {
 		if err := s.compiler.CompileResource(event.ID); err != nil {
-			s.logger.Error(
+			s.logger.Warn(
 				"Compiler: unable to compile resource",
 				err,
 				slog.Any("policy_id", event.ID),
@@ -80,7 +80,7 @@ func (s *subscriber) handleResourceEvents(eventChan chan *event.Event) {
 func (s *subscriber) handlePrincipalEvents(eventChan chan *event.Event) {
 	for event := range eventChan {
 		if err := s.compiler.CompilePrincipal(event.ID); err != nil {
-			s.logger.Error(
+			s.logger.Warn(
 				"Compiler: unable to compile principal",
 				err,
 				slog.Any("policy_id", event.ID),

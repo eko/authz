@@ -30,7 +30,7 @@ type UpdatePolicyRequest struct {
 //
 //	@security	Authentication
 //	@Summary	Creates a new policy
-//	@Tags		Authz
+//	@Tags		Policy
 //	@Produce	json
 //	@Param		default	body		CreatePolicyRequest	true	"Policy creation request"
 //	@Success	200		{object}	model.Policy
@@ -73,7 +73,7 @@ func PolicyCreate(
 //
 //	@security	Authentication
 //	@Summary	Lists policies
-//	@Tags		Authz
+//	@Tags		Policy
 //	@Produce	json
 //	@Param		page	query		int		false	"page number"			example(1)
 //	@Param		size	query		int		false	"page size"				minimum(1)	maximum(1000)	default(100)
@@ -112,7 +112,7 @@ func PolicyList(
 //
 //	@security	Authentication
 //	@Summary	Retrieve a policy
-//	@Tags		Authz
+//	@Tags		Policy
 //	@Produce	json
 //	@Success	200	{object}	model.Policy
 //	@Failure	404	{object}	model.ErrorResponse
@@ -149,7 +149,7 @@ func PolicyGet(
 //
 //	@security	Authentication
 //	@Summary	Updates a policy
-//	@Tags		Authz
+//	@Tags		Policy
 //	@Produce	json
 //	@Param		default	body		UpdatePolicyRequest	true	"Policy update request"
 //	@Success	200		{object}	model.Policy
@@ -197,7 +197,7 @@ func PolicyUpdate(
 //
 //	@security	Authentication
 //	@Summary	Deletes a policy
-//	@Tags		Authz
+//	@Tags		Policy
 //	@Produce	json
 //	@Success	200	{object}	model.Policy
 //	@Failure	400	{object}	model.ErrorResponse

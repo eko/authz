@@ -27,7 +27,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Action"
                 ],
                 "summary": "Lists actions",
                 "parameters": [
@@ -98,7 +98,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Action"
                 ],
                 "summary": "Retrieve an action",
                 "responses": {
@@ -123,6 +123,169 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/auth": {
+            "post": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Authenticates a user",
+                "parameters": [
+                    {
+                        "description": "Authentication request",
+                        "name": "default",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.AuthRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AuthResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/clients": {
+            "get": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Client"
+                ],
+                "summary": "Lists clients",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 1000,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "name:contains:something",
+                        "description": "filter on a field",
+                        "name": "filter",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "name:desc",
+                        "description": "sort field and order",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Client"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Client"
+                ],
+                "summary": "Creates a new client",
+                "parameters": [
+                    {
+                        "description": "Client creation request",
+                        "name": "default",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.ClientCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Client"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/policies": {
             "get": {
                 "security": [
@@ -134,7 +297,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Policy"
                 ],
                 "summary": "Lists policies",
                 "parameters": [
@@ -203,7 +366,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Policy"
                 ],
                 "summary": "Creates a new policy",
                 "parameters": [
@@ -250,7 +413,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Policy"
                 ],
                 "summary": "Deletes a policy",
                 "responses": {
@@ -284,7 +447,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Policy"
                 ],
                 "summary": "Updates a policy",
                 "parameters": [
@@ -331,7 +494,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Principal"
                 ],
                 "summary": "Lists principals",
                 "parameters": [
@@ -400,7 +563,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Principal"
                 ],
                 "summary": "Creates a new principal",
                 "parameters": [
@@ -447,7 +610,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Principal"
                 ],
                 "summary": "Deletes a principal",
                 "responses": {
@@ -481,7 +644,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Principal"
                 ],
                 "summary": "Updates a principal",
                 "parameters": [
@@ -528,7 +691,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Resource"
                 ],
                 "summary": "Lists resources",
                 "parameters": [
@@ -597,7 +760,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Resource"
                 ],
                 "summary": "Creates a new resource",
                 "parameters": [
@@ -644,7 +807,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Resource"
                 ],
                 "summary": "Deletes a resource",
                 "responses": {
@@ -680,7 +843,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Role"
                 ],
                 "summary": "Lists roles",
                 "parameters": [
@@ -749,7 +912,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Role"
                 ],
                 "summary": "Creates a new role",
                 "parameters": [
@@ -796,7 +959,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Role"
                 ],
                 "summary": "Deletes a role",
                 "responses": {
@@ -830,7 +993,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Role"
                 ],
                 "summary": "Updates a role",
                 "parameters": [
@@ -877,7 +1040,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authz"
+                    "Auth"
                 ],
                 "summary": "Retrieve a client token",
                 "parameters": [
@@ -915,6 +1078,36 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "handler.AuthRequest": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "example": "mypassword"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "john.doe"
+                }
+            }
+        },
+        "handler.AuthResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "expires_in": {
+                    "type": "integer"
+                },
+                "token_type": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/model.User"
+                }
+            }
+        },
         "handler.CheckQuery": {
             "type": "object",
             "required": [
@@ -963,6 +1156,18 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/handler.CheckQuery"
                     }
+                }
+            }
+        },
+        "handler.ClientCreateRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "my-client"
                 }
             }
         },
@@ -1160,9 +1365,6 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
-                "is_locked": {
-                    "type": "boolean"
-                },
                 "updated_at": {
                     "type": "string"
                 }
@@ -1178,6 +1380,32 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.Client": {
+            "type": "object",
+            "properties": {
+                "client_id": {
+                    "type": "string"
+                },
+                "client_secret": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "data": {
+                    "type": "string"
+                },
+                "domain": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -1302,6 +1530,20 @@ const docTemplate = `{
                     }
                 },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.User": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "username": {
                     "type": "string"
                 }
             }
