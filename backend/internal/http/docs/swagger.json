@@ -158,6 +158,53 @@
                 }
             }
         },
+        "/v1/check": {
+            "post": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Check"
+                ],
+                "summary": "Check if a principal has access to do action on resource",
+                "parameters": [
+                    {
+                        "description": "Check request",
+                        "name": "default",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.CheckRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.CheckResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/clients": {
             "get": {
                 "security": [
@@ -252,6 +299,42 @@
                         }
                     }
                 ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Client"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/clients/{identifier}": {
+            "get": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Client"
+                ],
+                "summary": "Deletes a client",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1063,6 +1146,158 @@
                     }
                 }
             }
+        },
+        "/v1/users": {
+            "get": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
+                "summary": "Lists users",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 1000,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "name:contains:something",
+                        "description": "filter on a field",
+                        "name": "filter",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "name:desc",
+                        "description": "sort field and order",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.User"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
+                "summary": "Creates a new user",
+                "parameters": [
+                    {
+                        "description": "User creation request",
+                        "name": "default",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.UserCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.User"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/users/{identifier}": {
+            "get": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
+                "summary": "Deletes a user",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.User"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1096,7 +1331,55 @@
                 }
             }
         },
-        "handler.CheckQuery": {
+        "handler.CheckRequest": {
+            "type": "object",
+            "required": [
+                "checks"
+            ],
+            "properties": {
+                "checks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.CheckRequestQuery"
+                    }
+                }
+            }
+        },
+        "handler.CheckRequestQuery": {
+            "type": "object",
+            "required": [
+                "action",
+                "principal",
+                "resource_kind",
+                "resource_value"
+            ],
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "principal": {
+                    "type": "string"
+                },
+                "resource_kind": {
+                    "type": "string"
+                },
+                "resource_value": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.CheckResponse": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.CheckResponseQuery"
+                    }
+                }
+            }
+        },
+        "handler.CheckResponseQuery": {
             "type": "object",
             "required": [
                 "action",
@@ -1119,31 +1402,6 @@
                 },
                 "resource_value": {
                     "type": "string"
-                }
-            }
-        },
-        "handler.CheckRequest": {
-            "type": "object",
-            "required": [
-                "checks"
-            ],
-            "properties": {
-                "checks": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/handler.CheckQuery"
-                    }
-                }
-            }
-        },
-        "handler.CheckResponse": {
-            "type": "object",
-            "properties": {
-                "checks": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/handler.CheckQuery"
-                    }
                 }
             }
         },
@@ -1344,6 +1602,18 @@
                 }
             }
         },
+        "handler.UserCreateRequest": {
+            "type": "object",
+            "required": [
+                "username"
+            ],
+            "properties": {
+                "username": {
+                    "type": "string",
+                    "example": "my-user"
+                }
+            }
+        },
         "model.Action": {
             "type": "object",
             "properties": {
@@ -1526,6 +1796,10 @@
             "type": "object",
             "properties": {
                 "created_at": {
+                    "type": "string"
+                },
+                "password": {
+                    "description": "Only used to display generated password after creation",
                     "type": "string"
                 },
                 "updated_at": {

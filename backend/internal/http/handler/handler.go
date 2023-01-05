@@ -17,6 +17,8 @@ const (
 	AuthTokenNewKey     = "auth-token-new"
 	CheckKey            = "check"
 	ClientCreateKey     = "client-create-key"
+	ClientDeleteKey     = "client-delete-key"
+	ClientGetKey        = "client-get-key"
 	ClientListKey       = "client-list-key"
 	PolicyCreateKey     = "policy-create"
 	PolicyDeleteKey     = "policy-delete"
@@ -37,6 +39,10 @@ const (
 	RoleGetKey          = "role-get"
 	RoleListKey         = "role-list"
 	RoleUpdateKey       = "role-update"
+	UserCreateKey       = "user-create-key"
+	UserDeleteKey       = "user-delete-key"
+	UserGetKey          = "user-get-key"
+	UserListKey         = "user-list-key"
 )
 
 type Handler fiber.Handler
@@ -60,6 +66,8 @@ func NewHandlers(
 		AuthTokenNewKey:     adaptor.HTTPHandlerFunc(TokenNew(oauthServer)),
 		CheckKey:            Check(validate, manager),
 		ClientCreateKey:     ClientCreate(validate, manager, authCfg),
+		ClientDeleteKey:     ClientDelete(manager),
+		ClientGetKey:        ClientGet(manager),
 		ClientListKey:       ClientList(manager),
 		PolicyCreateKey:     PolicyCreate(validate, manager),
 		PolicyDeleteKey:     PolicyDelete(manager),
@@ -80,5 +88,9 @@ func NewHandlers(
 		RoleGetKey:          RoleGet(manager),
 		RoleListKey:         RoleList(manager),
 		RoleUpdateKey:       RoleUpdate(validate, manager),
+		UserCreateKey:       UserCreate(validate, manager),
+		UserDeleteKey:       UserDelete(manager),
+		UserGetKey:          UserGet(manager),
+		UserListKey:         UserList(manager),
 	}
 }

@@ -19,11 +19,12 @@ const (
 var (
 	resources = map[string][]string{
 		"actions":    {"list", "get"},
-		"clients":    {"list", "create"},
+		"clients":    {"list", "get", "create", "delete"},
 		"policies":   {"list", "get", "create", "update", "delete"},
 		"principals": {"list", "get", "create", "update", "delete"},
 		"resources":  {"list", "get", "create", "delete"},
 		"roles":      {"list", "get", "create", "update", "delete"},
+		"users":      {"list", "get", "create", "delete"},
 	}
 )
 

@@ -45,15 +45,17 @@ func (s *Server) setRoutes() {
 
 		authenticated := base.Use(s.middlewares.Get(middleware.AuthenticationKey))
 
-		clients := authenticated.Group("/clients")
-		clients.Post("", s.handlers.Get(handler.ClientCreateKey))
-		clients.Get("", s.handlers.Get(handler.ClientListKey))
-
 		authenticated.Post("/check", s.handlers.Get(handler.CheckKey))
 
 		actions := authenticated.Group("/actions")
 		actions.Get("", s.authorized("authz.actions", "list", s.handlers.Get(handler.ActionListKey))...)
 		actions.Get("/:identifier", s.authorized("authz.actions", "get", s.handlers.Get(handler.ActionGetKey))...)
+
+		clients := authenticated.Group("/clients")
+		clients.Post("", s.authorized("authz.clients", "create", s.handlers.Get(handler.ClientCreateKey))...)
+		clients.Get("", s.authorized("authz.clients", "list", s.handlers.Get(handler.ClientListKey))...)
+		clients.Get("/:identifier", s.authorized("authz.clients", "get", s.handlers.Get(handler.ClientGetKey))...)
+		clients.Delete("/:identifier", s.authorized("authz.clients", "delete", s.handlers.Get(handler.ClientDeleteKey))...)
 
 		policies := authenticated.Group("/policies")
 		policies.Post("", s.authorized("authz.policies", "create", s.handlers.Get(handler.PolicyCreateKey))...)
@@ -61,6 +63,13 @@ func (s *Server) setRoutes() {
 		policies.Get("/:identifier", s.authorized("authz.policies", "get", s.handlers.Get(handler.PolicyGetKey))...)
 		policies.Delete("/:identifier", s.authorized("authz.policies", "delete", s.handlers.Get(handler.PolicyDeleteKey))...)
 		policies.Put("/:identifier", s.authorized("authz.policies", "update", s.handlers.Get(handler.PolicyUpdateKey))...)
+
+		principals := authenticated.Group("/principals")
+		principals.Post("", s.authorized("authz.principals", "create", s.handlers.Get(handler.PrincipalCreateKey))...)
+		principals.Get("", s.authorized("authz.principals", "list", s.handlers.Get(handler.PrincipalListKey))...)
+		principals.Get("/:identifier", s.authorized("authz.principals", "get", s.handlers.Get(handler.PrincipalGetKey))...)
+		principals.Delete("/:identifier", s.authorized("authz.principals", "delete", s.handlers.Get(handler.PrincipalDeleteKey))...)
+		principals.Put("/:identifier", s.authorized("authz.principals", "update", s.handlers.Get(handler.PrincipalUpdateKey))...)
 
 		resources := authenticated.Group("/resources")
 		resources.Post("", s.authorized("authz.resources", "create", s.handlers.Get(handler.ResourceCreateKey))...)
@@ -75,12 +84,11 @@ func (s *Server) setRoutes() {
 		role.Delete("/:identifier", s.authorized("authz.roles", "delete", s.handlers.Get(handler.RoleDeleteKey))...)
 		role.Put("/:identifier", s.authorized("authz.roles", "update", s.handlers.Get(handler.RoleUpdateKey))...)
 
-		principals := authenticated.Group("/principals")
-		principals.Post("", s.authorized("authz.principals", "create", s.handlers.Get(handler.PrincipalCreateKey))...)
-		principals.Get("", s.authorized("authz.principals", "list", s.handlers.Get(handler.PrincipalListKey))...)
-		principals.Get("/:identifier", s.authorized("authz.principals", "get", s.handlers.Get(handler.PrincipalGetKey))...)
-		principals.Delete("/:identifier", s.authorized("authz.principals", "delete", s.handlers.Get(handler.PrincipalDeleteKey))...)
-		principals.Put("/:identifier", s.authorized("authz.principals", "update", s.handlers.Get(handler.PrincipalUpdateKey))...)
+		users := authenticated.Group("/users")
+		users.Post("", s.authorized("authz.users", "create", s.handlers.Get(handler.UserCreateKey))...)
+		users.Get("", s.authorized("authz.users", "list", s.handlers.Get(handler.UserListKey))...)
+		users.Get("/:identifier", s.authorized("authz.users", "get", s.handlers.Get(handler.UserGetKey))...)
+		users.Delete("/:identifier", s.authorized("authz.users", "delete", s.handlers.Get(handler.UserDeleteKey))...)
 	}
 }
 

@@ -8,20 +8,24 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-type CheckQuery struct {
+type CheckRequestQuery struct {
 	Principal     string `json:"principal" validate:"required,slug"`
 	ResourceKind  string `json:"resource_kind" validate:"required,slug"`
 	ResourceValue string `json:"resource_value" validate:"required,slug"`
 	Action        string `json:"action" validate:"required,slug"`
-	IsAllowed     bool   `json:"is_allowed"`
+}
+
+type CheckResponseQuery struct {
+	*CheckRequestQuery
+	IsAllowed bool `json:"is_allowed"`
 }
 
 type CheckRequest struct {
-	Checks []*CheckQuery `json:"checks" validate:"required,dive"`
+	Checks []*CheckRequestQuery `json:"checks" validate:"required,dive"`
 }
 
 type CheckResponse struct {
-	Checks []*CheckQuery `json:"checks"`
+	Checks []*CheckResponseQuery `json:"checks"`
 }
 
 // Check if a principal has access to do action on resource.
@@ -34,7 +38,7 @@ type CheckResponse struct {
 //	@Success	200		{object}	CheckResponse
 //	@Failure	400		{object}	model.ErrorResponse
 //	@Failure	500		{object}	model.ErrorResponse
-//	@Router		/v1/policies [Post]
+//	@Router		/v1/check [Post]
 func Check(
 	validate *validator.Validate,
 	manager manager.Manager,
@@ -53,17 +57,22 @@ func Check(
 		}
 
 		// Create policy
-		for _, check := range request.Checks {
+		var responseChecks = make([]*CheckResponseQuery, len(request.Checks))
+
+		for i, check := range request.Checks {
 			isAllowed, err := manager.IsAllowed(check.Principal, check.ResourceKind, check.ResourceValue, check.Action)
 			if err != nil {
 				return returnError(c, http.StatusInternalServerError, err)
 			}
 
-			check.IsAllowed = isAllowed
+			responseChecks[i] = &CheckResponseQuery{
+				CheckRequestQuery: check,
+				IsAllowed:         isAllowed,
+			}
 		}
 
 		return c.JSON(&CheckResponse{
-			Checks: request.Checks,
+			Checks: responseChecks,
 		})
 	}
 }

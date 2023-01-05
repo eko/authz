@@ -457,6 +457,7 @@ func (m *manager) CreateUser(username string, password string) (*model.User, err
 
 	user := &model.User{
 		Username:     username,
+		Password:     password,
 		PasswordHash: string(hashedPassword),
 	}
 

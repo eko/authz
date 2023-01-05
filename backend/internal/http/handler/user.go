@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/database"
 	"github.com/eko/authz/backend/internal/http/handler/model"
 	"github.com/eko/authz/backend/internal/manager"
@@ -14,28 +13,27 @@ import (
 	"gorm.io/gorm"
 )
 
-type ClientCreateRequest struct {
-	Name string `json:"name" validate:"required,slug" example:"my-client"`
+type UserCreateRequest struct {
+	Username string `json:"username" validate:"required,slug" example:"my-user"`
 }
 
-// Creates a new client
+// Creates a new user
 //
 //	@security	Authentication
-//	@Summary	Creates a new client
-//	@Tags		Client
+//	@Summary	Creates a new user
+//	@Tags		User
 //	@Produce	json
-//	@Param		default	body		ClientCreateRequest	true	"Client creation request"
-//	@Success	200		{object}	model.Client
+//	@Param		default	body		UserCreateRequest	true	"User creation request"
+//	@Success	200		{object}	model.User
 //	@Failure	400		{object}	model.ErrorResponse
 //	@Failure	500		{object}	model.ErrorResponse
-//	@Router		/v1/clients [Post]
-func ClientCreate(
+//	@Router		/v1/users [Post]
+func UserCreate(
 	validate *validator.Validate,
 	manager manager.Manager,
-	authCfg *configs.Auth,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		request := &ClientCreateRequest{}
+		request := &UserCreateRequest{}
 
 		// Parse request body
 		if err := c.BodyParser(request); err != nil {
@@ -47,30 +45,30 @@ func ClientCreate(
 			return c.Status(fiber.StatusBadRequest).JSON(err)
 		}
 
-		client, err := manager.CreateClient(request.Name, authCfg.Domain)
+		user, err := manager.CreateUser(request.Username, "")
 		if err != nil {
 			return returnError(c, http.StatusBadRequest, err)
 		}
 
-		return c.JSON(client)
+		return c.JSON(user)
 	}
 }
 
-// Lists clients.
+// Lists users.
 //
 //	@security	Authentication
-//	@Summary	Lists clients
-//	@Tags		Client
+//	@Summary	Lists users
+//	@Tags		User
 //	@Produce	json
 //	@Param		page	query		int		false	"page number"			example(1)
 //	@Param		size	query		int		false	"page size"				minimum(1)	maximum(1000)	default(100)
 //	@Param		filter	query		string	false	"filter on a field"		example(name:contains:something)
 //	@Param		sort	query		string	false	"sort field and order"	example(name:desc)
-//	@Success	200		{object}	[]model.Client
+//	@Success	200		{object}	[]model.User
 //	@Failure	400		{object}	model.ErrorResponse
 //	@Failure	500		{object}	model.ErrorResponse
-//	@Router		/v1/clients [Get]
-func ClientList(
+//	@Router		/v1/users [Get]
+func UserList(
 	manager manager.Manager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -80,7 +78,7 @@ func ClientList(
 		}
 
 		// List actions
-		clients, total, err := manager.GetClientRepository().Find(
+		users, total, err := manager.GetUserRepository().Find(
 			database.WithPage(page),
 			database.WithSize(size),
 			database.WithFilter(httpFilterToORM(c)),
@@ -90,28 +88,30 @@ func ClientList(
 			return returnError(c, http.StatusInternalServerError, err)
 		}
 
-		return c.JSON(model.NewPaginated(clients, total, page, size))
+		return c.JSON(model.NewPaginated(users, total, page, size))
 	}
 }
 
-// Retrieve a client.
+// Retrieve a user.
 //
 //	@security	Authentication
-//	@Summary	Retrieve a client
-//	@Tags		Client
+//	@Summary	Retrieve a user
+//	@Tags		User
 //	@Produce	json
-//	@Success	200	{object}	model.Client
+//	@Success	200	{object}	model.User
 //	@Failure	404	{object}	model.ErrorResponse
 //	@Failure	500	{object}	model.ErrorResponse
-//	@Router		/v1/clients/{identifier} [Get]
-func ClientGet(
+//	@Router		/v1/users/{identifier} [Get]
+func UserGet(
 	manager manager.Manager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
-		// Retrieve client
-		client, err := manager.GetClientRepository().Get(identifier)
+		// Retrieve user
+		user, err := manager.GetUserRepository().GetByFields(map[string]database.FieldValue{
+			"username": {Operator: "=", Value: identifier},
+		})
 		if err != nil {
 			statusCode := http.StatusInternalServerError
 
@@ -120,42 +120,42 @@ func ClientGet(
 			}
 
 			return returnError(c, statusCode,
-				fmt.Errorf("cannot retrieve client: %v", err),
+				fmt.Errorf("cannot retrieve user: %v", err),
 			)
 		}
 
-		return c.JSON(client)
+		return c.JSON(user)
 	}
 }
 
-// Deletes a client.
+// Deletes a user.
 //
 //	@security	Authentication
-//	@Summary	Deletes a client
-//	@Tags		Client
+//	@Summary	Deletes a user
+//	@Tags		User
 //	@Produce	json
-//	@Success	200	{object}	model.Client
+//	@Success	200	{object}	model.User
 //	@Failure	400	{object}	model.ErrorResponse
 //	@Failure	500	{object}	model.ErrorResponse
-//	@Router		/v1/clients/{identifier} [Get]
-func ClientDelete(
+//	@Router		/v1/users/{identifier} [Get]
+func UserDelete(
 	manager manager.Manager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
-		// Retrieve client
-		client, err := manager.GetClientRepository().Get(identifier)
+		// Retrieve user
+		user, err := manager.GetUserRepository().Get(identifier)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot retrieve client: %v", err),
+				fmt.Errorf("cannot retrieve user: %v", err),
 			)
 		}
 
-		// Delete client
-		if err := manager.GetClientRepository().Delete(client); err != nil {
+		// Delete user
+		if err := manager.GetUserRepository().Delete(user); err != nil {
 			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot delete client: %v", err),
+				fmt.Errorf("cannot delete user: %v", err),
 			)
 		}
 
