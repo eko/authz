@@ -137,9 +137,10 @@ func ClientGet(
 //	@Success	200	{object}	model.Client
 //	@Failure	400	{object}	model.ErrorResponse
 //	@Failure	500	{object}	model.ErrorResponse
-//	@Router		/v1/clients/{identifier} [Get]
+//	@Router		/v1/clients/{identifier} [Delete]
 func ClientDelete(
 	manager manager.Manager,
+	transactionManager database.TransactionManager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
@@ -152,8 +153,29 @@ func ClientDelete(
 			)
 		}
 
-		// Delete client
-		if err := manager.GetClientRepository().Delete(client); err != nil {
+		// Retrieve principal
+		principal, err := manager.GetPrincipalRepository().Get(
+			fmt.Sprintf("%s-%s", configs.ApplicationName, client.Name),
+		)
+		if err != nil {
+			return returnError(c, http.StatusInternalServerError,
+				fmt.Errorf("cannot retrieve user principal: %v", err),
+			)
+		}
+
+		// Delete both user and principal
+		transaction := transactionManager.New()
+		defer func() { _ = transaction.Commit() }()
+
+		if err := manager.GetPrincipalRepository().WithTransaction(transaction).Delete(principal); err != nil {
+			_ = transaction.Rollback()
+			return returnError(c, http.StatusInternalServerError,
+				fmt.Errorf("cannot delete principal: %v", err),
+			)
+		}
+
+		if err := manager.GetClientRepository().WithTransaction(transaction).Delete(client); err != nil {
+			_ = transaction.Rollback()
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot delete client: %v", err),
 			)

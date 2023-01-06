@@ -14,6 +14,7 @@ import { DateTimePicker } from '@mui/x-date-pickers';
 import { getPolicy } from 'service/model/policy';
 import { getResources } from 'service/model/resource';
 import { getActions } from 'service/model/action';
+import AttributeRules from './AttributeRules';
 
 export default function PolicyCreateOrEdit() {
   const toast = useToast();
@@ -23,6 +24,7 @@ export default function PolicyCreateOrEdit() {
   const [policy, setPolicy] = useState<Policy>();
 
   const {
+    control,
     onSubmit,
     register,
     setValue,
@@ -101,7 +103,7 @@ export default function PolicyCreateOrEdit() {
   return (
     <div>
       <Typography variant="h3" gutterBottom marginTop={1} marginBottom={2}>
-          {policy?.id ? `Policy "${policy?.id}"` : `Create a new policy`}
+          {policy?.id ? `Policy "${policy?.id}"` : `Create new policy`}
       </Typography>
 
       <form onSubmit={onSubmit(user?.token!)}>
@@ -192,6 +194,24 @@ export default function PolicyCreateOrEdit() {
                 setValue={(items: ItemType[]) => setValue('actions', items)}
                 style={{ marginBottom: 2, marginTop: 2 }}
                 inputSx={{ width: '100%' }}
+              />
+            </Grid>
+          </Grid>
+        </Paper>
+
+        <Divider style={{ marginTop: 20, marginBottom: 20 }} />
+
+        <Paper sx={{ display: 'flex', flexDirection: 'column', p: 2 }}>
+          <Typography variant='h5' sx={{ pb: 3 }}>
+              Attribute rules
+          </Typography>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <AttributeRules
+                fieldName='attribute_rules'
+                register={register}
+                control={control}
               />
             </Grid>
           </Grid>

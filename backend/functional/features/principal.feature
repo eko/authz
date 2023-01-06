@@ -78,6 +78,13 @@ Feature: principal
             "created_at": "2100-01-01T02:00:00+01:00",
             "id": "authz-admin",
             "is_locked": true,
+            "roles": [
+              {
+                "created_at": "2100-01-01T02:00:00+01:00",
+                "id": "authz-admin",
+                "updated_at": "2100-01-01T02:00:00+01:00"
+              }
+            ],
             "updated_at": "2100-01-01T02:00:00+01:00"
           },
           {

@@ -51,7 +51,7 @@ export const createPolicy = async (
     data: PolicyFormData,
 ): Promise<Policy | APIError> => {
     return await catchError<Policy>(async () => {
-        const url = new URL(baseUrl() + '/policies/');
+        const url = new URL(baseUrl() + '/policies');
 
         const response = await axios.post<Policy | APIError>(url.href, data, {
             validateStatus: () => true,

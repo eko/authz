@@ -189,7 +189,7 @@ func RoleUpdate(
 //	@Success	200	{object}	model.Role
 //	@Failure	400	{object}	model.ErrorResponse
 //	@Failure	500	{object}	model.ErrorResponse
-//	@Router		/v1/roles/{identifier} [Get]
+//	@Router		/v1/roles/{identifier} [Delete]
 func RoleDelete(
 	manager manager.Manager,
 ) fiber.Handler {

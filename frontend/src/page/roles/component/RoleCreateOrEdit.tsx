@@ -80,7 +80,7 @@ export default function RoleCreateOrEdit() {
   return (
     <div>
       <Typography variant="h3" gutterBottom marginTop={1} marginBottom={2}>
-          {role?.id ? `Role "${role?.id}"` : `Create a new role`}
+          {role?.id ? `Role "${role?.id}"` : `Create new role`}
       </Typography>
 
       <form onSubmit={onSubmit(user?.token!)}>

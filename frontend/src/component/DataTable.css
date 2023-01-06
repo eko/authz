@@ -7,3 +7,8 @@ div.MuiDataGrid-columnHeader:focus-within {
 div.MuiDataGrid-row div.MuiDataGrid-cell:focus-within {
     outline: none !important;
 }
+
+/* Grid rows */
+.datagrid-row-lightgrey {
+    background-color: #fafafa;
+}

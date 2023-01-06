@@ -64,7 +64,7 @@ export default function PolicyList() {
           startIcon={<AddCircleOutlineIcon />}
           onClick={() => navigate('/policies/create')}
         >
-          Create a new policy
+          Create new policy
         </Button>
       </Box>
 

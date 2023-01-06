@@ -40,6 +40,7 @@ export const Toast: FC<ToastProps> = ({
       TransitionProps={{ onExited }}
       anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       autoHideDuration={autoHideDuration ?? 4000}
+      sx={{ marginTop: '17px' }}
       {...props}
     >
       <Alert severity={message.severity} sx={{ borderRadius: '100px', boxShadow: 'rgba(100, 100, 111, 0.2) 0px 7px 29px 0px' }}>{message.message}</Alert>

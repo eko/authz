@@ -1,7 +1,7 @@
 package model
 
 type Attribute struct {
-	ID    int    `json:"id" gorm:"primarykey"`
+	ID    int    `json:"-" gorm:"primarykey"`
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }

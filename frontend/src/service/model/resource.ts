@@ -6,6 +6,7 @@ import { APIError } from "service/error/model";
 import { Resource } from "./model";
 import { FilterRequest } from "service/common/filter";
 import { SortRequest } from "service/common/sort";
+import { ResourceFormData } from "form/resource";
 
 export const getResources = async (
     token: string,
@@ -23,6 +24,45 @@ export const getResources = async (
             filter: filter,
             sort: sort,
         });    
+    });
+}
+
+export const createResource = async (
+    token: string,
+    data: ResourceFormData,
+): Promise<Resource | APIError> => {
+    return await catchError<Resource>(async () => {
+        const url = new URL(baseUrl() + '/resources');
+
+        const response = await axios.post<Resource | APIError>(url.href, data, {
+            validateStatus: () => true,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+        });
+
+        return response.data;
+    });
+}
+
+export const updateResource = async (
+    token: string,
+    identifier: string,
+    data: ResourceFormData,
+): Promise<Resource | APIError> => {
+    return await catchError<Resource>(async () => {
+        const url = new URL(baseUrl() + `/resources/${identifier}`);
+
+        const response = await axios.put<Resource>(url.href, data, {
+            validateStatus: () => true,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+        });
+    
+        return response.data;
     });
 }
 

@@ -40,6 +40,7 @@ type Manager interface {
 	IsAllowed(principalID string, resourceKind string, resourceValue string, actionID string) (bool, error)
 	UpdatePolicy(identifier string, resources []string, actions []string, attributeRules []string) (*model.Policy, error)
 	UpdatePrincipal(identifier string, roles []string, attributes map[string]any) (*model.Principal, error)
+	UpdateResource(identifier string, kind string, value string, attributes map[string]any) (*model.Resource, error)
 	UpdateRole(identifier string, policies []string) (*model.Role, error)
 }
 
@@ -144,8 +145,19 @@ func (m *manager) CreateClient(name string, domain string) (*model.Client, error
 		Name:   name,
 	}
 
-	if err := m.clientRepository.Create(client); err != nil {
+	transaction := m.transactionManager.New()
+	defer func() { _ = transaction.Commit() }()
+
+	if err := m.clientRepository.WithTransaction(transaction).Create(client); err != nil {
+		_ = transaction.Rollback()
 		return nil, fmt.Errorf("unable to create client: %v", err)
+	}
+
+	if err := m.principalRepository.WithTransaction(transaction).Create(&model.Principal{
+		ID: fmt.Sprintf("%s-%s", configs.ApplicationName, client.Name),
+	}); err != nil {
+		_ = transaction.Rollback()
+		return nil, fmt.Errorf("unable to create principal: %v", err)
 	}
 
 	return client, nil
@@ -288,7 +300,19 @@ func (m *manager) CreateResource(identifier string, kind string, value string, a
 		return nil, fmt.Errorf("unable to check for existing resource: %v", err)
 	}
 
+	existsKindValue, err := m.resourceRepository.GetByFields(map[string]database.FieldValue{
+		"kind":  {Operator: "=", Value: kind},
+		"value": {Operator: "=", Value: value},
+	})
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("unable to check for existing resource: %v", err)
+	}
+
 	if exists != nil {
+		return nil, fmt.Errorf("a resource already exists with id %q", identifier)
+	}
+
+	if existsKindValue != nil {
 		return nil, fmt.Errorf("a resource already exists with kind %q and value %q", kind, value)
 	}
 
@@ -309,6 +333,44 @@ func (m *manager) CreateResource(identifier string, kind string, value string, a
 	}
 
 	if err := m.dispatcher.Dispatch(event.EventTypeResource, resource.ID); err != nil {
+		return nil, fmt.Errorf("unable to dispatch event: %v", err)
+	}
+
+	return resource, nil
+}
+
+func (m *manager) UpdateResource(identifier string, kind string, value string, attributes map[string]any) (*model.Resource, error) {
+	resource, err := m.resourceRepository.Get(identifier)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("unable to retrieve resource: %v", err)
+	}
+
+	attributeObjects, err := m.attributesMapToSlice(attributes)
+	if err != nil {
+		return nil, fmt.Errorf("unable to convert attributes to slice: %v", err)
+	}
+
+	resource.Kind = kind
+	resource.Value = value
+	resource.Attributes = attributeObjects
+
+	transaction := m.transactionManager.New()
+	defer func() { _ = transaction.Commit() }()
+
+	resourceRepository := m.resourceRepository.WithTransaction(transaction)
+
+	if err := resourceRepository.UpdateAssociation(resource, "Attributes", resource.Attributes); err != nil {
+		_ = transaction.Rollback()
+		return nil, fmt.Errorf("unable to update resource attributes association: %v", err)
+	}
+
+	if err := resourceRepository.Update(resource); err != nil {
+		_ = transaction.Rollback()
+		return nil, fmt.Errorf("unable to update resource: %v", err)
+	}
+
+	if err := m.dispatcher.Dispatch(event.EventTypeResource, resource.ID); err != nil {
+		_ = transaction.Rollback()
 		return nil, fmt.Errorf("unable to dispatch event: %v", err)
 	}
 
@@ -384,11 +446,28 @@ func (m *manager) UpdatePrincipal(identifier string, roles []string, attributes 
 
 	principal.Attributes = attributeObjects
 
-	if err := m.principalRepository.Update(principal); err != nil {
+	transaction := m.transactionManager.New()
+	defer func() { _ = transaction.Commit() }()
+
+	principalRepository := m.principalRepository.WithTransaction(transaction)
+
+	if err := principalRepository.UpdateAssociation(principal, "Roles", principal.Roles); err != nil {
+		_ = transaction.Rollback()
+		return nil, fmt.Errorf("unable to update principal roles association: %v", err)
+	}
+
+	if err := principalRepository.UpdateAssociation(principal, "Attributes", principal.Attributes); err != nil {
+		_ = transaction.Rollback()
+		return nil, fmt.Errorf("unable to update principal attributes association: %v", err)
+	}
+
+	if err := principalRepository.Update(principal); err != nil {
+		_ = transaction.Rollback()
 		return nil, fmt.Errorf("unable to create principal: %v", err)
 	}
 
 	if err := m.dispatcher.Dispatch(event.EventTypePrincipal, principal.ID); err != nil {
+		_ = transaction.Rollback()
 		return nil, fmt.Errorf("unable to dispatch event: %v", err)
 	}
 

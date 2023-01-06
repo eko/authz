@@ -14,6 +14,7 @@ import './MultipleAutocompleteInput.css';
 export type ItemType = {
   id: string;
   label: string;
+  raw?: any;
 }
 
 type FetcherFunc = (input: string) => Promise<ItemType[]>
@@ -124,6 +125,7 @@ export default function MultipleAutocompleteInput({
         )}
         options={[...listItems]}
         getOptionLabel={(option) => option.label}
+        onFocus={handleOnKeyUp}
         onKeyUp={handleOnKeyUp}
         renderInput={(params) => (
           <TextField

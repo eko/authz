@@ -24,6 +24,7 @@ export default function AnonymousLayout(props: LayoutProps) {
 
           <Box
           component="main"
+          className='background'
           sx={{
               backgroundColor: (theme) =>
               theme.palette.mode === 'light'

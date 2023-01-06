@@ -51,7 +51,7 @@ export const createRole = async (
     data: RoleFormData,
 ): Promise<Role | APIError> => {
     return await catchError<Role>(async () => {
-        const url = new URL(baseUrl() + '/roles/');
+        const url = new URL(baseUrl() + '/roles');
 
         const response = await axios.post<Role | APIError>(url.href, data, {
             validateStatus: () => true,

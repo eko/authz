@@ -3,6 +3,7 @@ import { Params } from "react-router";
 type LabelGetter = (params: Readonly<Params<string>>) => string;
 
 export const labels = new Map<string, string | LabelGetter>([
+  ['check', 'Check access'],
   ['dashboard', 'Home'],
   ['signin', 'Sign In'],
   ['groups', 'Groups'],
@@ -12,9 +13,19 @@ export const labels = new Map<string, string | LabelGetter>([
   ['roles-create', 'Create'],
   ['roles-edit', 'Edit'],
   ['policies', 'Policies'],
+  ['policies-create', 'Create'],
   ['policies-edit', 'Edit'],
+  ['principals', 'Principals'],
+  ['principals-create', 'Create'],
+  ['principals-edit', 'Edit'],
+  ['resources', 'Resources'],
+  ['resources-create', 'Create'],
+  ['resources-edit', 'Edit'],
   ['users', 'Users'],
-  ['users-edit', 'Edit'],
+  ['users-create', 'Create'],
+  ['clients', 'Service accounts'],
+  ['clients-create', 'Create'],
+  ['clients-edit', 'Edit'],
 ]);
 
 

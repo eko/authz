@@ -22,18 +22,18 @@ export default function SigninPage() {
 
   return (
     <AnonymousLayout>
-      <Typography variant="h3" gutterBottom sx={{ textAlign: 'center' }}>
-          Sign In
-      </Typography>
-
       <form onSubmit={onSubmit()}>
         <Paper sx={{ display: 'flex', flexDirection: 'column', p: 6 }}>
           <Grid container spacing={4}>
             <Grid container item display='flex' direction='column' alignSelf='center' alignItems='center' xs={12} md={6}>
-              <img width='300' src='/logo.png' alt='Authz' title='Authz' style={{ borderRadius: '150px' }} />
+              <img width='300' src='/logo-full.png' alt='Authz' title='Authz' />
             </Grid>
 
             <Grid container item display='flex' direction='column' alignSelf='center' xs={12} md={6}>
+              <Typography variant="h3" gutterBottom sx={{ textAlign: 'center', marginBottom: 4 }}>
+                  Sign In
+              </Typography>
+
               <TextField {...register('username')}
                 label='Username'
                 defaultValue={defaultValues?.username}

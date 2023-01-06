@@ -9,7 +9,8 @@ import { Divider, List, useMediaQuery, Theme } from '@mui/material';
 import ClassIcon from '@mui/icons-material/Class';
 import ContactsIcon from '@mui/icons-material/Contacts';
 import GridViewIcon from '@mui/icons-material/GridView';
-import GroupIcon from '@mui/icons-material/Group';
+import GppGoodIcon from '@mui/icons-material/GppGood';
+// import GroupIcon from '@mui/icons-material/Group';
 import SecurityIcon from '@mui/icons-material/Security';
 import SchoolIcon from '@mui/icons-material/School';
 import PersonIcon from '@mui/icons-material/Person';
@@ -72,7 +73,9 @@ export default function Menu(props: MenuProps) {
             px: [1],
         }}
         >
-            <img width='40' src='/logo-white.png' alt='Authz' title='Authz' style={{ marginRight: '50px' }} />
+            <a href='/' title='Authz' style={{ marginRight: '50px', marginTop: '5px' }}>
+              <img width='40' src='/logo.png' alt='Authz' title='Authz' style={{ borderRadius: '20px' }} />
+            </a>
 
             <IconButton onClick={() => setMenuOpened(!menuOpened)}>
                 <ChevronLeftIcon />
@@ -91,12 +94,12 @@ export default function Menu(props: MenuProps) {
 
           <Divider sx={{ margin: 2 }} />
 
-          <MenuItem
+          {/* <MenuItem
             label='Groups'
             path='/groups'
             icon={<GroupIcon />}
             menuOpened={menuOpened}
-          />
+          /> */}
 
           <MenuItem
             label='Roles'
@@ -141,6 +144,15 @@ export default function Menu(props: MenuProps) {
             label='Service accounts'
             path='/clients'
             icon={<AdminPanelSettingsIcon />}
+            menuOpened={menuOpened}
+          />
+
+          <Divider sx={{ margin: 2 }} />
+
+          <MenuItem
+            label='Check access'
+            path='/check'
+            icon={<GppGoodIcon />}
             menuOpened={menuOpened}
           />
         </List>

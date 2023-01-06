@@ -2,7 +2,7 @@ import { Typography } from '@mui/material';
 import { SxProps } from '@mui/system';
 import Grid from '@mui/material/Grid';
 import Paper from '@mui/material/Paper';
-import { DataGrid, GridColDef, GridFilterModel, GridRowHeightParams, GridRowHeightReturnValue, GridSortModel } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridFilterModel, GridRowClassNameParams, GridRowHeightParams, GridRowHeightReturnValue, GridSortModel } from '@mui/x-data-grid';
 
 import { useCallback, useEffect, useState } from 'react';
 import { useToast } from 'context/toast';
@@ -26,10 +26,12 @@ type DataTableProps<T> = {
   defaultSize?: number
   title?: string
   sx?: SxProps
+  getRowId?: getRowId<T>
   getRowHeight?: getRowHeight
 }
 
 type getRowHeight = (params: GridRowHeightParams) => GridRowHeightReturnValue;
+type getRowId<T> = (row: T) => string;
 
 export default function DataTable<T>({
   fetcher,
@@ -37,6 +39,7 @@ export default function DataTable<T>({
   defaultSize = 10,
   title,
   sx,
+  getRowId,
   getRowHeight,
 }: DataTableProps<T>) {
   const toast = useToast();
@@ -111,24 +114,28 @@ export default function DataTable<T>({
 
         <DataGrid
             autoHeight
-            density='standard'
             columns={columns}
-            rows={rows}
-            page={page}
-            onPageSizeChange={(newPageSize: number) => setSize(newPageSize)}
-            rowsPerPageOptions={[5,10,20,30,50,100]}
-            pageSize={size}
-            rowCount={total}
-            loading={loading}
-            onPageChange={handleOnPageChange}
-            paginationMode='server'
-            hideFooterSelectedRowCount
+            density='standard'
             filterMode='server'
-            onFilterModelChange={handleOnFilterModelChange}
-            sortingMode='server'
-            onSortModelChange={handleOnSortModelChange}
-            sx={sx}
+            getRowClassName={(params: GridRowClassNameParams) => {
+              return params.indexRelativeToCurrentPage % 2 === 0 ? 'datagrid-row-lightgrey' : ''
+            }}
+            getRowId={getRowId}
             getRowHeight={getRowHeight}
+            hideFooterSelectedRowCount
+            loading={loading}
+            onFilterModelChange={handleOnFilterModelChange}
+            onPageChange={handleOnPageChange}
+            onPageSizeChange={(newPageSize: number) => setSize(newPageSize)}
+            onSortModelChange={handleOnSortModelChange}
+            page={page}
+            pageSize={size}
+            paginationMode='server'
+            rowCount={total}
+            rows={rows}
+            rowsPerPageOptions={[5,10,20,30,50,100]}
+            sortingMode='server'
+            sx={sx}
         />
         </Paper>
       </Grid>

@@ -346,6 +346,40 @@ const docTemplate = `{
                 "tags": [
                     "Client"
                 ],
+                "summary": "Retrieve a client",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Client"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Client"
+                ],
                 "summary": "Deletes a client",
                 "responses": {
                     "200": {
@@ -498,7 +532,7 @@ const docTemplate = `{
                 "tags": [
                     "Policy"
                 ],
-                "summary": "Deletes a policy",
+                "summary": "Retrieve a policy",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -506,8 +540,8 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.Policy"
                         }
                     },
-                    "400": {
-                        "description": "Bad Request",
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/model.ErrorResponse"
                         }
@@ -544,6 +578,40 @@ const docTemplate = `{
                         }
                     }
                 ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Policy"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Policy"
+                ],
+                "summary": "Deletes a policy",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -695,7 +763,7 @@ const docTemplate = `{
                 "tags": [
                     "Principal"
                 ],
-                "summary": "Deletes a principal",
+                "summary": "Retrieve a principal",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -703,8 +771,8 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.Principal"
                         }
                     },
-                    "400": {
-                        "description": "Bad Request",
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/model.ErrorResponse"
                         }
@@ -741,6 +809,40 @@ const docTemplate = `{
                         }
                     }
                 ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Principal"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Principal"
+                ],
+                "summary": "Deletes a principal",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -881,6 +983,85 @@ const docTemplate = `{
         },
         "/v1/resources/{identifier}": {
             "get": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Resource"
+                ],
+                "summary": "Retrieve a resource",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Resource"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Resource"
+                ],
+                "summary": "Updates a resource",
+                "parameters": [
+                    {
+                        "description": "Resource update request",
+                        "name": "default",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.UpdateResourceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Resource"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
                 "security": [
                     {
                         "Authentication": []
@@ -1044,7 +1225,7 @@ const docTemplate = `{
                 "tags": [
                     "Role"
                 ],
-                "summary": "Deletes a role",
+                "summary": "Retrieve a role",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1052,8 +1233,8 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.Role"
                         }
                     },
-                    "400": {
-                        "description": "Bad Request",
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/model.ErrorResponse"
                         }
@@ -1090,6 +1271,40 @@ const docTemplate = `{
                         }
                     }
                 ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Role"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Role"
+                ],
+                "summary": "Deletes a role",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1288,6 +1503,40 @@ const docTemplate = `{
                 "tags": [
                     "User"
                 ],
+                "summary": "Retrieve a user",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.User"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
                 "summary": "Deletes a user",
                 "responses": {
                     "200": {
@@ -1313,6 +1562,21 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "handler.AttributeKeyValue": {
+            "type": "object",
+            "required": [
+                "key",
+                "value"
+            ],
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.AuthRequest": {
             "type": "object",
             "properties": {
@@ -1467,8 +1731,10 @@ const docTemplate = `{
             ],
             "properties": {
                 "attributes": {
-                    "type": "object",
-                    "additionalProperties": {}
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.AttributeKeyValue"
+                    }
                 },
                 "id": {
                     "type": "string"
@@ -1489,8 +1755,10 @@ const docTemplate = `{
             ],
             "properties": {
                 "attributes": {
-                    "type": "object",
-                    "additionalProperties": {}
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.AttributeKeyValue"
+                    }
                 },
                 "id": {
                     "type": "string"
@@ -1589,14 +1857,36 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "attributes": {
-                    "type": "object",
-                    "additionalProperties": {}
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.AttributeKeyValue"
+                    }
                 },
                 "roles": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "handler.UpdateResourceRequest": {
+            "type": "object",
+            "required": [
+                "kind"
+            ],
+            "properties": {
+                "attributes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.AttributeKeyValue"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
                 }
             }
         },
@@ -1643,9 +1933,6 @@ const docTemplate = `{
         "model.Attribute": {
             "type": "object",
             "properties": {
-                "id": {
-                    "type": "integer"
-                },
                 "key": {
                     "type": "string"
                 },

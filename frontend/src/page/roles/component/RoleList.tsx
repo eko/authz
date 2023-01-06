@@ -64,7 +64,7 @@ export default function RoleList() {
           startIcon={<AddCircleOutlineIcon />}
           onClick={() => navigate('/roles/create')}
         >
-          Create a new role
+          Create new role
         </Button>
       </Box>
 

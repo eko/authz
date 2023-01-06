@@ -14,14 +14,14 @@ import (
 )
 
 type CreatePrincipalRequest struct {
-	ID         string         `json:"id" validate:"required,slug"`
-	Roles      []string       `json:"roles" validate:"dive,slug"`
-	Attributes map[string]any `json:"attributes"`
+	RequestAttributes
+	ID    string   `json:"id" validate:"required,slug"`
+	Roles []string `json:"roles" validate:"dive,slug"`
 }
 
 type UpdatePrincipalRequest struct {
-	Roles      []string       `json:"roles" validate:"dive,slug"`
-	Attributes map[string]any `json:"attributes"`
+	RequestAttributes
+	Roles []string `json:"roles" validate:"dive,slug"`
 }
 
 // Creates a new principal.
@@ -53,7 +53,7 @@ func PrincipalCreate(
 		}
 
 		// Create principal
-		principal, err := manager.CreatePrincipal(request.ID, request.Roles, request.Attributes)
+		principal, err := manager.CreatePrincipal(request.ID, request.Roles, request.AttributesMap())
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
 		}
@@ -91,6 +91,7 @@ func PrincipalList(
 			database.WithSize(size),
 			database.WithFilter(httpFilterToORM(c)),
 			database.WithSort(httpSortToORM(c)),
+			database.WithPreloads("Attributes", "Roles"),
 		)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
@@ -117,7 +118,10 @@ func PrincipalGet(
 		identifier := c.Params("identifier")
 
 		// Retrieve principal
-		principal, err := manager.GetPrincipalRepository().Get(identifier)
+		principal, err := manager.GetPrincipalRepository().Get(
+			identifier,
+			database.WithPreloads("Attributes", "Roles"),
+		)
 		if err != nil {
 			statusCode := http.StatusInternalServerError
 
@@ -166,7 +170,7 @@ func PrincipalUpdate(
 		}
 
 		// Retrieve principal
-		principal, err := manager.UpdatePrincipal(identifier, request.Roles, request.Attributes)
+		principal, err := manager.UpdatePrincipal(identifier, request.Roles, request.AttributesMap())
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot update principal: %v", err),
@@ -186,7 +190,7 @@ func PrincipalUpdate(
 //	@Success	200	{object}	model.Principal
 //	@Failure	400	{object}	model.ErrorResponse
 //	@Failure	500	{object}	model.ErrorResponse
-//	@Router		/v1/principals/{identifier} [Get]
+//	@Router		/v1/principals/{identifier} [Delete]
 func PrincipalDelete(
 	manager manager.Manager,
 ) fiber.Handler {

@@ -4,10 +4,24 @@ export type Action = {
     updated_at: Date
 }
 
+export type Client = {
+    client_id: string
+    client_secret: string
+    name: string
+    created_at: Date
+    updated_at: Date
+}
+
+export type ResourceAttribute = {
+    key: string
+    value: string
+}
+
 export type Resource = {
     id: string
     kind: string
     value: string
+    attributes?: ResourceAttribute[]
     is_locked: boolean
     created_at: Date
     updated_at: Date
@@ -17,6 +31,7 @@ export type Policy = {
     id: string
     actions: Action[]
     resources: Resource[]
+    attribute_rules?: string[]
     created_at: Date
     updated_at: Date
 }
@@ -29,10 +44,16 @@ export type Role = {
     updated_at: Date
 }
 
+
+export type PrincipalAttribute = {
+    key: string
+    value: string
+}
 export type Principal = {
     id: string
     name: string
     roles: Role[]
+    attributes?: PrincipalAttribute[]
     created_at: Date
     updated_at: Date
 }
@@ -45,8 +66,8 @@ export type Group = {
 }
 
 export type User = {
-    id: string
-    name: string
+    username: string
+    password?: string
     created_at: Date
     updated_at: Date
 }

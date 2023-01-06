@@ -23,18 +23,85 @@ Feature: resource
 
   Scenario: Create a new resource (with value)
     Given I authenticate with username "admin" and password "changeme"
-    And I send "POST" request to "/v1/resources" with payload:
+    When I send "POST" request to "/v1/resources" with payload:
       """
-      {"id": "custom-post", "kind": "post", "value": "97fdb1dc-b1e0-4652-ab82-5d174031a681"}
+      {
+        "id": "custom-post",
+        "kind": "post",
+        "value": "97fdb1dc-b1e0-4652-ab82-5d174031a681",
+        "attributes": [
+          {"key": "foo1", "value": "bar1"},
+          {"key": "foo2", "value": "bar2"}
+        ]
+      }
       """
     Then the response code should be 200
     And the response should match json:
       """
       {
+        "attributes": [
+          {
+            "key": "foo1",
+            "value": "bar1"
+          },
+          {
+            "key": "foo2",
+            "value": "bar2"
+          }
+        ],
+        "created_at": "2100-01-01T02:00:00+01:00",
         "id": "custom-post",
         "is_locked": false,
         "kind": "post",
+        "updated_at": "2100-01-01T02:00:00+01:00",
+        "value": "97fdb1dc-b1e0-4652-ab82-5d174031a681"
+      }
+      """
+
+  Scenario: Update a resource
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
+      """
+      {
+        "id": "custom-post",
+        "kind": "post",
+        "value": "97fdb1dc-b1e0-4652-ab82-5d174031a681",
+        "attributes": [
+          {"key": "foo1", "value": "bar1"},
+          {"key": "foo2", "value": "bar2"}
+        ]
+      }
+      """
+    And the response code should be 200
+    When I send "PUT" request to "/v1/resources/custom-post" with payload:
+      """
+      {
+        "kind": "post",
+        "value": "97fdb1dc-b1e0-4652-ab82-5d174031a681",
+        "attributes": [
+          {"key": "foo3", "value": "bar3"},
+          {"key": "foo4", "value": "bar4"}
+        ]
+      }
+      """
+    And the response code should be 200
+    And the response should match json:
+      """
+      {
+        "attributes": [
+          {
+            "key": "foo3",
+            "value": "bar3"
+          },
+          {
+            "key": "foo4",
+            "value": "bar4"
+          }
+        ],
         "created_at": "2100-01-01T02:00:00+01:00",
+        "id": "custom-post",
+        "is_locked": false,
+        "kind": "post",
         "updated_at": "2100-01-01T02:00:00+01:00",
         "value": "97fdb1dc-b1e0-4652-ab82-5d174031a681"
       }

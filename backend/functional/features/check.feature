@@ -129,9 +129,9 @@ Feature: check
         "id": "post.123",
         "kind": "post",
         "value": "123",
-        "attributes": {
-          "owner_id": "owner-123"
-        }
+        "attributes": [
+          {"key": "owner_id", "value": "owner-123"}
+        ]
       }
       """
     And the response code should be 200
@@ -141,9 +141,9 @@ Feature: check
         "id": "post.456",
         "kind": "post",
         "value": "456",
-        "attributes": {
-          "owner_id": "owner-456"
-        }
+        "attributes": [
+          {"key": "owner_id", "value": "owner-456"}
+        ]
       }
       """
     And the response code should be 200
@@ -153,9 +153,9 @@ Feature: check
         "id": "post.789",
         "kind": "post",
         "value": "789",
-        "attributes": {
-          "is_editable": true
-        }
+        "attributes": [
+          {"key": "is_editable", "value": true}
+        ]
       }
       """
     And the response code should be 200
@@ -163,9 +163,9 @@ Feature: check
       """
       {
         "id": "my-principal",
-        "attributes": {
-          "owner_id": "owner-123"
-        }
+        "attributes": [
+          {"key": "owner_id", "value": "owner-123"}
+        ]
       }
       """
     And the response code should be 200
@@ -191,9 +191,9 @@ Feature: check
         "id": "post.10-updated-after",
         "kind": "post",
         "value": "10-updated-after",
-        "attributes": {
-          "is_editable": true
-        }
+        "attributes": [
+          {"key": "is_editable", "value": true}
+        ]
       }
       """
     And the response code should be 200

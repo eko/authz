@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/eko/authz/backend/configs"
+	"github.com/eko/authz/backend/internal/database"
 	"github.com/eko/authz/backend/internal/manager"
 	"github.com/eko/authz/backend/internal/security/paseto"
 	"github.com/go-oauth2/oauth2/v4/server"
@@ -34,6 +35,7 @@ const (
 	ResourceDeleteKey   = "resource-delete"
 	ResourceGetKey      = "resource-get"
 	ResourceListKey     = "resource-list"
+	ResourceUpdateKey   = "resource-update"
 	RoleCreateKey       = "role-create"
 	RoleDeleteKey       = "role-delete"
 	RoleGetKey          = "role-get"
@@ -56,6 +58,7 @@ func NewHandlers(
 	authCfg *configs.Auth,
 	validate *validator.Validate,
 	manager manager.Manager,
+	transactionManager database.TransactionManager,
 	tokenManager paseto.Manager,
 	oauthServer *server.Server,
 ) Handlers {
@@ -66,7 +69,7 @@ func NewHandlers(
 		AuthTokenNewKey:     adaptor.HTTPHandlerFunc(TokenNew(oauthServer)),
 		CheckKey:            Check(validate, manager),
 		ClientCreateKey:     ClientCreate(validate, manager, authCfg),
-		ClientDeleteKey:     ClientDelete(manager),
+		ClientDeleteKey:     ClientDelete(manager, transactionManager),
 		ClientGetKey:        ClientGet(manager),
 		ClientListKey:       ClientList(manager),
 		PolicyCreateKey:     PolicyCreate(validate, manager),
@@ -83,13 +86,14 @@ func NewHandlers(
 		ResourceDeleteKey:   ResourceDelete(manager),
 		ResourceGetKey:      ResourceGet(manager),
 		ResourceListKey:     ResourceList(manager),
+		ResourceUpdateKey:   ResourceUpdate(validate, manager),
 		RoleCreateKey:       RoleCreate(validate, manager),
 		RoleDeleteKey:       RoleDelete(manager),
 		RoleGetKey:          RoleGet(manager),
 		RoleListKey:         RoleList(manager),
 		RoleUpdateKey:       RoleUpdate(validate, manager),
 		UserCreateKey:       UserCreate(validate, manager),
-		UserDeleteKey:       UserDelete(manager),
+		UserDeleteKey:       UserDelete(manager, transactionManager),
 		UserGetKey:          UserGet(manager),
 		UserListKey:         UserList(manager),
 	}

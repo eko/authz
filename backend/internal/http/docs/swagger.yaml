@@ -1,4 +1,14 @@
 definitions:
+  handler.AttributeKeyValue:
+    properties:
+      key:
+        type: string
+      value:
+        type: string
+    required:
+    - key
+    - value
+    type: object
   handler.AuthRequest:
     properties:
       password:
@@ -101,8 +111,9 @@ definitions:
   handler.CreatePrincipalRequest:
     properties:
       attributes:
-        additionalProperties: {}
-        type: object
+        items:
+          $ref: '#/definitions/handler.AttributeKeyValue'
+        type: array
       id:
         type: string
       roles:
@@ -115,8 +126,9 @@ definitions:
   handler.CreateResourceRequest:
     properties:
       attributes:
-        additionalProperties: {}
-        type: object
+        items:
+          $ref: '#/definitions/handler.AttributeKeyValue'
+        type: array
       id:
         type: string
       kind:
@@ -185,12 +197,26 @@ definitions:
   handler.UpdatePrincipalRequest:
     properties:
       attributes:
-        additionalProperties: {}
-        type: object
+        items:
+          $ref: '#/definitions/handler.AttributeKeyValue'
+        type: array
       roles:
         items:
           type: string
         type: array
+    type: object
+  handler.UpdateResourceRequest:
+    properties:
+      attributes:
+        items:
+          $ref: '#/definitions/handler.AttributeKeyValue'
+        type: array
+      kind:
+        type: string
+      value:
+        type: string
+    required:
+    - kind
     type: object
   handler.UpdateRoleRequest:
     properties:
@@ -220,8 +246,6 @@ definitions:
     type: object
   model.Attribute:
     properties:
-      id:
-        type: integer
       key:
         type: string
       value:
@@ -552,7 +576,7 @@ paths:
       tags:
       - Client
   /v1/clients/{identifier}:
-    get:
+    delete:
       produces:
       - application/json
       responses:
@@ -571,6 +595,27 @@ paths:
       security:
       - Authentication: []
       summary: Deletes a client
+      tags:
+      - Client
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Client'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Retrieve a client
       tags:
       - Client
   /v1/policies:
@@ -649,7 +694,7 @@ paths:
       tags:
       - Policy
   /v1/policies/{identifier}:
-    get:
+    delete:
       produces:
       - application/json
       responses:
@@ -668,6 +713,27 @@ paths:
       security:
       - Authentication: []
       summary: Deletes a policy
+      tags:
+      - Policy
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Policy'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Retrieve a policy
       tags:
       - Policy
     put:
@@ -774,7 +840,7 @@ paths:
       tags:
       - Principal
   /v1/principals/{identifier}:
-    get:
+    delete:
       produces:
       - application/json
       responses:
@@ -793,6 +859,27 @@ paths:
       security:
       - Authentication: []
       summary: Deletes a principal
+      tags:
+      - Principal
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Principal'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Retrieve a principal
       tags:
       - Principal
     put:
@@ -899,7 +986,7 @@ paths:
       tags:
       - Resource
   /v1/resources/{identifier}:
-    get:
+    delete:
       produces:
       - application/json
       responses:
@@ -918,6 +1005,55 @@ paths:
       security:
       - Authentication: []
       summary: Deletes a resource
+      tags:
+      - Resource
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Resource'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Retrieve a resource
+      tags:
+      - Resource
+    put:
+      parameters:
+      - description: Resource update request
+        in: body
+        name: default
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateResourceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Resource'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Updates a resource
       tags:
       - Resource
   /v1/roles:
@@ -996,7 +1132,7 @@ paths:
       tags:
       - Role
   /v1/roles/{identifier}:
-    get:
+    delete:
       produces:
       - application/json
       responses:
@@ -1015,6 +1151,27 @@ paths:
       security:
       - Authentication: []
       summary: Deletes a role
+      tags:
+      - Role
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Role'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Retrieve a role
       tags:
       - Role
     put:
@@ -1150,7 +1307,7 @@ paths:
       tags:
       - User
   /v1/users/{identifier}:
-    get:
+    delete:
       produces:
       - application/json
       responses:
@@ -1169,6 +1326,27 @@ paths:
       security:
       - Authentication: []
       summary: Deletes a user
+      tags:
+      - User
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.User'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Retrieve a user
       tags:
       - User
 swagger: "2.0"

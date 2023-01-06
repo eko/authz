@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/database"
 	"github.com/eko/authz/backend/internal/http/handler/model"
 	"github.com/eko/authz/backend/internal/manager"
@@ -137,23 +138,47 @@ func UserGet(
 //	@Success	200	{object}	model.User
 //	@Failure	400	{object}	model.ErrorResponse
 //	@Failure	500	{object}	model.ErrorResponse
-//	@Router		/v1/users/{identifier} [Get]
+//	@Router		/v1/users/{identifier} [Delete]
 func UserDelete(
 	manager manager.Manager,
+	transactionManager database.TransactionManager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve user
-		user, err := manager.GetUserRepository().Get(identifier)
+		user, err := manager.GetUserRepository().GetByFields(map[string]database.FieldValue{
+			"username": {Operator: "=", Value: identifier},
+		})
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot retrieve user: %v", err),
 			)
 		}
 
-		// Delete user
-		if err := manager.GetUserRepository().Delete(user); err != nil {
+		// Retrieve principal
+		principal, err := manager.GetPrincipalRepository().Get(
+			fmt.Sprintf("%s-%s", configs.ApplicationName, user.Username),
+		)
+		if err != nil {
+			return returnError(c, http.StatusInternalServerError,
+				fmt.Errorf("cannot retrieve user principal: %v", err),
+			)
+		}
+
+		// Delete both user and principal
+		transaction := transactionManager.New()
+		defer func() { _ = transaction.Commit() }()
+
+		if err := manager.GetPrincipalRepository().WithTransaction(transaction).Delete(principal); err != nil {
+			_ = transaction.Rollback()
+			return returnError(c, http.StatusInternalServerError,
+				fmt.Errorf("cannot delete principal: %v", err),
+			)
+		}
+
+		if err := manager.GetUserRepository().WithTransaction(transaction).Delete(user); err != nil {
+			_ = transaction.Rollback()
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot delete user: %v", err),
 			)

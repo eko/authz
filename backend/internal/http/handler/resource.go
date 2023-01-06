@@ -13,11 +13,36 @@ import (
 	"gorm.io/gorm"
 )
 
+type AttributeKeyValue struct {
+	Key   string `json:"key" validate:"required"`
+	Value any    `json:"value" validate:"required"`
+}
+
+type RequestAttributes struct {
+	Attributes []AttributeKeyValue `json:"attributes"`
+}
+
+func (r RequestAttributes) AttributesMap() map[string]any {
+	var result = map[string]any{}
+
+	for _, attribute := range r.Attributes {
+		result[attribute.Key] = attribute.Value
+	}
+
+	return result
+}
+
 type CreateResourceRequest struct {
-	ID         string         `json:"id" validate:"required,slug"`
-	Kind       string         `json:"kind" validate:"required,slug"`
-	Value      string         `json:"value"`
-	Attributes map[string]any `json:"attributes"`
+	RequestAttributes
+	ID    string `json:"id" validate:"required,slug"`
+	Kind  string `json:"kind" validate:"required,slug"`
+	Value string `json:"value"`
+}
+
+type UpdateResourceRequest struct {
+	RequestAttributes
+	Kind  string `json:"kind" validate:"required,slug"`
+	Value string `json:"value"`
 }
 
 // Creates a new resource.
@@ -50,7 +75,7 @@ func ResourceCreate(
 		}
 
 		// Create resource
-		resource, err := manager.CreateResource(request.ID, request.Kind, request.Value, request.Attributes)
+		resource, err := manager.CreateResource(request.ID, request.Kind, request.Value, request.AttributesMap())
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
 		}
@@ -135,6 +160,49 @@ func ResourceGet(
 	}
 }
 
+// Updates a resource.
+//
+//	@security	Authentication
+//	@Summary	Updates a resource
+//	@Tags		Resource
+//	@Produce	json
+//	@Param		default	body		UpdateResourceRequest	true	"Resource update request"
+//	@Success	200		{object}	model.Resource
+//	@Failure	400		{object}	model.ErrorResponse
+//	@Failure	500		{object}	model.ErrorResponse
+//	@Router		/v1/resources/{identifier} [Put]
+func ResourceUpdate(
+	validate *validator.Validate,
+	manager manager.Manager,
+) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		identifier := c.Params("identifier")
+
+		// Update request
+		request := &UpdateResourceRequest{}
+
+		// Parse request body
+		if err := c.BodyParser(request); err != nil {
+			return returnError(c, http.StatusBadRequest, err)
+		}
+
+		// Validate body
+		if err := validateStruct(validate, request); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(err)
+		}
+
+		// Retrieve resource
+		resource, err := manager.UpdateResource(identifier, request.Kind, request.Value, request.AttributesMap())
+		if err != nil {
+			return returnError(c, http.StatusInternalServerError,
+				fmt.Errorf("cannot update resource: %v", err),
+			)
+		}
+
+		return c.JSON(resource)
+	}
+}
+
 // Deletes a resource.
 //
 //	@security	Authentication
@@ -144,7 +212,7 @@ func ResourceGet(
 //	@Success	200	{object}	model.Resource
 //	@Failure	400	{object}	model.ErrorResponse
 //	@Failure	500	{object}	model.ErrorResponse
-//	@Router		/v1/resources/{identifier} [Get]
+//	@Router		/v1/resources/{identifier} [Delete]
 func ResourceDelete(
 	manager manager.Manager,
 ) fiber.Handler {

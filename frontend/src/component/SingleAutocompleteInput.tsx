@@ -20,7 +20,7 @@ type AutocompleteInputProps = {
   label?: string
   placeholder?: string
   setValue: SetValueFunc
-  textSx?: SxProps
+  inputSx?: SxProps
   style?: React.CSSProperties
 }
 
@@ -32,7 +32,7 @@ export default function SingleAutocompleteInput({
   label,
   placeholder,
   setValue,
-  textSx,
+  inputSx,
   style,
 }: AutocompleteInputProps) {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -107,6 +107,7 @@ export default function SingleAutocompleteInput({
         )}
         options={[...listItems]}
         getOptionLabel={(option) => option.label}
+        onFocus={handleOnKeyUp}
         onKeyUp={handleOnKeyUp}
         renderInput={(params) => (
           <TextField
@@ -125,7 +126,7 @@ export default function SingleAutocompleteInput({
                 </InputAdornment>
               ),
             }}
-            sx={textSx}
+            sx={inputSx}
           />
         )}
       />

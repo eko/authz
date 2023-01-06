@@ -7,6 +7,15 @@ import RoleListPage from "page/roles/RoleListPage";
 import RoleCreateOrEditPage from "page/roles/RoleCreateOrEditPage";
 import PolicyListPage from "page/policies/PolicyListPage";
 import PolicyCreateOrEditPage from "page/policies/PolicyCreateOrEditPage";
+import ResourceListPage from "page/resources/ResourceListPage";
+import ResourceCreateOrEditPage from "page/resources/ResourceCreateOrEditPage";
+import PrincipalListPage from "page/principals/PrincipalListPage";
+import PrincipalCreateOrEditPage from "page/principals/PrincipalCreateOrEditPage";
+import UserListPage from "page/users/UserListPage";
+import UserCreateOrEditPage from "page/users/UserCreateOrEditPage";
+import ClientCreateOrEditPage from "page/clients/ClientCreateOrEditPage";
+import ClientListPage from "page/clients/ClientListPage";
+import CheckPage from "page/check/CheckPage";
 
 export const routes: RouteObject[] = [
   {
@@ -23,6 +32,18 @@ export const routes: RouteObject[] = [
         id: 'signin',
         path: "/signin",
         element: <SigninPage />,
+      },
+      {
+        id: 'check',
+        path: '/check',
+        children: [
+          {
+            id: 'check-index',
+            path: '/check',
+            index: true,
+            element: <CheckPage />,
+          },
+        ],
       },
       {
         id: 'groups',
@@ -98,17 +119,17 @@ export const routes: RouteObject[] = [
             id: 'resources-index',
             path: '/resources',
             index: true,
-            element: <NotFoundPage />,
+            element: <ResourceListPage />,
           },
           {
             id: 'resources-create',
             path: '/resources/create',
-            element: <NotFoundPage />,
+            element: <ResourceCreateOrEditPage />,
           },
           {
             id: 'resources-edit',
             path: '/resources/edit/:id',
-            element: <NotFoundPage />,
+            element: <ResourceCreateOrEditPage />,
           },
         ],
       },
@@ -120,17 +141,17 @@ export const routes: RouteObject[] = [
             id: 'principals-index',
             path: '/principals',
             index: true,
-            element: <NotFoundPage />,
+            element: <PrincipalListPage />,
           },
           {
             id: 'principals-create',
             path: '/principals/create',
-            element: <NotFoundPage />,
+            element: <PrincipalCreateOrEditPage />,
           },
           {
             id: 'principals-edit',
             path: '/principals/edit/:id',
-            element: <NotFoundPage />,
+            element: <PrincipalCreateOrEditPage />,
           },
         ],
       },
@@ -142,17 +163,17 @@ export const routes: RouteObject[] = [
             id: 'clients-index',
             path: '/clients',
             index: true,
-            element: <NotFoundPage />,
+            element: <ClientListPage />,
           },
           {
             id: 'clients-create',
             path: '/clients/create',
-            element: <NotFoundPage />,
+            element: <ClientCreateOrEditPage />,
           },
           {
             id: 'clients-edit',
             path: '/clients/edit/:id',
-            element: <NotFoundPage />,
+            element: <ClientCreateOrEditPage />,
           },
         ],
       },
@@ -164,12 +185,12 @@ export const routes: RouteObject[] = [
             id: 'users-index',
             path: '/users',
             index: true,
-            element: <NotFoundPage />,
+            element: <UserListPage />,
           },
           {
-            id: 'users-edit',
-            path: '/users/edit/:id',
-            element: <NotFoundPage />,
+            id: 'users-create',
+            path: '/users/create',
+            element: <UserCreateOrEditPage />,
           },
         ],
       },

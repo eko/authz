@@ -202,7 +202,7 @@ func PolicyUpdate(
 //	@Success	200	{object}	model.Policy
 //	@Failure	400	{object}	model.ErrorResponse
 //	@Failure	500	{object}	model.ErrorResponse
-//	@Router		/v1/policies/{identifier} [Get]
+//	@Router		/v1/policies/{identifier} [Delete]
 func PolicyDelete(
 	manager manager.Manager,
 ) fiber.Handler {

@@ -2,7 +2,7 @@ import { FormEventHandler } from 'react';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { array, mixed, object, string } from 'yup';
 
-import { DeepPartial, FieldErrors, useForm, UseFormGetValues, UseFormRegister, UseFormReset, UseFormSetValue } from 'react-hook-form';
+import { Control, DeepPartial, FieldErrors, useForm, UseFormGetValues, UseFormRegister, UseFormReset, UseFormSetValue, UseFormWatch } from 'react-hook-form';
 import { createPolicy, updatePolicy } from 'service/model/policy';
 import { Policy } from 'service/model/model';
 import { ItemType } from 'component/MultipleAutocompleteInput';
@@ -14,11 +14,13 @@ export type PolicyFormData = {
     id: string
     resources: ItemType[]
     actions: ItemType[]
+    attribute_rules?: string[]
 }
 
 export type OnSubmitHandler = (token: string) => FormEventHandler;
 
 type PolicyForm = {
+    control: Control<PolicyFormData>
     onSubmit: OnSubmitHandler
     register: UseFormRegister<PolicyFormData>
     getValues: UseFormGetValues<PolicyFormData>
@@ -28,6 +30,7 @@ type PolicyForm = {
     isSubmitting: boolean
     isValid: boolean
     reset: UseFormReset<PolicyFormData>
+    watch: UseFormWatch<PolicyFormData>
 }
 
 const schema = object({
@@ -49,6 +52,7 @@ export default function usePolicyForm(
     const toast = useToast();
 
     const {
+        control,
         register,
         getValues,
         setValue,
@@ -60,6 +64,7 @@ export default function usePolicyForm(
           isValid,
         },
         reset,
+        watch,
     } = useForm<PolicyFormData>({
         resolver: yupResolver(schema),
         defaultValues: mapPolicyToFormData(policy),
@@ -88,6 +93,7 @@ export default function usePolicyForm(
     });
 
     return {
+        control,
         onSubmit,
         register,
         getValues,
@@ -97,6 +103,7 @@ export default function usePolicyForm(
         isValid,
         errors,
         reset,
+        watch,
     };
 }
 
@@ -111,6 +118,7 @@ export const mapPolicyToFormData = (policy?: Policy): PolicyFormData => {
             id: action.id,
             label: action.id,
         }))  || [],
+        attribute_rules: policy?.attribute_rules || [],
     })
 }
 
@@ -119,5 +127,6 @@ export const mapPolicyFormDataToRequest = (data: PolicyFormData): any => {
         id: data.id,
         resources: data.resources.map(resource => resource.id) || [],
         actions: data.actions.map(action => action.id) || [],
+        attribute_rules: data.attribute_rules || [],
     };
 }
