@@ -1,9 +1,10 @@
-package database
+package repository
 
 import (
 	"fmt"
 
-	"github.com/eko/authz/backend/internal/database/model"
+	"github.com/eko/authz/backend/internal/database"
+	"github.com/eko/authz/backend/internal/entity/model"
 	"gorm.io/gorm"
 )
 
@@ -43,68 +44,91 @@ func WithPreloads(preloads ...string) QueryOption {
 	}
 }
 
+// WithPage allows to specify the page number you want to retrieve.
 func WithPage(page int64) QueryOption {
 	return func(o *queryOptions) {
 		o.page = page
 	}
 }
 
+// WithSize allows to specify the size (number of elements) you want to retrieve.
 func WithSize(size int64) QueryOption {
 	return func(o *queryOptions) {
 		o.size = size
 	}
 }
 
+// WithFilter allows to specify some filters to apply on the query.
 func WithFilter(filter map[string]FieldValue) QueryOption {
 	return func(o *queryOptions) {
 		o.filter = filter
 	}
 }
 
+// WithSort allows to specify the sort order you want to apply on the query.
 func WithSort(sort string) QueryOption {
 	return func(o *queryOptions) {
 		o.sort = sort
 	}
 }
 
+// WithSkipPagination allows to skip pagination and retrieve all elements.
 func WithSkipPagination() QueryOption {
 	return func(o *queryOptions) {
 		o.skipPagination = true
 	}
 }
 
-// Repository struct that allows contacting the database using Gorm.
-type Repository[T model.Models] struct {
+type Base[T model.Models] interface {
+	Create(object ...*T) error
+	DB() *gorm.DB
+	Delete(object *T) error
+	DeleteByFields(fieldValues map[string]FieldValue) error
+	Find(options ...QueryOption) ([]*T, int64, error)
+	Get(identifier string, options ...QueryOption) (*T, error)
+	GetByFields(fieldValues map[string]FieldValue, options ...QueryOption) (*T, error)
+	Update(object *T) error
+	UpdateAssociation(object *T, associationName string, data any) error
+	WithTransaction(transaction database.Transaction) *base[T]
+}
+
+// base struct that allows contacting the database using Gorm.
+type base[T model.Models] struct {
 	db *gorm.DB
 }
 
-// NewRepository initializes a new repository.
-func NewRepository[T model.Models](db *gorm.DB) *Repository[T] {
-	return &Repository[T]{
+// New initializes a new repository.
+func New[T model.Models](db *gorm.DB) Base[T] {
+	return &base[T]{
 		db: db,
 	}
 }
 
 // WithTransaction returns a new repository instance using a transaction database.
-func (r *Repository[T]) WithTransaction(transaction Transaction) *Repository[T] {
-	return &Repository[T]{
+func (r *base[T]) WithTransaction(transaction database.Transaction) *base[T] {
+	return &base[T]{
 		db: transaction.DB(),
 	}
 }
 
 // Create allows to create a new entry in a database table.
-func (r *Repository[T]) Create(object ...*T) error {
+func (r *base[T]) Create(object ...*T) error {
 	return r.db.Create(object).Error
 }
 
+// DB allows returning database session object.
+func (r *base[T]) DB() *gorm.DB {
+	return r.db
+}
+
 // Delete allows to delete the specified entry from the database.
-func (r *Repository[T]) Delete(object *T) error {
+func (r *base[T]) Delete(object *T) error {
 	return r.db.Delete(object).Error
 }
 
 // DeleteByFields allows to delete values of the current type from the database
 // filtered by the given field name and value.
-func (r *Repository[T]) DeleteByFields(fieldValues map[string]FieldValue) error {
+func (r *base[T]) DeleteByFields(fieldValues map[string]FieldValue) error {
 	result := new(T)
 
 	db := r.db
@@ -121,17 +145,17 @@ func (r *Repository[T]) DeleteByFields(fieldValues map[string]FieldValue) error 
 }
 
 // Update allows to update the specified entry into the database.
-func (r *Repository[T]) Update(object *T) error {
+func (r *base[T]) Update(object *T) error {
 	return r.db.Save(object).Error
 }
 
 // UpdateAssociation allows to update the specified association entry into the database.
-func (r *Repository[T]) UpdateAssociation(object *T, associationName string, data any) error {
+func (r *base[T]) UpdateAssociation(object *T, associationName string, data any) error {
 	return r.db.Model(object).Association(associationName).Replace(data)
 }
 
 // Get allows to retrieve a value of the current type from the specified primary key.
-func (r *Repository[T]) Get(identifier string, options ...QueryOption) (*T, error) {
+func (r *base[T]) Get(identifier string, options ...QueryOption) (*T, error) {
 	result := new(T)
 
 	db := r.applyOptions(options)
@@ -145,7 +169,7 @@ func (r *Repository[T]) Get(identifier string, options ...QueryOption) (*T, erro
 
 // GetByFields allows to retrieve a value of the current type from the database
 // filtered by the given field names and values.
-func (r *Repository[T]) GetByFields(fieldValues map[string]FieldValue, options ...QueryOption) (*T, error) {
+func (r *base[T]) GetByFields(fieldValues map[string]FieldValue, options ...QueryOption) (*T, error) {
 	result := new(T)
 
 	db := r.applyOptions(options)
@@ -166,7 +190,7 @@ func (r *Repository[T]) GetByFields(fieldValues map[string]FieldValue, options .
 }
 
 // Find allows to retrieve a list of values of the current type.
-func (r *Repository[T]) Find(options ...QueryOption) ([]*T, int64, error) {
+func (r *base[T]) Find(options ...QueryOption) ([]*T, int64, error) {
 	var result = make([]*T, 0)
 	var total int64
 
@@ -186,7 +210,7 @@ func (r *Repository[T]) Find(options ...QueryOption) ([]*T, int64, error) {
 	return result, total, nil
 }
 
-func (r *Repository[T]) applyOptions(options []QueryOption) *gorm.DB {
+func (r *base[T]) applyOptions(options []QueryOption) *gorm.DB {
 	db := r.db
 
 	opts := &queryOptions{}

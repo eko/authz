@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/eko/authz/backend/internal/database"
+	"github.com/eko/authz/backend/internal/entity/manager"
+	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/http/handler/model"
-	"github.com/eko/authz/backend/internal/manager"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -35,7 +35,7 @@ type UpdateRoleRequest struct {
 //	@Router		/v1/roles [Post]
 func RoleCreate(
 	validate *validator.Validate,
-	manager manager.Manager,
+	roleManager manager.Role,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		request := &CreateRoleRequest{}
@@ -52,7 +52,7 @@ func RoleCreate(
 		}
 
 		// Create role
-		role, err := manager.CreateRole(request.ID, request.Policies)
+		role, err := roleManager.Create(request.ID, request.Policies)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
 		}
@@ -76,7 +76,7 @@ func RoleCreate(
 //	@Failure	500		{object}	model.ErrorResponse
 //	@Router		/v1/roles [Get]
 func RoleList(
-	manager manager.Manager,
+	roleManager manager.Role,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		page, size, err := paginate(c)
@@ -85,12 +85,12 @@ func RoleList(
 		}
 
 		// List roles
-		role, total, err := manager.GetRoleRepository().Find(
-			database.WithPreloads("Policies"),
-			database.WithPage(page),
-			database.WithSize(size),
-			database.WithFilter(httpFilterToORM(c)),
-			database.WithSort(httpSortToORM(c)),
+		role, total, err := roleManager.GetRepository().Find(
+			repository.WithPreloads("Policies"),
+			repository.WithPage(page),
+			repository.WithSize(size),
+			repository.WithFilter(httpFilterToORM(c)),
+			repository.WithSort(httpSortToORM(c)),
 		)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
@@ -111,15 +111,15 @@ func RoleList(
 //	@Failure	500	{object}	model.ErrorResponse
 //	@Router		/v1/roles/{identifier} [Get]
 func RoleGet(
-	manager manager.Manager,
+	roleManager manager.Role,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve role
-		role, err := manager.GetRoleRepository().Get(
+		role, err := roleManager.GetRepository().Get(
 			identifier,
-			database.WithPreloads("Policies"),
+			repository.WithPreloads("Policies"),
 		)
 		if err != nil {
 			statusCode := http.StatusInternalServerError
@@ -150,7 +150,7 @@ func RoleGet(
 //	@Router		/v1/roles/{identifier} [Put]
 func RoleUpdate(
 	validate *validator.Validate,
-	manager manager.Manager,
+	roleManager manager.Role,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
@@ -169,7 +169,7 @@ func RoleUpdate(
 		}
 
 		// Retrieve role
-		role, err := manager.UpdateRole(identifier, request.Policies)
+		role, err := roleManager.Update(identifier, request.Policies)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot update role: %v", err),
@@ -191,13 +191,13 @@ func RoleUpdate(
 //	@Failure	500	{object}	model.ErrorResponse
 //	@Router		/v1/roles/{identifier} [Delete]
 func RoleDelete(
-	manager manager.Manager,
+	roleManager manager.Role,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve role
-		role, err := manager.GetRoleRepository().Get(identifier)
+		role, err := roleManager.GetRepository().Get(identifier)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot retrieve role: %v", err),
@@ -205,7 +205,7 @@ func RoleDelete(
 		}
 
 		// Delete role
-		if err := manager.GetRoleRepository().Delete(role); err != nil {
+		if err := roleManager.GetRepository().Delete(role); err != nil {
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot delete role: %v", err),
 			)

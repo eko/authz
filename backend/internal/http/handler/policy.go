@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/eko/authz/backend/internal/database"
+	"github.com/eko/authz/backend/internal/entity/manager"
+	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/http/handler/model"
-	"github.com/eko/authz/backend/internal/manager"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -39,7 +39,7 @@ type UpdatePolicyRequest struct {
 //	@Router		/v1/policies [Post]
 func PolicyCreate(
 	validate *validator.Validate,
-	manager manager.Manager,
+	policyManager manager.Policy,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		request := &CreatePolicyRequest{}
@@ -55,7 +55,7 @@ func PolicyCreate(
 		}
 
 		// Create policy
-		policy, err := manager.CreatePolicy(
+		policy, err := policyManager.Create(
 			request.ID,
 			request.Resources,
 			request.Actions,
@@ -84,7 +84,7 @@ func PolicyCreate(
 //	@Failure	500		{object}	model.ErrorResponse
 //	@Router		/v1/policies [Get]
 func PolicyList(
-	manager manager.Manager,
+	policyManager manager.Policy,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		page, size, err := paginate(c)
@@ -93,12 +93,12 @@ func PolicyList(
 		}
 
 		// List policies
-		policy, total, err := manager.GetPolicyRepository().Find(
-			database.WithPreloads("Resources", "Actions"),
-			database.WithPage(page),
-			database.WithSize(size),
-			database.WithFilter(httpFilterToORM(c)),
-			database.WithSort(httpSortToORM(c)),
+		policy, total, err := policyManager.GetRepository().Find(
+			repository.WithPreloads("Resources", "Actions"),
+			repository.WithPage(page),
+			repository.WithSize(size),
+			repository.WithFilter(httpFilterToORM(c)),
+			repository.WithSort(httpSortToORM(c)),
 		)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
@@ -119,15 +119,15 @@ func PolicyList(
 //	@Failure	500	{object}	model.ErrorResponse
 //	@Router		/v1/policies/{identifier} [Get]
 func PolicyGet(
-	manager manager.Manager,
+	policyManager manager.Policy,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve policy
-		policy, err := manager.GetPolicyRepository().Get(
+		policy, err := policyManager.GetRepository().Get(
 			identifier,
-			database.WithPreloads("Resources", "Actions"),
+			repository.WithPreloads("Resources", "Actions"),
 		)
 		if err != nil {
 			statusCode := http.StatusInternalServerError
@@ -158,7 +158,7 @@ func PolicyGet(
 //	@Router		/v1/policies/{identifier} [Put]
 func PolicyUpdate(
 	validate *validator.Validate,
-	manager manager.Manager,
+	policyManager manager.Policy,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
@@ -177,7 +177,7 @@ func PolicyUpdate(
 		}
 
 		// Retrieve policy
-		policy, err := manager.UpdatePolicy(
+		policy, err := policyManager.Update(
 			identifier,
 			request.Resources,
 			request.Actions,
@@ -204,13 +204,13 @@ func PolicyUpdate(
 //	@Failure	500	{object}	model.ErrorResponse
 //	@Router		/v1/policies/{identifier} [Delete]
 func PolicyDelete(
-	manager manager.Manager,
+	policyManager manager.Policy,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve policy
-		policy, err := manager.GetPolicyRepository().Get(identifier)
+		policy, err := policyManager.GetRepository().Get(identifier)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot retrieve policy: %v", err),
@@ -218,7 +218,7 @@ func PolicyDelete(
 		}
 
 		// Delete policy
-		if err := manager.GetPolicyRepository().Delete(policy); err != nil {
+		if err := policyManager.GetRepository().Delete(policy); err != nil {
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot delete policy: %v", err),
 			)

@@ -36,15 +36,12 @@ test('MultipleAutocompleteInput: render default options', async () => {
       <Wrapper />
     );
   
-    // When
-    await userEvent.click(screen.getByRole('multipleautocompleteinput-field'));
-  
     // Then
-    const listbox = screen.queryByRole('listbox');
-    expect(listbox).toBeVisible();
+    const selectedList = screen.queryByRole('selected-list');
+    expect(selectedList).toBeVisible();
 
-    expect(listbox).toHaveTextContent('default-1');
-    expect(listbox).toHaveTextContent('default-2');
+    expect(selectedList).toHaveTextContent('default-1');
+    expect(selectedList).toHaveTextContent('default-2');
   });
 
 test('MultipleAutocompleteInput: render options using fetcher', async () => {

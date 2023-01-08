@@ -1,7 +1,7 @@
-package database
+package repository
 
 import (
-	"github.com/eko/authz/backend/internal/database/model"
+	"github.com/eko/authz/backend/internal/entity/model"
 	"gorm.io/gorm"
 )
 
@@ -17,14 +17,19 @@ func WithResourceIDs(resourceIDs []string) ResourceQueryOption {
 	}
 }
 
-// ResourceRepository struct that allows contacting the database using Gorm.
-type ResourceRepository struct {
-	*Repository[model.Resource]
+type Resource interface {
+	Base[model.Resource]
+	FindMatchingAttributesWithPrincipals(resourceAttribute string, principalAttribute string, options ...ResourceQueryOption) ([]*MatchingAttributeResourcePrincipal, error)
 }
 
-// NewResourceRepository initializes a new repository.
-func NewResourceRepository(repository *Repository[model.Resource]) *ResourceRepository {
-	return &ResourceRepository{
+// besource struct that allows contacting the database using Gorm.
+type resource struct {
+	Base[model.Resource]
+}
+
+// NewResource initializes a new resource repository.
+func NewResource(repository Base[model.Resource]) Resource {
+	return &resource{
 		repository,
 	}
 }
@@ -35,14 +40,14 @@ type MatchingAttributeResourcePrincipal struct {
 	ResourceValue string
 }
 
-func (r *ResourceRepository) FindMatchingAttributesWithPrincipals(
+func (r *resource) FindMatchingAttributesWithPrincipals(
 	resourceAttribute string,
 	principalAttribute string,
 	options ...ResourceQueryOption,
 ) ([]*MatchingAttributeResourcePrincipal, error) {
 	matches := []*MatchingAttributeResourcePrincipal{}
 
-	tx := applyResourceOptions(r.db, options)
+	tx := applyResourceOptions(r.DB(), options)
 
 	err := tx.
 		Select("authz_principals_attributes.principal_id AS principal_id, authz_resources.kind AS resource_kind, authz_resources.value AS resource_value").

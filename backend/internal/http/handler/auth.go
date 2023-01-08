@@ -7,9 +7,9 @@ import (
 	"sync"
 
 	"github.com/eko/authz/backend/configs"
-	"github.com/eko/authz/backend/internal/database"
-	"github.com/eko/authz/backend/internal/database/model"
-	"github.com/eko/authz/backend/internal/manager"
+	"github.com/eko/authz/backend/internal/entity/manager"
+	"github.com/eko/authz/backend/internal/entity/model"
+	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/security/paseto"
 	"github.com/go-oauth2/oauth2/v4/server"
 	"github.com/go-playground/validator/v10"
@@ -56,7 +56,7 @@ type TokenResponse struct {
 //	@Router		/v1/auth [Post]
 func Authenticate(
 	validate *validator.Validate,
-	manager manager.Manager,
+	userManager manager.User,
 	authCfg *configs.Auth,
 	tokenManager paseto.Manager,
 ) fiber.Handler {
@@ -73,7 +73,7 @@ func Authenticate(
 			return c.Status(fiber.StatusBadRequest).JSON(err)
 		}
 
-		user, err := manager.GetUserRepository().GetByFields(map[string]database.FieldValue{
+		user, err := userManager.GetRepository().GetByFields(map[string]repository.FieldValue{
 			"username": {Operator: "=", Value: request.Username},
 		})
 		if err != nil {

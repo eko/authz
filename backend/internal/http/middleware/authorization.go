@@ -3,14 +3,14 @@ package middleware
 import (
 	"fmt"
 
-	"github.com/eko/authz/backend/internal/manager"
+	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/exp/slog"
 )
 
 func Authorization(
 	logger *slog.Logger,
-	manager manager.Manager,
+	compiledManager manager.CompiledPolicy,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx := c.UserContext()
@@ -22,7 +22,7 @@ func Authorization(
 
 		principal := fmt.Sprintf("authz-%s", userID)
 
-		isAllowed, err := manager.IsAllowed(principal, resourceKind, resourceValue, action)
+		isAllowed, err := compiledManager.IsAllowed(principal, resourceKind, resourceValue, action)
 		if err != nil {
 			logger.Error(
 				"Error while checking if user is allowed",

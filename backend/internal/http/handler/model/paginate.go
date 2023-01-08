@@ -1,6 +1,6 @@
 package model
 
-import "github.com/eko/authz/backend/internal/database/model"
+import "github.com/eko/authz/backend/internal/entity/model"
 
 type Paginated[T model.Models] struct {
 	Data  []*T  `json:"data"`

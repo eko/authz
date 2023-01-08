@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/eko/authz/backend/internal/database"
+	"github.com/eko/authz/backend/internal/entity/manager"
+	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/http/handler/model"
-	"github.com/eko/authz/backend/internal/manager"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
@@ -27,7 +27,7 @@ import (
 //	@Failure	500		{object}	model.ErrorResponse
 //	@Router		/v1/actions [Get]
 func ActionList(
-	manager manager.Manager,
+	actionManager manager.Action,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		page, size, err := paginate(c)
@@ -36,11 +36,11 @@ func ActionList(
 		}
 
 		// List actions
-		action, total, err := manager.GetActionRepository().Find(
-			database.WithPage(page),
-			database.WithSize(size),
-			database.WithFilter(httpFilterToORM(c)),
-			database.WithSort(httpSortToORM(c)),
+		action, total, err := actionManager.GetRepository().Find(
+			repository.WithPage(page),
+			repository.WithSize(size),
+			repository.WithFilter(httpFilterToORM(c)),
+			repository.WithSort(httpSortToORM(c)),
 		)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
@@ -61,13 +61,13 @@ func ActionList(
 //	@Failure	500	{object}	model.ErrorResponse
 //	@Router		/v1/actions/{identifier} [Get]
 func ActionGet(
-	manager manager.Manager,
+	actionManager manager.Action,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve action
-		action, err := manager.GetActionRepository().Get(identifier)
+		action, err := actionManager.GetRepository().Get(identifier)
 		if err != nil {
 			statusCode := http.StatusInternalServerError
 

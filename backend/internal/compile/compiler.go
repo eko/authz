@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/eko/authz/backend/internal/attribute"
-	"github.com/eko/authz/backend/internal/database"
-	"github.com/eko/authz/backend/internal/database/model"
+	"github.com/eko/authz/backend/internal/entity/manager"
+	"github.com/eko/authz/backend/internal/entity/model"
+	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/helper/time"
-	"github.com/eko/authz/backend/internal/manager"
 )
 
 type CompileOption func(*compileOptions)
@@ -36,24 +36,33 @@ type Compiler interface {
 }
 
 type compiler struct {
-	clock   time.Clock
-	manager manager.Manager
+	clock            time.Clock
+	compiledManager  manager.CompiledPolicy
+	policyManager    manager.Policy
+	principalManager manager.Principal
+	resourceManager  manager.Resource
 }
 
 func NewCompiler(
 	clock time.Clock,
-	manager manager.Manager,
+	compiledManager manager.CompiledPolicy,
+	policyManager manager.Policy,
+	principalManager manager.Principal,
+	resourceManager manager.Resource,
 ) *compiler {
 	return &compiler{
-		clock:   clock,
-		manager: manager,
+		clock:            clock,
+		compiledManager:  compiledManager,
+		policyManager:    policyManager,
+		principalManager: principalManager,
+		resourceManager:  resourceManager,
 	}
 }
 
 func (c *compiler) CompilePolicy(identifier string) error {
-	policy, err := c.manager.GetPolicyRepository().Get(
+	policy, err := c.policyManager.GetRepository().Get(
 		identifier,
-		database.WithPreloads("Resources", "Actions"),
+		repository.WithPreloads("Resources", "Actions"),
 	)
 	if err != nil {
 		return fmt.Errorf("cannot retrieve policy: %v", err)
@@ -75,7 +84,7 @@ func (c *compiler) CompilePolicy(identifier string) error {
 	for _, resource := range policy.Resources {
 		for _, action := range policy.Actions {
 			if len(compiled) == 100 {
-				if err := c.manager.CreateCompiledPolicy(compiled); err != nil {
+				if err := c.compiledManager.Create(compiled); err != nil {
 					return err
 				}
 				compiled = make([]*model.CompiledPolicy, 0)
@@ -95,11 +104,11 @@ func (c *compiler) CompilePolicy(identifier string) error {
 		return nil
 	}
 
-	if err := c.manager.CreateCompiledPolicy(compiled); err != nil {
+	if err := c.compiledManager.Create(compiled); err != nil {
 		return err
 	}
 
-	return c.manager.GetCompiledPolicyRepository().DeleteByFields(map[string]database.FieldValue{
+	return c.compiledManager.GetRepository().DeleteByFields(map[string]repository.FieldValue{
 		"policy_id": {Operator: "=", Value: policy.ID},
 		"version":   {Operator: "<", Value: version},
 	})
@@ -125,7 +134,7 @@ func (c *compiler) compilePolicyAttributes(policy *model.Policy) error {
 		}
 	}
 
-	return c.manager.GetCompiledPolicyRepository().DeleteByFields(map[string]database.FieldValue{
+	return c.compiledManager.GetRepository().DeleteByFields(map[string]repository.FieldValue{
 		"policy_id": {Operator: "=", Value: policy.ID},
 		"version":   {Operator: "<", Value: version},
 	})
@@ -165,7 +174,7 @@ func (c *compiler) compilePolicyAttributesWithValue(
 		for _, principal := range opts.principals {
 			for _, action := range policy.Actions {
 				if len(compiled) == 100 {
-					if err := c.manager.CreateCompiledPolicy(compiled); err != nil {
+					if err := c.compiledManager.Create(compiled); err != nil {
 						return err
 					}
 					compiled = make([]*model.CompiledPolicy, 0)
@@ -187,7 +196,7 @@ func (c *compiler) compilePolicyAttributesWithValue(
 		return nil
 	}
 
-	return c.manager.CreateCompiledPolicy(compiled)
+	return c.compiledManager.Create(compiled)
 }
 
 func (c *compiler) compilePolicyAttributesWithMatching(
@@ -200,7 +209,7 @@ func (c *compiler) compilePolicyAttributesWithMatching(
 
 	var compiled = make([]*model.CompiledPolicy, 0)
 
-	queryOptions := []database.ResourceQueryOption{}
+	queryOptions := []repository.ResourceQueryOption{}
 
 	if len(opts.resources) > 0 {
 		var resourceIDs = make([]string, len(opts.resources))
@@ -208,10 +217,10 @@ func (c *compiler) compilePolicyAttributesWithMatching(
 			resourceIDs[index] = resource.ID
 		}
 
-		queryOptions = append(queryOptions, database.WithResourceIDs(resourceIDs))
+		queryOptions = append(queryOptions, repository.WithResourceIDs(resourceIDs))
 	}
 
-	matches, err := c.manager.GetResourceRepository().FindMatchingAttributesWithPrincipals(
+	matches, err := c.resourceManager.GetRepository().FindMatchingAttributesWithPrincipals(
 		attributeRule.ResourceAttribute,
 		attributeRule.PrincipalAttribute,
 		queryOptions...,
@@ -223,7 +232,7 @@ func (c *compiler) compilePolicyAttributesWithMatching(
 	for _, match := range matches {
 		for _, action := range policy.Actions {
 			if len(compiled) == 100 {
-				if err := c.manager.CreateCompiledPolicy(compiled); err != nil {
+				if err := c.compiledManager.Create(compiled); err != nil {
 					return err
 				}
 				compiled = make([]*model.CompiledPolicy, 0)
@@ -244,7 +253,7 @@ func (c *compiler) compilePolicyAttributesWithMatching(
 		return nil
 	}
 
-	return c.manager.CreateCompiledPolicy(compiled)
+	return c.compiledManager.Create(compiled)
 }
 
 func (c *compiler) retrieveResources(resources []*model.Resource, rule *attribute.Rule) ([]*model.Resource, error) {
@@ -256,7 +265,7 @@ func (c *compiler) retrieveResources(resources []*model.Resource, rule *attribut
 			continue
 		}
 
-		var filters = map[string]database.FieldValue{
+		var filters = map[string]repository.FieldValue{
 			"authz_resources.kind": {Operator: "=", Value: resource.Kind},
 			// Don't handle wildcard resources to compiled policies
 			// in case of attribute rules.
@@ -264,28 +273,28 @@ func (c *compiler) retrieveResources(resources []*model.Resource, rule *attribut
 		}
 
 		if rule.ResourceAttribute != "" && rule.Value != "" {
-			filters["authz_attributes.key"] = database.FieldValue{
+			filters["authz_attributes.key"] = repository.FieldValue{
 				Operator: "=", Value: rule.ResourceAttribute,
 			}
 
 			switch rule.Operator {
 			case attribute.RuleOperatorEqual:
-				filters["authz_attributes.value"] = database.FieldValue{
+				filters["authz_attributes.value"] = repository.FieldValue{
 					Operator: "=", Value: rule.Value,
 				}
 			case attribute.RuleOperatorNotEqual:
-				filters["authz_attributes.value"] = database.FieldValue{
+				filters["authz_attributes.value"] = repository.FieldValue{
 					Operator: "<>", Value: rule.Value,
 				}
 			}
 		}
 
-		allResources, _, err := c.manager.GetResourceRepository().Find(
-			database.WithJoin(
+		allResources, _, err := c.resourceManager.GetRepository().Find(
+			repository.WithJoin(
 				"INNER JOIN authz_resources_attributes ON authz_resources.id = authz_resources_attributes.resource_id",
 				"INNER JOIN authz_attributes ON authz_resources_attributes.attribute_id = authz_attributes.id",
 			),
-			database.WithFilter(filters),
+			repository.WithFilter(filters),
 		)
 		if err != nil {
 			return nil, err
@@ -298,31 +307,31 @@ func (c *compiler) retrieveResources(resources []*model.Resource, rule *attribut
 }
 
 func (c *compiler) retrievePrincipals(rule *attribute.Rule) ([]*model.Principal, error) {
-	var filters = map[string]database.FieldValue{}
+	var filters = map[string]repository.FieldValue{}
 
 	if rule.PrincipalAttribute != "" && rule.Value != "" {
-		filters["authz_attributes.key"] = database.FieldValue{
+		filters["authz_attributes.key"] = repository.FieldValue{
 			Operator: "=", Value: rule.PrincipalAttribute,
 		}
 
 		switch rule.Operator {
 		case attribute.RuleOperatorEqual:
-			filters["authz_attributes.value"] = database.FieldValue{
+			filters["authz_attributes.value"] = repository.FieldValue{
 				Operator: "=", Value: rule.Value,
 			}
 		case attribute.RuleOperatorNotEqual:
-			filters["authz_attributes.value"] = database.FieldValue{
+			filters["authz_attributes.value"] = repository.FieldValue{
 				Operator: "<>", Value: rule.Value,
 			}
 		}
 	}
 
-	allPrincipals, _, err := c.manager.GetPrincipalRepository().Find(
-		database.WithJoin(
+	allPrincipals, _, err := c.principalManager.GetRepository().Find(
+		repository.WithJoin(
 			"INNER JOIN authz_principals_attributes ON authz_principals.id = authz_principals_attributes.principal_id",
 			"INNER JOIN authz_attributes ON authz_principals_attributes.attribute_id = authz_attributes.id",
 		),
-		database.WithFilter(filters),
+		repository.WithFilter(filters),
 	)
 	if err != nil {
 		return nil, err
@@ -332,15 +341,15 @@ func (c *compiler) retrievePrincipals(rule *attribute.Rule) ([]*model.Principal,
 }
 
 func (c *compiler) CompilePrincipal(identifier string) error {
-	principal, err := c.manager.GetPrincipalRepository().Get(identifier)
+	principal, err := c.principalManager.GetRepository().Get(identifier)
 	if err != nil {
 		return fmt.Errorf("cannot retrieve principal: %v", err)
 	}
 
 	version := c.clock.Now().Unix()
 
-	policies, _, err := c.manager.GetPolicyRepository().Find(
-		database.WithPreloads("Resources", "Actions"),
+	policies, _, err := c.policyManager.GetRepository().Find(
+		repository.WithPreloads("Resources", "Actions"),
 	)
 	if err != nil {
 		return fmt.Errorf("cannot retrieve policies: %v", err)
@@ -365,22 +374,22 @@ func (c *compiler) CompilePrincipal(identifier string) error {
 		}
 	}
 
-	return c.manager.GetCompiledPolicyRepository().DeleteByFields(map[string]database.FieldValue{
+	return c.compiledManager.GetRepository().DeleteByFields(map[string]repository.FieldValue{
 		"principal_id": {Operator: "=", Value: principal.ID},
 		"version":      {Operator: "<", Value: version},
 	})
 }
 
 func (c *compiler) CompileResource(identifier string) error {
-	resource, err := c.manager.GetResourceRepository().Get(identifier)
+	resource, err := c.resourceManager.GetRepository().Get(identifier)
 	if err != nil {
 		return fmt.Errorf("cannot retrieve resource: %v", err)
 	}
 
 	version := c.clock.Now().Unix()
 
-	policies, _, err := c.manager.GetPolicyRepository().Find(
-		database.WithPreloads("Resources", "Actions"),
+	policies, _, err := c.policyManager.GetRepository().Find(
+		repository.WithPreloads("Resources", "Actions"),
 	)
 	if err != nil {
 		return fmt.Errorf("cannot retrieve policies: %v", err)
@@ -405,7 +414,7 @@ func (c *compiler) CompileResource(identifier string) error {
 		}
 	}
 
-	return c.manager.GetCompiledPolicyRepository().DeleteByFields(map[string]database.FieldValue{
+	return c.compiledManager.GetRepository().DeleteByFields(map[string]repository.FieldValue{
 		"resource_kind":  {Operator: "=", Value: resource.Kind},
 		"resource_value": {Operator: "=", Value: resource.Value},
 		"version":        {Operator: "<", Value: version},

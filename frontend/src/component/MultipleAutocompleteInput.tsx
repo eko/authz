@@ -150,7 +150,7 @@ export default function MultipleAutocompleteInput({
       />
 
       {items.length > 0 ? (
-        <List sx={{ maxWidth: 360, bgcolor: 'background.paper' }}>
+        <List role='selected-list' sx={{ maxWidth: 360, bgcolor: 'background.paper' }}>
           {items.map((item, index) => (
             <ListItem role='multipleautocompleteinput-item' key={index} dense>
               <ListItemText primary={item.label} />

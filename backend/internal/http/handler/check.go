@@ -3,7 +3,7 @@ package handler
 import (
 	"net/http"
 
-	"github.com/eko/authz/backend/internal/manager"
+	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
@@ -41,7 +41,7 @@ type CheckResponse struct {
 //	@Router		/v1/check [Post]
 func Check(
 	validate *validator.Validate,
-	manager manager.Manager,
+	compiledManager manager.CompiledPolicy,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		request := &CheckRequest{}
@@ -60,7 +60,7 @@ func Check(
 		var responseChecks = make([]*CheckResponseQuery, len(request.Checks))
 
 		for i, check := range request.Checks {
-			isAllowed, err := manager.IsAllowed(check.Principal, check.ResourceKind, check.ResourceValue, check.Action)
+			isAllowed, err := compiledManager.IsAllowed(check.Principal, check.ResourceKind, check.ResourceValue, check.Action)
 			if err != nil {
 				return returnError(c, http.StatusInternalServerError, err)
 			}

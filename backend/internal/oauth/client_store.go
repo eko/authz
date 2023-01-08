@@ -4,19 +4,19 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/eko/authz/backend/internal/database"
-	"github.com/eko/authz/backend/internal/database/model"
+	"github.com/eko/authz/backend/internal/entity/manager"
+	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/go-oauth2/oauth2/v4"
 	"github.com/go-oauth2/oauth2/v4/models"
 )
 
 type ClientStore struct {
-	clientRepository *database.Repository[model.Client]
+	clientManager manager.Client
 }
 
-func NewClientStore(clientRepository *database.Repository[model.Client]) *ClientStore {
+func NewClientStore(clientManager manager.Client) *ClientStore {
 	return &ClientStore{
-		clientRepository: clientRepository,
+		clientManager: clientManager,
 	}
 }
 
@@ -25,7 +25,7 @@ func (s *ClientStore) GetByID(ctx context.Context, id string) (oauth2.ClientInfo
 		return nil, nil
 	}
 
-	client, err := s.clientRepository.Get(id)
+	client, err := s.clientManager.GetRepository().Get(id)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (s *ClientStore) Create(ctx context.Context, info oauth2.ClientInfo) error 
 		return err
 	}
 
-	return s.clientRepository.Create(&model.Client{
+	return s.clientManager.GetRepository().Create(&model.Client{
 		ID:     info.GetID(),
 		Secret: info.GetSecret(),
 		Domain: info.GetDomain(),

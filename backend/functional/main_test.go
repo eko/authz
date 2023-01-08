@@ -19,12 +19,13 @@ import (
 	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/compile"
 	"github.com/eko/authz/backend/internal/database"
+	"github.com/eko/authz/backend/internal/entity"
+	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/event"
 	"github.com/eko/authz/backend/internal/fixtures"
 	"github.com/eko/authz/backend/internal/helper"
 	"github.com/eko/authz/backend/internal/http"
 	"github.com/eko/authz/backend/internal/log"
-	"github.com/eko/authz/backend/internal/manager"
 	"github.com/eko/authz/backend/internal/oauth"
 	"github.com/eko/authz/backend/internal/security"
 	"github.com/spf13/pflag"
@@ -66,16 +67,24 @@ func TestMain(m *testing.M) {
 
 		compile.FxModule(),
 		database.FxModule(),
+		entity.FxModule(),
 		event.FxModule(),
 		helper.FxModule(),
 		http.FxModule(),
 		log.FxModule(),
-		manager.FxModule(),
 		oauth.FxModule(),
 		security.FxModule(),
 
-		fx.Provide(func(cfg *configs.User, logger *slog.Logger, manager manager.Manager) fixtures.Initializer {
-			initializer = fixtures.NewInitializer(cfg, logger, manager)
+		fx.Provide(func(
+			cfg *configs.User,
+			logger *slog.Logger,
+			policyManager manager.Policy,
+			principalManager manager.Principal,
+			resourceManager manager.Resource,
+			roleManager manager.Role,
+			userManager manager.User,
+		) fixtures.Initializer {
+			initializer = fixtures.NewInitializer(cfg, logger, policyManager, principalManager, resourceManager, roleManager, userManager)
 			return initializer
 		}),
 

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/eko/authz/backend/internal/database"
+	"github.com/eko/authz/backend/internal/entity/manager"
+	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/http/handler/model"
-	"github.com/eko/authz/backend/internal/manager"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -58,7 +58,7 @@ type UpdateResourceRequest struct {
 //	@Router		/v1/resources [Post]
 func ResourceCreate(
 	validate *validator.Validate,
-	manager manager.Manager,
+	resourceManager manager.Resource,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		request := &CreateResourceRequest{}
@@ -75,7 +75,7 @@ func ResourceCreate(
 		}
 
 		// Create resource
-		resource, err := manager.CreateResource(request.ID, request.Kind, request.Value, request.AttributesMap())
+		resource, err := resourceManager.Create(request.ID, request.Kind, request.Value, request.AttributesMap())
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
 		}
@@ -99,7 +99,7 @@ func ResourceCreate(
 //	@Failure	500		{object}	model.ErrorResponse
 //	@Router		/v1/resources [Get]
 func ResourceList(
-	manager manager.Manager,
+	resourceManager manager.Resource,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		page, size, err := paginate(c)
@@ -108,12 +108,12 @@ func ResourceList(
 		}
 
 		// List resources
-		resource, total, err := manager.GetResourceRepository().Find(
-			database.WithPage(page),
-			database.WithSize(size),
-			database.WithFilter(httpFilterToORM(c)),
-			database.WithSort(httpSortToORM(c)),
-			database.WithPreloads("Attributes"),
+		resource, total, err := resourceManager.GetRepository().Find(
+			repository.WithPage(page),
+			repository.WithSize(size),
+			repository.WithFilter(httpFilterToORM(c)),
+			repository.WithSort(httpSortToORM(c)),
+			repository.WithPreloads("Attributes"),
 		)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
@@ -134,15 +134,15 @@ func ResourceList(
 //	@Failure	500	{object}	model.ErrorResponse
 //	@Router		/v1/resources/{identifier} [Get]
 func ResourceGet(
-	manager manager.Manager,
+	resourceManager manager.Resource,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve resource
-		resource, err := manager.GetResourceRepository().Get(
+		resource, err := resourceManager.GetRepository().Get(
 			identifier,
-			database.WithPreloads("Attributes"),
+			repository.WithPreloads("Attributes"),
 		)
 		if err != nil {
 			statusCode := http.StatusInternalServerError
@@ -173,7 +173,7 @@ func ResourceGet(
 //	@Router		/v1/resources/{identifier} [Put]
 func ResourceUpdate(
 	validate *validator.Validate,
-	manager manager.Manager,
+	resourceManager manager.Resource,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
@@ -192,7 +192,7 @@ func ResourceUpdate(
 		}
 
 		// Retrieve resource
-		resource, err := manager.UpdateResource(identifier, request.Kind, request.Value, request.AttributesMap())
+		resource, err := resourceManager.Update(identifier, request.Kind, request.Value, request.AttributesMap())
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot update resource: %v", err),
@@ -214,13 +214,13 @@ func ResourceUpdate(
 //	@Failure	500	{object}	model.ErrorResponse
 //	@Router		/v1/resources/{identifier} [Delete]
 func ResourceDelete(
-	manager manager.Manager,
+	resourceManager manager.Resource,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve resource
-		resource, err := manager.GetResourceRepository().Get(identifier)
+		resource, err := resourceManager.GetRepository().Get(identifier)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot retrieve resource: %v", err),
@@ -228,7 +228,7 @@ func ResourceDelete(
 		}
 
 		// Delete resource
-		if err := manager.GetResourceRepository().Delete(resource); err != nil {
+		if err := resourceManager.GetRepository().Delete(resource); err != nil {
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot delete resource: %v", err),
 			)

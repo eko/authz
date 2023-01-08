@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/eko/authz/backend/configs"
-	"github.com/eko/authz/backend/internal/database"
+	"github.com/eko/authz/backend/internal/entity/manager"
+	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/http/handler/model"
-	"github.com/eko/authz/backend/internal/manager"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -31,7 +30,7 @@ type UserCreateRequest struct {
 //	@Router		/v1/users [Post]
 func UserCreate(
 	validate *validator.Validate,
-	manager manager.Manager,
+	userManager manager.User,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		request := &UserCreateRequest{}
@@ -46,7 +45,7 @@ func UserCreate(
 			return c.Status(fiber.StatusBadRequest).JSON(err)
 		}
 
-		user, err := manager.CreateUser(request.Username, "")
+		user, err := userManager.Create(request.Username, "")
 		if err != nil {
 			return returnError(c, http.StatusBadRequest, err)
 		}
@@ -70,7 +69,7 @@ func UserCreate(
 //	@Failure	500		{object}	model.ErrorResponse
 //	@Router		/v1/users [Get]
 func UserList(
-	manager manager.Manager,
+	userManager manager.User,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		page, size, err := paginate(c)
@@ -79,11 +78,11 @@ func UserList(
 		}
 
 		// List actions
-		users, total, err := manager.GetUserRepository().Find(
-			database.WithPage(page),
-			database.WithSize(size),
-			database.WithFilter(httpFilterToORM(c)),
-			database.WithSort(httpSortToORM(c)),
+		users, total, err := userManager.GetRepository().Find(
+			repository.WithPage(page),
+			repository.WithSize(size),
+			repository.WithFilter(httpFilterToORM(c)),
+			repository.WithSort(httpSortToORM(c)),
 		)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
@@ -104,13 +103,13 @@ func UserList(
 //	@Failure	500	{object}	model.ErrorResponse
 //	@Router		/v1/users/{identifier} [Get]
 func UserGet(
-	manager manager.Manager,
+	userManager manager.User,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve user
-		user, err := manager.GetUserRepository().GetByFields(map[string]database.FieldValue{
+		user, err := userManager.GetRepository().GetByFields(map[string]repository.FieldValue{
 			"username": {Operator: "=", Value: identifier},
 		})
 		if err != nil {
@@ -140,48 +139,13 @@ func UserGet(
 //	@Failure	500	{object}	model.ErrorResponse
 //	@Router		/v1/users/{identifier} [Delete]
 func UserDelete(
-	manager manager.Manager,
-	transactionManager database.TransactionManager,
+	userManager manager.User,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
-		// Retrieve user
-		user, err := manager.GetUserRepository().GetByFields(map[string]database.FieldValue{
-			"username": {Operator: "=", Value: identifier},
-		})
-		if err != nil {
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot retrieve user: %v", err),
-			)
-		}
-
-		// Retrieve principal
-		principal, err := manager.GetPrincipalRepository().Get(
-			fmt.Sprintf("%s-%s", configs.ApplicationName, user.Username),
-		)
-		if err != nil {
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot retrieve user principal: %v", err),
-			)
-		}
-
-		// Delete both user and principal
-		transaction := transactionManager.New()
-		defer func() { _ = transaction.Commit() }()
-
-		if err := manager.GetPrincipalRepository().WithTransaction(transaction).Delete(principal); err != nil {
-			_ = transaction.Rollback()
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot delete principal: %v", err),
-			)
-		}
-
-		if err := manager.GetUserRepository().WithTransaction(transaction).Delete(user); err != nil {
-			_ = transaction.Rollback()
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot delete user: %v", err),
-			)
+		if err := userManager.Delete(identifier); err != nil {
+			return returnError(c, http.StatusInternalServerError, err)
 		}
 
 		return c.JSON(model.SuccessResponse{Success: true})

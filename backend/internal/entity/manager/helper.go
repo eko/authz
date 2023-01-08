@@ -9,6 +9,9 @@ import (
 const (
 	// ResourceSeparator is the resource name separator between kind and value.
 	ResourceSeparator = "."
+
+	// WildcardValue is the wildcard value used to identify resources.
+	WildcardValue = "*"
 )
 
 // ResourceSplit splits a resource name string to:

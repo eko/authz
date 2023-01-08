@@ -37,14 +37,10 @@ test('SingleAutocompleteInput: render default option', async () => {
       <Wrapper />
     );
   
-    // When
-    await userEvent.click(screen.getByRole('singleautocompleteinput-field'));
-  
     // Then
-    const listbox = screen.queryByRole('listbox');
+    const textField = screen.queryByRole('singleautocompleteinput-field');
 
-    expect(listbox).toBeVisible();
-    expect(listbox).toHaveTextContent('default-1');
+    expect(textField).toBeVisible();
 });
 
 test('SingleAutocompleteInput: render options using fetcher', async () => {

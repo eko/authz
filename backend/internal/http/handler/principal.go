@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/eko/authz/backend/internal/database"
+	"github.com/eko/authz/backend/internal/entity/manager"
+	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/http/handler/model"
-	"github.com/eko/authz/backend/internal/manager"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -37,7 +37,7 @@ type UpdatePrincipalRequest struct {
 //	@Router		/v1/principals [Post]
 func PrincipalCreate(
 	validate *validator.Validate,
-	manager manager.Manager,
+	principalManager manager.Principal,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		request := &CreatePrincipalRequest{}
@@ -53,7 +53,7 @@ func PrincipalCreate(
 		}
 
 		// Create principal
-		principal, err := manager.CreatePrincipal(request.ID, request.Roles, request.AttributesMap())
+		principal, err := principalManager.Create(request.ID, request.Roles, request.AttributesMap())
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
 		}
@@ -77,7 +77,7 @@ func PrincipalCreate(
 //	@Failure	500		{object}	model.ErrorResponse
 //	@Router		/v1/principals [Get]
 func PrincipalList(
-	manager manager.Manager,
+	principalManager manager.Principal,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		page, size, err := paginate(c)
@@ -86,12 +86,12 @@ func PrincipalList(
 		}
 
 		// List principals
-		principal, total, err := manager.GetPrincipalRepository().Find(
-			database.WithPage(page),
-			database.WithSize(size),
-			database.WithFilter(httpFilterToORM(c)),
-			database.WithSort(httpSortToORM(c)),
-			database.WithPreloads("Attributes", "Roles"),
+		principal, total, err := principalManager.GetRepository().Find(
+			repository.WithPage(page),
+			repository.WithSize(size),
+			repository.WithFilter(httpFilterToORM(c)),
+			repository.WithSort(httpSortToORM(c)),
+			repository.WithPreloads("Attributes", "Roles"),
 		)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
@@ -112,15 +112,15 @@ func PrincipalList(
 //	@Failure	500	{object}	model.ErrorResponse
 //	@Router		/v1/principals/{identifier} [Get]
 func PrincipalGet(
-	manager manager.Manager,
+	principalManager manager.Principal,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve principal
-		principal, err := manager.GetPrincipalRepository().Get(
+		principal, err := principalManager.GetRepository().Get(
 			identifier,
-			database.WithPreloads("Attributes", "Roles"),
+			repository.WithPreloads("Attributes", "Roles"),
 		)
 		if err != nil {
 			statusCode := http.StatusInternalServerError
@@ -151,7 +151,7 @@ func PrincipalGet(
 //	@Router		/v1/principals/{identifier} [Put]
 func PrincipalUpdate(
 	validate *validator.Validate,
-	manager manager.Manager,
+	principalManager manager.Principal,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
@@ -170,7 +170,7 @@ func PrincipalUpdate(
 		}
 
 		// Retrieve principal
-		principal, err := manager.UpdatePrincipal(identifier, request.Roles, request.AttributesMap())
+		principal, err := principalManager.Update(identifier, request.Roles, request.AttributesMap())
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot update principal: %v", err),
@@ -192,13 +192,13 @@ func PrincipalUpdate(
 //	@Failure	500	{object}	model.ErrorResponse
 //	@Router		/v1/principals/{identifier} [Delete]
 func PrincipalDelete(
-	manager manager.Manager,
+	principalManager manager.Principal,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve principal
-		principal, err := manager.GetPrincipalRepository().Get(identifier)
+		principal, err := principalManager.GetRepository().Get(identifier)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot retrieve principal: %v", err),
@@ -206,7 +206,7 @@ func PrincipalDelete(
 		}
 
 		// Delete principal
-		if err := manager.GetPrincipalRepository().Delete(principal); err != nil {
+		if err := principalManager.GetRepository().Delete(principal); err != nil {
 			return returnError(c, http.StatusInternalServerError,
 				fmt.Errorf("cannot delete principal: %v", err),
 			)

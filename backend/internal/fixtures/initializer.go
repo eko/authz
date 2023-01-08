@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/eko/authz/backend/configs"
-	"github.com/eko/authz/backend/internal/database"
-	"github.com/eko/authz/backend/internal/database/model"
-	"github.com/eko/authz/backend/internal/manager"
+	"github.com/eko/authz/backend/internal/entity/manager"
+	"github.com/eko/authz/backend/internal/entity/model"
+	"github.com/eko/authz/backend/internal/entity/repository"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
@@ -33,22 +33,34 @@ type Initializer interface {
 }
 
 type initializer struct {
-	cfg      *configs.User
-	logger   *slog.Logger
-	manager  manager.Manager
-	policies []string
+	cfg              *configs.User
+	logger           *slog.Logger
+	policyManager    manager.Policy
+	principalManager manager.Principal
+	resourceManager  manager.Resource
+	roleManager      manager.Role
+	userManager      manager.User
+	policies         []string
 }
 
 func NewInitializer(
 	cfg *configs.User,
 	logger *slog.Logger,
-	manager manager.Manager,
+	policyManager manager.Policy,
+	principalManager manager.Principal,
+	resourceManager manager.Resource,
+	roleManager manager.Role,
+	userManager manager.User,
 ) Initializer {
 	return &initializer{
-		cfg:      cfg,
-		logger:   logger,
-		manager:  manager,
-		policies: []string{},
+		cfg:              cfg,
+		logger:           logger,
+		policyManager:    policyManager,
+		principalManager: principalManager,
+		resourceManager:  resourceManager,
+		roleManager:      roleManager,
+		userManager:      userManager,
+		policies:         []string{},
 	}
 }
 
@@ -79,7 +91,7 @@ func (i *initializer) Initialize() error {
 
 func (i *initializer) initializeResources() error {
 	for resourceType := range resources {
-		resource, err := i.manager.CreateResource(
+		resource, err := i.resourceManager.Create(
 			fmt.Sprintf("%s.%s.%s", configs.ApplicationName, resourceType, "*"),
 			fmt.Sprintf("%s.%s", configs.ApplicationName, resourceType),
 			"*",
@@ -91,7 +103,7 @@ func (i *initializer) initializeResources() error {
 
 		resource.IsLocked = true
 
-		if err = i.manager.GetResourceRepository().Update(resource); err != nil {
+		if err = i.resourceManager.GetRepository().Update(resource); err != nil {
 			return err
 		}
 	}
@@ -100,7 +112,7 @@ func (i *initializer) initializeResources() error {
 }
 
 func (i *initializer) checkAlreadyInitialized() bool {
-	_, err := i.manager.GetUserRepository().GetByFields(map[string]database.FieldValue{
+	_, err := i.userManager.GetRepository().GetByFields(map[string]repository.FieldValue{
 		"username": {Operator: "=", Value: defaultAdminUsername},
 	})
 
@@ -109,7 +121,7 @@ func (i *initializer) checkAlreadyInitialized() bool {
 
 func (i *initializer) initializePolicies() error {
 	for resourceType, actions := range resources {
-		policy, err := i.manager.CreatePolicy(
+		policy, err := i.policyManager.Create(
 			fmt.Sprintf("%s-%s-admin", configs.ApplicationName, resourceType),
 			[]string{
 				fmt.Sprintf("%s.%s.%s", configs.ApplicationName, resourceType, "*"),
@@ -128,7 +140,7 @@ func (i *initializer) initializePolicies() error {
 }
 
 func (i *initializer) initializeRoles() error {
-	_, err := i.manager.CreateRole(
+	_, err := i.roleManager.Create(
 		fmt.Sprintf("%s-admin", configs.ApplicationName),
 		i.policies,
 	)
@@ -140,7 +152,7 @@ func (i *initializer) initializeRoles() error {
 }
 
 func (i *initializer) initializeUser() error {
-	adminUser, err := i.manager.GetUserRepository().GetByFields(map[string]database.FieldValue{
+	adminUser, err := i.userManager.GetRepository().GetByFields(map[string]repository.FieldValue{
 		"username": {Operator: "=", Value: defaultAdminUsername},
 	})
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -154,13 +166,13 @@ func (i *initializer) initializeUser() error {
 	}
 
 	// Create user "admin" and principal named "authz-admin"
-	user, err := i.manager.CreateUser(defaultAdminUsername, i.cfg.AdminDefaultPassword)
+	user, err := i.userManager.Create(defaultAdminUsername, i.cfg.AdminDefaultPassword)
 	if err != nil {
 		return fmt.Errorf("unable to create default admin user: %v", err)
 	}
 
 	// Retrieve principal created following the user creation
-	principal, err := i.manager.GetPrincipalRepository().Get(fmt.Sprintf("authz-%s", user.Username))
+	principal, err := i.principalManager.GetRepository().Get(fmt.Sprintf("authz-%s", user.Username))
 	if err != nil {
 		return fmt.Errorf("unable to retrieve admin principal: %v", err)
 	}
@@ -168,12 +180,12 @@ func (i *initializer) initializeUser() error {
 	principal.IsLocked = true
 
 	// Attach role "authz-admin" to user principal "authz-admin"
-	role, err := i.manager.GetRoleRepository().Get(fmt.Sprintf("%s-admin", configs.ApplicationName))
+	role, err := i.roleManager.GetRepository().Get(fmt.Sprintf("%s-admin", configs.ApplicationName))
 	if err != nil {
 		return fmt.Errorf("unable to retrieve admin role: %v", err)
 	}
 
 	principal.Roles = []*model.Role{role}
 
-	return i.manager.GetPrincipalRepository().Update(principal)
+	return i.principalManager.GetRepository().Update(principal)
 }

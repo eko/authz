@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/eko/authz/backend/configs"
-	"github.com/eko/authz/backend/internal/database"
+	"github.com/eko/authz/backend/internal/entity/manager"
+	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/http/handler/model"
-	"github.com/eko/authz/backend/internal/manager"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -31,7 +31,7 @@ type ClientCreateRequest struct {
 //	@Router		/v1/clients [Post]
 func ClientCreate(
 	validate *validator.Validate,
-	manager manager.Manager,
+	clientManager manager.Client,
 	authCfg *configs.Auth,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -47,7 +47,7 @@ func ClientCreate(
 			return c.Status(fiber.StatusBadRequest).JSON(err)
 		}
 
-		client, err := manager.CreateClient(request.Name, authCfg.Domain)
+		client, err := clientManager.Create(request.Name, authCfg.Domain)
 		if err != nil {
 			return returnError(c, http.StatusBadRequest, err)
 		}
@@ -71,7 +71,7 @@ func ClientCreate(
 //	@Failure	500		{object}	model.ErrorResponse
 //	@Router		/v1/clients [Get]
 func ClientList(
-	manager manager.Manager,
+	clientManager manager.Client,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		page, size, err := paginate(c)
@@ -80,11 +80,11 @@ func ClientList(
 		}
 
 		// List actions
-		clients, total, err := manager.GetClientRepository().Find(
-			database.WithPage(page),
-			database.WithSize(size),
-			database.WithFilter(httpFilterToORM(c)),
-			database.WithSort(httpSortToORM(c)),
+		clients, total, err := clientManager.GetRepository().Find(
+			repository.WithPage(page),
+			repository.WithSize(size),
+			repository.WithFilter(httpFilterToORM(c)),
+			repository.WithSort(httpSortToORM(c)),
 		)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
@@ -105,13 +105,13 @@ func ClientList(
 //	@Failure	500	{object}	model.ErrorResponse
 //	@Router		/v1/clients/{identifier} [Get]
 func ClientGet(
-	manager manager.Manager,
+	clientManager manager.Client,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve client
-		client, err := manager.GetClientRepository().Get(identifier)
+		client, err := clientManager.GetRepository().Get(identifier)
 		if err != nil {
 			statusCode := http.StatusInternalServerError
 
@@ -139,46 +139,13 @@ func ClientGet(
 //	@Failure	500	{object}	model.ErrorResponse
 //	@Router		/v1/clients/{identifier} [Delete]
 func ClientDelete(
-	manager manager.Manager,
-	transactionManager database.TransactionManager,
+	clientManager manager.Client,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
-		// Retrieve client
-		client, err := manager.GetClientRepository().Get(identifier)
-		if err != nil {
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot retrieve client: %v", err),
-			)
-		}
-
-		// Retrieve principal
-		principal, err := manager.GetPrincipalRepository().Get(
-			fmt.Sprintf("%s-%s", configs.ApplicationName, client.Name),
-		)
-		if err != nil {
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot retrieve user principal: %v", err),
-			)
-		}
-
-		// Delete both user and principal
-		transaction := transactionManager.New()
-		defer func() { _ = transaction.Commit() }()
-
-		if err := manager.GetPrincipalRepository().WithTransaction(transaction).Delete(principal); err != nil {
-			_ = transaction.Rollback()
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot delete principal: %v", err),
-			)
-		}
-
-		if err := manager.GetClientRepository().WithTransaction(transaction).Delete(client); err != nil {
-			_ = transaction.Rollback()
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot delete client: %v", err),
-			)
+		if err := clientManager.Delete(identifier); err != nil {
+			return returnError(c, http.StatusInternalServerError, err)
 		}
 
 		return c.JSON(model.SuccessResponse{Success: true})

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/eko/authz/backend/configs"
-	"github.com/eko/authz/backend/internal/database/model"
+	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/go-oauth2/oauth2/v4"
 	"github.com/go-oauth2/oauth2/v4/models"
 	"gorm.io/gorm"
