@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/database"
 	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/eko/authz/backend/internal/entity/repository"
@@ -83,7 +82,8 @@ func (m *clientManager) Create(name string, domain string) (*model.Client, error
 	}
 
 	if err := m.principalRepository.WithTransaction(transaction).Create(&model.Principal{
-		ID: fmt.Sprintf("%s-%s", configs.ApplicationName, client.Name),
+		ID:       model.ClientPrincipal(client.Name),
+		IsLocked: true,
 	}); err != nil {
 		_ = transaction.Rollback()
 		return nil, fmt.Errorf("unable to create principal: %v", err)
@@ -100,7 +100,7 @@ func (m *clientManager) Delete(identifier string) error {
 
 	// Retrieve principal
 	principal, err := m.principalRepository.Get(
-		fmt.Sprintf("%s-%s", configs.ApplicationName, client.Name),
+		model.ClientPrincipal(client.Name),
 	)
 	if err != nil {
 		return fmt.Errorf("cannot retrieve client principal: %v", err)

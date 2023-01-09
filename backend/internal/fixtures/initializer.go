@@ -165,14 +165,16 @@ func (i *initializer) initializeUser() error {
 		return nil
 	}
 
-	// Create user "admin" and principal named "authz-admin"
+	// Create user "admin" and principal named "authz-user-admin"
 	user, err := i.userManager.Create(defaultAdminUsername, i.cfg.AdminDefaultPassword)
 	if err != nil {
 		return fmt.Errorf("unable to create default admin user: %v", err)
 	}
 
 	// Retrieve principal created following the user creation
-	principal, err := i.principalManager.GetRepository().Get(fmt.Sprintf("authz-%s", user.Username))
+	principal, err := i.principalManager.GetRepository().Get(
+		model.UserPrincipal(user.Username),
+	)
 	if err != nil {
 		return fmt.Errorf("unable to retrieve admin principal: %v", err)
 	}

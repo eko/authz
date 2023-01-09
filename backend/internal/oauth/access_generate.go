@@ -5,23 +5,19 @@ import (
 	"encoding/base64"
 	"strings"
 
-	"github.com/eko/authz/backend/configs"
-	"github.com/eko/authz/backend/internal/security/paseto"
+	"github.com/eko/authz/backend/internal/security/jwt"
 	"github.com/go-oauth2/oauth2/v4"
 	"github.com/google/uuid"
 )
 
 type AccessGenerate struct {
-	cfg          *configs.Auth
-	tokenManager paseto.Manager
+	tokenManager jwt.Manager
 }
 
 func NewAccessGenerate(
-	cfg *configs.Auth,
-	tokenManager paseto.Manager,
+	tokenManager jwt.Manager,
 ) *AccessGenerate {
 	return &AccessGenerate{
-		cfg:          cfg,
 		tokenManager: tokenManager,
 	}
 }
@@ -29,7 +25,10 @@ func NewAccessGenerate(
 func (g *AccessGenerate) Token(ctx context.Context, data *oauth2.GenerateBasic, isGenRefresh bool) (string, string, error) {
 	clientID := data.Client.GetID()
 
-	accessToken := g.tokenManager.Generate(clientID, g.cfg.AccessTokenDuration)
+	accessToken, err := g.tokenManager.Generate(clientID)
+	if err != nil {
+		return "", "", err
+	}
 
 	refresh := ""
 	if isGenRefresh {

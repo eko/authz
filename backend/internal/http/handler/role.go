@@ -196,19 +196,8 @@ func RoleDelete(
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
-		// Retrieve role
-		role, err := roleManager.GetRepository().Get(identifier)
-		if err != nil {
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot retrieve role: %v", err),
-			)
-		}
-
-		// Delete role
-		if err := roleManager.GetRepository().Delete(role); err != nil {
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot delete role: %v", err),
-			)
+		if err := roleManager.Delete(identifier); err != nil {
+			return returnError(c, http.StatusInternalServerError, err)
 		}
 
 		return c.JSON(model.SuccessResponse{Success: true})

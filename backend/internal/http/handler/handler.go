@@ -3,7 +3,7 @@ package handler
 import (
 	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/entity/manager"
-	"github.com/eko/authz/backend/internal/security/paseto"
+	"github.com/eko/authz/backend/internal/security/jwt"
 	"github.com/go-oauth2/oauth2/v4/server"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/adaptor/v2"
@@ -64,13 +64,13 @@ func NewHandlers(
 	resourceManager manager.Resource,
 	roleManager manager.Role,
 	userManager manager.User,
-	tokenManager paseto.Manager,
+	tokenManager jwt.Manager,
 	oauthServer *server.Server,
 ) Handlers {
 	return Handlers{
 		ActionGetKey:        ActionGet(actionManager),
 		ActionListKey:       ActionList(actionManager),
-		AuthAuthenticateKey: Authenticate(validate, userManager, authCfg, tokenManager),
+		AuthAuthenticateKey: Authenticate(validate, userManager, tokenManager),
 		AuthTokenNewKey:     adaptor.HTTPHandlerFunc(TokenNew(oauthServer)),
 		CheckKey:            Check(validate, compiledManager),
 		ClientCreateKey:     ClientCreate(validate, clientManager, authCfg),

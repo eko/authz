@@ -6,11 +6,10 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/eko/authz/backend/internal/entity/repository"
-	"github.com/eko/authz/backend/internal/security/paseto"
+	"github.com/eko/authz/backend/internal/security/jwt"
 	"github.com/go-oauth2/oauth2/v4/server"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -57,8 +56,7 @@ type TokenResponse struct {
 func Authenticate(
 	validate *validator.Validate,
 	userManager manager.User,
-	authCfg *configs.Auth,
-	tokenManager paseto.Manager,
+	tokenManager jwt.Manager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		request := &AuthRequest{}
@@ -87,7 +85,10 @@ func Authenticate(
 			return returnError(c, http.StatusBadRequest, errors.New("invalid credentials"))
 		}
 
-		token := tokenManager.Generate(user.Username, authCfg.AccessTokenDuration)
+		token, err := tokenManager.Generate(user.Username)
+		if err != nil {
+			return returnError(c, http.StatusInternalServerError, errors.New("unable to generate token"))
+		}
 
 		return c.JSON(&AuthResponse{
 			AccessToken: token.Token,

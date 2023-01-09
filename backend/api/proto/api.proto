@@ -1,0 +1,258 @@
+syntax = "proto3";
+package authz;
+
+import "validate/validate.proto";
+
+option go_package = "github.com/eko/authz/backend/pkg/authz";
+
+service Api {
+    rpc Authenticate (AuthenticateRequest) returns (AuthenticateResponse) {}
+
+    rpc Check (CheckRequest) returns (CheckResponse) {}
+
+    rpc PolicyCreate (PolicyCreateRequest) returns (PolicyCreateResponse) {}
+    rpc PolicyGet (PolicyGetRequest) returns (PolicyGetResponse) {}
+    rpc PolicyDelete (PolicyDeleteRequest) returns (PolicyDeleteResponse) {}
+    rpc PolicyUpdate (PolicyUpdateRequest) returns (PolicyUpdateResponse) {}
+
+    rpc PrincipalCreate (PrincipalCreateRequest) returns (PrincipalCreateResponse) {}
+    rpc PrincipalGet (PrincipalGetRequest) returns (PrincipalGetResponse) {}
+    rpc PrincipalDelete (PrincipalDeleteRequest) returns (PrincipalDeleteResponse) {}
+    rpc PrincipalUpdate (PrincipalUpdateRequest) returns (PrincipalUpdateResponse) {}
+
+    rpc ResourceCreate (ResourceCreateRequest) returns (ResourceCreateResponse) {}
+    rpc ResourceGet (ResourceGetRequest) returns (ResourceGetResponse) {}
+    rpc ResourceDelete (ResourceDeleteRequest) returns (ResourceDeleteResponse) {}
+    rpc ResourceUpdate (ResourceUpdateRequest) returns (ResourceUpdateResponse) {}
+
+    rpc RoleCreate (RoleCreateRequest) returns (RoleCreateResponse) {}
+    rpc RoleGet (RoleGetRequest) returns (RoleGetResponse) {}
+    rpc RoleDelete (RoleDeleteRequest) returns (RoleDeleteResponse) {}
+    rpc RoleUpdate (RoleUpdateRequest) returns (RoleUpdateResponse) {}
+}
+
+message Attribute {
+    string key = 1;
+    string value = 2;
+}
+
+message AuthenticateRequest {
+    string client_id = 1;
+    string client_secret = 2;
+}
+
+message AuthenticateResponse {
+    string token = 1;
+    string type = 2;
+    int64 expires_in = 3;
+}
+
+message Check {
+    string principal = 1 [(validate.rules).string = {
+        pattern: "[a-z0-9-_\\./*]+",
+    }];
+    string resource_kind = 2 [(validate.rules).string = {
+        pattern: "[a-z0-9-_\\./*]+",
+    }];
+    string resource_value = 3;
+    string action = 4;
+}
+
+message CheckAnswer {
+    string principal = 1;
+    string resource_kind = 2;
+    string resource_value = 3;
+    string action = 4;
+    bool is_allowed = 5;
+}
+
+message CheckRequest {
+    repeated Check checks = 1;
+}
+
+message CheckResponse {
+    repeated CheckAnswer checks = 1;
+}
+
+message Policy {
+    string id = 1;
+    repeated string actions = 2;
+    repeated string resources = 3;
+    repeated string attribute_rules = 4;
+}
+
+message PolicyCreateRequest {
+    string id = 1 [(validate.rules).string = {
+        pattern: "[a-z0-9-_\\./*]+",
+    }];
+    repeated string actions = 2;
+    repeated string resources = 3;
+    repeated string attribute_rules = 4;
+}
+
+message PolicyCreateResponse {
+    Policy policy = 1;
+}
+
+message PolicyGetRequest {
+    string id = 1;
+}
+
+message PolicyGetResponse {
+    Policy policy = 1;
+}
+
+message PolicyDeleteRequest {
+    string id = 1;
+}
+
+message PolicyDeleteResponse {
+    bool success = 1;
+}
+
+message PolicyUpdateRequest {
+    string id = 1;
+    repeated string actions = 2;
+    repeated string resources = 3;
+    repeated string attribute_rules = 4;
+}
+
+message PolicyUpdateResponse {
+    Policy policy = 1;
+}
+
+message Principal {
+    string id = 1;
+    repeated string roles = 2;
+    repeated Attribute attributes = 3;
+}
+
+message PrincipalCreateRequest {
+    string id = 1 [(validate.rules).string = {
+        pattern: "[a-z0-9-_\\./*]+",
+    }];
+    repeated string roles = 2;
+    repeated Attribute attributes = 3;
+}
+
+message PrincipalCreateResponse {
+    Principal principal = 1;
+}
+
+message PrincipalGetRequest {
+    string id = 1;
+}
+
+message PrincipalGetResponse {
+    Principal principal = 1;
+}
+
+message PrincipalDeleteRequest {
+    string id = 1;
+}
+
+message PrincipalDeleteResponse {
+    bool success = 1;
+}
+
+message PrincipalUpdateRequest {
+    string id = 1;
+    repeated string roles = 2;
+    repeated Attribute attributes = 3;
+}
+
+message PrincipalUpdateResponse {
+    Principal principal = 1;
+}
+
+message Resource {
+    string id = 1;
+    string kind = 2;
+    string value = 3;
+    repeated Attribute attributes = 4;
+}
+
+message ResourceCreateRequest {
+    string id = 1 [(validate.rules).string = {
+        pattern: "[a-z0-9-_\\./*]+",
+    }];
+    string kind = 2 [(validate.rules).string = {
+        pattern: "[a-z0-9-_\\./*]+",
+    }];
+    string value = 3 [(validate.rules).string = {
+        pattern: "[a-z0-9-_\\./*]+",
+    }];
+    repeated Attribute attributes = 4;
+}
+
+message ResourceCreateResponse {
+    Resource resource = 1;
+}
+
+message ResourceGetRequest {
+    string id = 1;
+}
+
+message ResourceGetResponse {
+    Resource resource = 1;
+}
+
+message ResourceDeleteRequest {
+    string id = 1;
+}
+
+message ResourceDeleteResponse {
+    bool success = 1;
+}
+
+message ResourceUpdateRequest {
+    string id = 1;
+    string kind = 2;
+    string value = 3;
+    repeated Attribute attributes = 4;
+}
+
+message ResourceUpdateResponse {
+    Resource resource = 1;
+}
+
+message Role {
+    string id = 1;
+    repeated string policies = 2;
+}
+
+message RoleCreateRequest {
+    string id = 1 [(validate.rules).string = {
+        pattern: "[a-z0-9-_\\./*]+",
+    }];
+    repeated string policies = 2;
+}
+
+message RoleCreateResponse {
+    Role role = 1;
+}
+
+message RoleGetRequest {
+    string id = 1;
+}
+
+message RoleGetResponse {
+    Role role = 1;
+}
+
+message RoleDeleteRequest {
+    string id = 1;
+}
+
+message RoleDeleteResponse {
+    bool success = 1;
+}
+
+message RoleUpdateRequest {
+    string id = 1;
+    repeated string policies = 2;
+}
+
+message RoleUpdateResponse {
+    Role role = 1;
+}

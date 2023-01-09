@@ -76,7 +76,7 @@ Feature: principal
         "data": [
           {
             "created_at": "2100-01-01T02:00:00+01:00",
-            "id": "authz-admin",
+            "id": "authz-user-admin",
             "is_locked": true,
             "roles": [
               {

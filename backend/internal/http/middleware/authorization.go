@@ -1,9 +1,8 @@
 package middleware
 
 import (
-	"fmt"
-
 	"github.com/eko/authz/backend/internal/entity/manager"
+	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/exp/slog"
 )
@@ -20,7 +19,7 @@ func Authorization(
 		resourceValue := ctx.Value(ResourceValueKey).(string)
 		action := ctx.Value(ActionKey).(string)
 
-		principal := fmt.Sprintf("authz-%s", userID)
+		principal := model.UserPrincipal(userID)
 
 		isAllowed, err := compiledManager.IsAllowed(principal, resourceKind, resourceValue, action)
 		if err != nil {

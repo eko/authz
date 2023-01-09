@@ -10,6 +10,7 @@ import { getUser } from 'service/model/user';
 import { isAPIError } from 'service/error/model';
 import { User } from 'service/model/model';
 import { useToast } from 'context/toast';
+import CopyToClipboardButton from 'component/CopyToClipboardButton';
 
 export default function UserCreateOrEdit() {
   const toast = useToast();
@@ -64,7 +65,7 @@ export default function UserCreateOrEdit() {
 
       {password ? (
         <Alert severity="success">
-          User created with password: <strong>{password}</strong>
+          User created with password: <CopyToClipboardButton color='default' text={password} />
         </Alert>
       ) : null}
 

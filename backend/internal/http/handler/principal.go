@@ -197,19 +197,9 @@ func PrincipalDelete(
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
-		// Retrieve principal
-		principal, err := principalManager.GetRepository().Get(identifier)
+		err := principalManager.Delete(identifier)
 		if err != nil {
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot retrieve principal: %v", err),
-			)
-		}
-
-		// Delete principal
-		if err := principalManager.GetRepository().Delete(principal); err != nil {
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot delete principal: %v", err),
-			)
+			return returnError(c, http.StatusInternalServerError, err)
 		}
 
 		return c.JSON(model.SuccessResponse{Success: true})

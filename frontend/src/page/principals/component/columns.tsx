@@ -83,20 +83,34 @@ export const ListColumns = ({
             Edit
           </Button>
           
-          <Tooltip title='Supprimer' placement='right'>
-            <Button
-              variant='text'
-              size='small'
-              color='error'
-              onClick={() => {
-                if (onDelete !== undefined) {
-                  onDelete(params);
-                }
-              }}
-            >
-              <DeleteIcon />
-            </Button>
-          </Tooltip>
+          {params.row.is_locked ? (
+            <Tooltip title='This principal is locked' placement='right'>
+              <span>
+                <Button
+                  disabled
+                  variant='text'
+                  size='small'
+                >
+                  <DeleteIcon />
+                </Button>
+              </span>
+            </Tooltip>          
+          ) : (
+            <Tooltip title='Supprimer' placement='right'>
+              <Button
+                variant='text'
+                size='small'
+                color='error'
+                onClick={() => {
+                  if (onDelete !== undefined) {
+                    onDelete(params);
+                  }
+                }}
+              >
+                <DeleteIcon />
+              </Button>
+            </Tooltip>
+          )}
         </>
       )
     },

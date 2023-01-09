@@ -10,6 +10,7 @@ import (
 	"github.com/eko/authz/backend/internal/event"
 	"github.com/eko/authz/backend/internal/fixtures"
 	internal_fx "github.com/eko/authz/backend/internal/fx"
+	"github.com/eko/authz/backend/internal/grpc"
 	"github.com/eko/authz/backend/internal/helper"
 	"github.com/eko/authz/backend/internal/http"
 	"github.com/eko/authz/backend/internal/log"
@@ -28,6 +29,7 @@ func main() {
 		database.FxModule(),
 		event.FxModule(),
 		fixtures.FxModule(),
+		grpc.FxModule(),
 		helper.FxModule(),
 		http.FxModule(),
 		log.FxModule(),
@@ -35,6 +37,9 @@ func main() {
 		oauth.FxModule(),
 		security.FxModule(),
 
-		fx.Invoke(http.Run),
+		fx.Invoke(
+			grpc.Run,
+			http.Run,
+		),
 	).Run()
 }

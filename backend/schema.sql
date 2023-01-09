@@ -73,8 +73,8 @@ ALTER SEQUENCE public.authz_attributes_id_seq OWNED BY public.authz_attributes.i
 
 CREATE TABLE public.authz_clients (
     id text NOT NULL,
-    name text,
     secret character varying(512),
+    name text,
     domain character varying(512),
     data text,
     created_at timestamp with time zone,
@@ -513,7 +513,7 @@ ALTER TABLE ONLY public.authz_principals_attributes
 --
 
 ALTER TABLE ONLY public.authz_principals_roles
-    ADD CONSTRAINT fk_authz_principals_roles_principal FOREIGN KEY (principal_id) REFERENCES public.authz_principals(id);
+    ADD CONSTRAINT fk_authz_principals_roles_principal FOREIGN KEY (principal_id) REFERENCES public.authz_principals(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
@@ -521,7 +521,7 @@ ALTER TABLE ONLY public.authz_principals_roles
 --
 
 ALTER TABLE ONLY public.authz_principals_roles
-    ADD CONSTRAINT fk_authz_principals_roles_role FOREIGN KEY (role_id) REFERENCES public.authz_roles(id);
+    ADD CONSTRAINT fk_authz_principals_roles_role FOREIGN KEY (role_id) REFERENCES public.authz_roles(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --

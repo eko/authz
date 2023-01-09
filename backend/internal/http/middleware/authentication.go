@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/eko/authz/backend/internal/security/paseto"
+	"github.com/eko/authz/backend/internal/security/jwt"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/exp/slog"
 )
@@ -15,7 +15,7 @@ var (
 
 func Authentication(
 	logger *slog.Logger,
-	tokenManager paseto.Manager,
+	tokenManager jwt.Manager,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authorizationHeader := c.Get("Authorization")
@@ -41,7 +41,7 @@ func Authentication(
 		}
 
 		ctx := c.UserContext()
-		ctx = context.WithValue(ctx, UserIdentifierKey, claims["id"])
+		ctx = context.WithValue(ctx, UserIdentifierKey, claims.Subject)
 
 		c.SetUserContext(ctx)
 

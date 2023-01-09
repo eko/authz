@@ -14,6 +14,7 @@ import (
 
 type Policy interface {
 	Create(identifier string, resources []string, actions []string, attributeRules []string) (*model.Policy, error)
+	Delete(identifier string) error
 	Update(identifier string, resources []string, actions []string, attributeRules []string) (*model.Policy, error)
 	GetRepository() repository.Base[model.Policy]
 }
@@ -71,6 +72,19 @@ func (m *policyManager) Create(identifier string, resources []string, actions []
 	}
 
 	return policy, nil
+}
+
+func (m *policyManager) Delete(identifier string) error {
+	policy, err := m.repository.Get(identifier)
+	if err != nil {
+		return fmt.Errorf("cannot retrieve policy: %v", err)
+	}
+
+	if err := m.repository.Delete(policy); err != nil {
+		return fmt.Errorf("cannot delete policy: %v", err)
+	}
+
+	return nil
 }
 
 func (m *policyManager) Update(identifier string, resources []string, actions []string, attributeRules []string) (*model.Policy, error) {

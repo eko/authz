@@ -219,19 +219,8 @@ func ResourceDelete(
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
-		// Retrieve resource
-		resource, err := resourceManager.GetRepository().Get(identifier)
-		if err != nil {
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot retrieve resource: %v", err),
-			)
-		}
-
-		// Delete resource
-		if err := resourceManager.GetRepository().Delete(resource); err != nil {
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot delete resource: %v", err),
-			)
+		if err := resourceManager.Delete(identifier); err != nil {
+			return returnError(c, http.StatusInternalServerError, err)
 		}
 
 		return c.JSON(model.SuccessResponse{Success: true})

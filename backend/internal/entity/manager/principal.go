@@ -13,6 +13,7 @@ import (
 
 type Principal interface {
 	Create(identifier string, roles []string, attributes map[string]any) (*model.Principal, error)
+	Delete(identifier string) error
 	GetRepository() repository.Base[model.Principal]
 	Update(identifier string, roles []string, attributes map[string]any) (*model.Principal, error)
 }
@@ -91,7 +92,7 @@ func (m *principalManager) Create(identifier string, roles []string, attributes 
 
 func (m *principalManager) Update(identifier string, roles []string, attributes map[string]any) (*model.Principal, error) {
 	principal, err := m.repository.Get(identifier)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve principal: %v", err)
 	}
 
@@ -141,4 +142,21 @@ func (m *principalManager) Update(identifier string, roles []string, attributes 
 	}
 
 	return principal, nil
+}
+
+func (m *principalManager) Delete(identifier string) error {
+	principal, err := m.repository.Get(identifier)
+	if err != nil {
+		return fmt.Errorf("unable to retrieve principal: %v", err)
+	}
+
+	if principal.IsLocked {
+		return errors.New("cannot be deleted because it is locked")
+	}
+
+	if err := m.repository.Delete(principal); err != nil {
+		return fmt.Errorf("cannot delete principal: %v", err)
+	}
+
+	return nil
 }

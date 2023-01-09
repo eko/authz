@@ -209,19 +209,8 @@ func PolicyDelete(
 	return func(c *fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
-		// Retrieve policy
-		policy, err := policyManager.GetRepository().Get(identifier)
-		if err != nil {
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot retrieve policy: %v", err),
-			)
-		}
-
-		// Delete policy
-		if err := policyManager.GetRepository().Delete(policy); err != nil {
-			return returnError(c, http.StatusInternalServerError,
-				fmt.Errorf("cannot delete policy: %v", err),
-			)
+		if err := policyManager.Delete(identifier); err != nil {
+			return returnError(c, http.StatusInternalServerError, err)
 		}
 
 		return c.JSON(model.SuccessResponse{Success: true})

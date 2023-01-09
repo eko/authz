@@ -12,6 +12,7 @@ import (
 
 type Role interface {
 	Create(identifier string, policies []string) (*model.Role, error)
+	Delete(identifier string) error
 	GetRepository() repository.Base[model.Role]
 	Update(identifier string, policies []string) (*model.Role, error)
 }
@@ -49,6 +50,10 @@ func (m *roleManager) Create(identifier string, policies []string) (*model.Role,
 		return nil, fmt.Errorf("a role already exists with identifier %q", identifier)
 	}
 
+	if len(policies) == 0 {
+		return nil, fmt.Errorf("you have to specify at least one policy")
+	}
+
 	var policyObjects = []*model.Policy{}
 
 	for _, policy := range policies {
@@ -70,6 +75,19 @@ func (m *roleManager) Create(identifier string, policies []string) (*model.Role,
 	}
 
 	return role, nil
+}
+
+func (m *roleManager) Delete(identifier string) error {
+	role, err := m.repository.Get(identifier)
+	if err != nil {
+		return fmt.Errorf("cannot retrieve role: %v", err)
+	}
+
+	if err := m.repository.Delete(role); err != nil {
+		return fmt.Errorf("cannot delete role: %v", err)
+	}
+
+	return nil
 }
 
 func (m *roleManager) Update(identifier string, policies []string) (*model.Role, error) {

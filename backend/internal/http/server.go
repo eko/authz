@@ -45,12 +45,12 @@ func NewServer(
 func Run(lc fx.Lifecycle, logger *slog.Logger, server *Server) {
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
-			logger.Info("Starting API server", slog.String("addr", server.cfg.Addr))
+			logger.Info("Starting HTTP server", slog.String("addr", server.cfg.Addr))
 
 			go func() {
 				if err := server.app.Listen(server.cfg.Addr); err != nil {
 					if err != http.ErrServerClosed {
-						logger.Error("Unable to serve HTTP API", err)
+						logger.Error("Unable to start HTTP server", err)
 					}
 				}
 			}()
@@ -58,7 +58,7 @@ func Run(lc fx.Lifecycle, logger *slog.Logger, server *Server) {
 			return nil
 		},
 		OnStop: func(_ context.Context) error {
-			logger.Info("Stopping API server")
+			logger.Info("Stopping HTTP server")
 
 			return server.app.Shutdown()
 		},

@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"github.com/eko/authz/backend/internal/entity/manager"
-	"github.com/eko/authz/backend/internal/security/paseto"
+	"github.com/eko/authz/backend/internal/security/jwt"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/exp/slog"
 )
@@ -21,7 +21,7 @@ func (m Middlewares) Get(name string) fiber.Handler {
 func NewMiddlewares(
 	logger *slog.Logger,
 	compiledManager manager.CompiledPolicy,
-	tokenManager paseto.Manager,
+	tokenManager jwt.Manager,
 ) Middlewares {
 	return Middlewares{
 		AuthenticationKey: Authentication(logger, tokenManager),

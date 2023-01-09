@@ -27,19 +27,19 @@ export default function ClientList() {
   const handleOnDelete = async (params: GridRenderCellParams) => {
     const confirmed = await confirmDelete(
       'Delete confirmation',
-      `Do you really want to delete client ${params.row.name}?`,
+      `Do you really want to delete service account ${params.row.name}?`,
     );
 
     if (confirmed) {
       const response = await deleteClient(user?.token!, params.row.client_id);
 
       if (isAPIError(response)) {
-        toast.error(`An error occurred while trying to delete client ${params.row.name}: ${response.message}.`);
+        toast.error(`An error occurred while trying to delete service account ${params.row.name}: ${response.message}.`);
       } else if (response) {
-          toast.success(`Client ${params.row.name} has been successfully deleted.`);
+          toast.success(`Service account ${params.row.name} has been successfully deleted.`);
           setUpdatedKey(updatedKey+1);
       } else {
-        toast.error(`An error occurred while trying to delete client ${params.row.name}.`);
+        toast.error(`An error occurred while trying to delete service account ${params.row.name}.`);
       }
     }
   };
@@ -64,7 +64,7 @@ export default function ClientList() {
           startIcon={<AddCircleOutlineIcon />}
           onClick={() => navigate('/clients/create')}
         >
-          Create new client
+          Create new service account
         </Button>
       </Box>
 

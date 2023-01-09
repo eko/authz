@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/database"
 	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/eko/authz/backend/internal/entity/repository"
@@ -84,7 +83,7 @@ func (m *userManager) Create(username string, password string) (*model.User, err
 	}
 
 	if err := m.principalRepository.WithTransaction(transaction).Create(&model.Principal{
-		ID: fmt.Sprintf("%s-%s", configs.ApplicationName, user.Username),
+		ID: model.UserPrincipal(user.Username),
 	}); err != nil {
 		_ = transaction.Rollback()
 		return nil, fmt.Errorf("unable to create user: %v", err)
@@ -103,7 +102,7 @@ func (m *userManager) Delete(username string) error {
 
 	// Retrieve principal
 	principal, err := m.principalRepository.Get(
-		fmt.Sprintf("%s-%s", configs.ApplicationName, user.Username),
+		model.UserPrincipal(username),
 	)
 	if err != nil {
 		return fmt.Errorf("cannot retrieve user principal: %v", err)

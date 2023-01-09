@@ -13,6 +13,7 @@ import (
 
 type Resource interface {
 	Create(identifier string, kind string, value string, attributes map[string]any) (*model.Resource, error)
+	Delete(identifier string) error
 	GetRepository() repository.Resource
 	Update(identifier string, kind string, value string, attributes map[string]any) (*model.Resource, error)
 }
@@ -90,6 +91,19 @@ func (m *resourceManager) Create(identifier string, kind string, value string, a
 	}
 
 	return resource, nil
+}
+
+func (m *resourceManager) Delete(identifier string) error {
+	resource, err := m.repository.Get(identifier)
+	if err != nil {
+		return fmt.Errorf("cannot retrieve resource: %v", err)
+	}
+
+	if err := m.repository.Delete(resource); err != nil {
+		return fmt.Errorf("cannot delete resource: %v", err)
+	}
+
+	return nil
 }
 
 func (m *resourceManager) Update(identifier string, kind string, value string, attributes map[string]any) (*model.Resource, error) {
