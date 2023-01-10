@@ -5,7 +5,6 @@ go 1.19
 require (
 	bou.ke/monkey v1.0.2
 	github.com/cucumber/godog v0.12.5
-	github.com/envoyproxy/protoc-gen-validate v0.9.1
 	github.com/go-oauth2/oauth2/v4 v4.5.1
 	github.com/go-playground/validator/v10 v10.11.1
 	github.com/gofiber/adaptor/v2 v2.1.30

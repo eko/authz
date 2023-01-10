@@ -7,6 +7,7 @@ import (
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/entity/transformer"
+	"github.com/eko/authz/backend/internal/http/handler/validator"
 	"github.com/eko/authz/backend/pkg/authz"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -32,8 +33,8 @@ func NewPolicy(
 }
 
 func (h *policy) PolicyCreate(ctx context.Context, req *authz.PolicyCreateRequest) (*authz.PolicyCreateResponse, error) {
-	if err := req.ValidateAll(); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+	if !validator.ValidateSlugFromString(req.GetId()) {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("identifier must be a slug, found: %s", req.GetId()))
 	}
 
 	policy, err := h.policyManager.Create(req.GetId(), req.GetResources(), req.GetActions(), req.GetAttributeRules())
@@ -58,7 +59,7 @@ func (h *policy) PolicyDelete(ctx context.Context, req *authz.PolicyDeleteReques
 }
 
 func (h *policy) PolicyGet(ctx context.Context, req *authz.PolicyGetRequest) (*authz.PolicyGetResponse, error) {
-	policy, err := h.policyManager.GetRepository().Get(req.GetId(), repository.WithPreloads("Attributes", "Roles"))
+	policy, err := h.policyManager.GetRepository().Get(req.GetId(), repository.WithPreloads("Resources", "Actions"))
 	if err != nil {
 		return nil, status.Error(codes.NotFound, fmt.Sprintf("unable to retrieve: %v", err.Error()))
 	}
@@ -69,10 +70,6 @@ func (h *policy) PolicyGet(ctx context.Context, req *authz.PolicyGetRequest) (*a
 }
 
 func (h *policy) PolicyUpdate(ctx context.Context, req *authz.PolicyUpdateRequest) (*authz.PolicyUpdateResponse, error) {
-	if err := req.ValidateAll(); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
 	policy, err := h.policyManager.Update(req.GetId(), req.GetResources(), req.GetActions(), req.GetAttributeRules())
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("unable to update: %v", err.Error()))

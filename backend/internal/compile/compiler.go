@@ -220,32 +220,44 @@ func (c *compiler) compilePolicyAttributesWithMatching(
 		queryOptions = append(queryOptions, repository.WithResourceIDs(resourceIDs))
 	}
 
-	matches, err := c.resourceManager.GetRepository().FindMatchingAttributesWithPrincipals(
+	resourcesMatches, err := c.resourceManager.GetRepository().FindMatchingAttribute(
 		attributeRule.ResourceAttribute,
-		attributeRule.PrincipalAttribute,
 		queryOptions...,
 	)
 	if err != nil {
 		return fmt.Errorf("cannot retrieve resource and principals matches: %v", err)
 	}
 
-	for _, match := range matches {
-		for _, action := range policy.Actions {
-			if len(compiled) == 100 {
-				if err := c.compiledManager.Create(compiled); err != nil {
-					return err
-				}
-				compiled = make([]*model.CompiledPolicy, 0)
+	principalsMatches, err := c.principalManager.GetRepository().FindMatchingAttribute(
+		attributeRule.PrincipalAttribute,
+	)
+	if err != nil {
+		return fmt.Errorf("cannot retrieve resource and principals matches: %v", err)
+	}
+
+	for _, resourceMatch := range resourcesMatches {
+		for _, principalMatch := range principalsMatches {
+			if resourceMatch.AttributeValue != principalMatch.AttributeValue {
+				continue
 			}
 
-			compiled = append(compiled, &model.CompiledPolicy{
-				PolicyID:      policy.ID,
-				PrincipalID:   match.PrincipalID,
-				ResourceKind:  match.ResourceKind,
-				ResourceValue: match.ResourceValue,
-				ActionID:      action.ID,
-				Version:       version,
-			})
+			for _, action := range policy.Actions {
+				if len(compiled) == 100 {
+					if err := c.compiledManager.Create(compiled); err != nil {
+						return err
+					}
+					compiled = make([]*model.CompiledPolicy, 0)
+				}
+
+				compiled = append(compiled, &model.CompiledPolicy{
+					PolicyID:      policy.ID,
+					PrincipalID:   principalMatch.PrincipalID,
+					ResourceKind:  resourceMatch.ResourceKind,
+					ResourceValue: resourceMatch.ResourceValue,
+					ActionID:      action.ID,
+					Version:       version,
+				})
+			}
 		}
 	}
 

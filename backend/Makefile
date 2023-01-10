@@ -21,10 +21,8 @@ lint: ## Run the linter over all the Go code
 proto: ## Generate Go packages from proto files
 	protoc \
 		-I ./api/proto \
-		-I ${GOPATH}/pkg/mod/github.com/envoyproxy/protoc-gen-validate@v0.9.1 \
 		--go_out=./pkg/authz --go_opt=paths=source_relative \
 		--go-grpc_out=./pkg/authz --go-grpc_opt=paths=source_relative \
-		--validate_out="lang=go:./pkg/authz" --validate_opt=paths=source_relative \
 		api.proto
 
 schema-dump: ## Dump current database schema into schema.sql file

@@ -57,6 +57,10 @@ func FxModule() fx.Option {
 				return repository.New[model.User](db)
 			},
 
+			func(base repository.Base[model.Principal]) repository.Principal {
+				return repository.NewPrincipal(base)
+			},
+
 			func(base repository.Base[model.Resource]) repository.Resource {
 				return repository.NewResource(base)
 			},

@@ -12,6 +12,7 @@ var (
 	// This means they can be call publicly.
 	UnauthenticatedMethods = []string{
 		"/authz.Api/Authenticate",
+		"/authz.Api/Check",
 	}
 )
 

@@ -14,12 +14,12 @@ import (
 type Principal interface {
 	Create(identifier string, roles []string, attributes map[string]any) (*model.Principal, error)
 	Delete(identifier string) error
-	GetRepository() repository.Base[model.Principal]
+	GetRepository() repository.Principal
 	Update(identifier string, roles []string, attributes map[string]any) (*model.Principal, error)
 }
 
 type principalManager struct {
-	repository         repository.Base[model.Principal]
+	repository         repository.Principal
 	roleRepository     repository.Base[model.Role]
 	attributeManager   Attribute
 	transactionManager database.TransactionManager
@@ -28,7 +28,7 @@ type principalManager struct {
 
 // NewPrincipal initializes a new principal manager.
 func NewPrincipal(
-	repository repository.Base[model.Principal],
+	repository repository.Principal,
 	roleRepository repository.Base[model.Role],
 	attributeManager Attribute,
 	transactionManager database.TransactionManager,
@@ -43,7 +43,7 @@ func NewPrincipal(
 	}
 }
 
-func (m *principalManager) GetRepository() repository.Base[model.Principal] {
+func (m *principalManager) GetRepository() repository.Principal {
 	return m.repository
 }
 

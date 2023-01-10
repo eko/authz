@@ -26,10 +26,6 @@ func NewCheck(
 }
 
 func (h *check) Check(ctx context.Context, req *authz.CheckRequest) (*authz.CheckResponse, error) {
-	if err := req.ValidateAll(); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
 	var checkAnswers = make([]*authz.CheckAnswer, len(req.GetChecks()))
 
 	for i, check := range req.GetChecks() {

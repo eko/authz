@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/eko/authz/backend/configs"
+	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/grpc/handler"
 	"github.com/eko/authz/backend/internal/grpc/interceptor"
 	"github.com/eko/authz/backend/internal/security/jwt"
@@ -33,6 +34,7 @@ type Server struct {
 func NewServer(
 	cfg *configs.GRPCServer,
 	tokenManager jwt.Manager,
+	compiledManager manager.CompiledPolicy,
 	authHandler handler.Auth,
 	checkHandler handler.Check,
 	policyHandler handler.Policy,
@@ -51,13 +53,18 @@ func NewServer(
 	}
 
 	authenticateFunc := interceptor.AuthenticateFunc(tokenManager)
+	authorizationFunc := interceptor.AuthorizationFunc(compiledManager)
 
 	grpcServer := grpc.NewServer(
-		grpc.StreamInterceptor(grpc_auth.StreamServerInterceptor(authenticateFunc)),
-		grpc.UnaryInterceptor(
+		grpc.ChainStreamInterceptor(
+			grpc_auth.StreamServerInterceptor(authenticateFunc),
+			interceptor.AuthorizationStreamServerInterceptor(authorizationFunc),
+		),
+		grpc.ChainUnaryInterceptor(
 			interceptor.AuthenticationUnaryServerInterceptor(
 				grpc_auth.UnaryServerInterceptor(authenticateFunc),
 			),
+			interceptor.AuthorizationUnaryServerInterceptor(authorizationFunc),
 		),
 	)
 

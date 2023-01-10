@@ -3,6 +3,6 @@
 Authz
 =====
 
-<h1 align="center"><a href="https://github.com/eko/authz"><img src="misc/logo.png" alt="Authz" width="600"></a></h1>
+<h1 align="center"><a href="https://github.com/eko/authz"><img src="misc/splash.png" alt="Authz" width="600"></a></h1>
 
 This project brings a backend server for managing authorizations, using both Role-Based Acccess Control (RBAC) or Attribute-Based Access Control (ABAC).

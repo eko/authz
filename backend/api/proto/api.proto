@@ -1,8 +1,6 @@
 syntax = "proto3";
 package authz;
 
-import "validate/validate.proto";
-
 option go_package = "github.com/eko/authz/backend/pkg/authz";
 
 service Api {
@@ -48,12 +46,8 @@ message AuthenticateResponse {
 }
 
 message Check {
-    string principal = 1 [(validate.rules).string = {
-        pattern: "[a-z0-9-_\\./*]+",
-    }];
-    string resource_kind = 2 [(validate.rules).string = {
-        pattern: "[a-z0-9-_\\./*]+",
-    }];
+    string principal = 1;
+    string resource_kind = 2;
     string resource_value = 3;
     string action = 4;
 }
@@ -82,9 +76,7 @@ message Policy {
 }
 
 message PolicyCreateRequest {
-    string id = 1 [(validate.rules).string = {
-        pattern: "[a-z0-9-_\\./*]+",
-    }];
+    string id = 1;
     repeated string actions = 2;
     repeated string resources = 3;
     repeated string attribute_rules = 4;
@@ -128,9 +120,7 @@ message Principal {
 }
 
 message PrincipalCreateRequest {
-    string id = 1 [(validate.rules).string = {
-        pattern: "[a-z0-9-_\\./*]+",
-    }];
+    string id = 1;
     repeated string roles = 2;
     repeated Attribute attributes = 3;
 }
@@ -173,15 +163,9 @@ message Resource {
 }
 
 message ResourceCreateRequest {
-    string id = 1 [(validate.rules).string = {
-        pattern: "[a-z0-9-_\\./*]+",
-    }];
-    string kind = 2 [(validate.rules).string = {
-        pattern: "[a-z0-9-_\\./*]+",
-    }];
-    string value = 3 [(validate.rules).string = {
-        pattern: "[a-z0-9-_\\./*]+",
-    }];
+    string id = 1;
+    string kind = 2;
+    string value = 3;
     repeated Attribute attributes = 4;
 }
 
@@ -222,9 +206,7 @@ message Role {
 }
 
 message RoleCreateRequest {
-    string id = 1 [(validate.rules).string = {
-        pattern: "[a-z0-9-_\\./*]+",
-    }];
+    string id = 1;
     repeated string policies = 2;
 }
 

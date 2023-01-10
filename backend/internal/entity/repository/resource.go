@@ -19,7 +19,7 @@ func WithResourceIDs(resourceIDs []string) ResourceQueryOption {
 
 type Resource interface {
 	Base[model.Resource]
-	FindMatchingAttributesWithPrincipals(resourceAttribute string, principalAttribute string, options ...ResourceQueryOption) ([]*MatchingAttributeResourcePrincipal, error)
+	FindMatchingAttribute(resourceAttribute string, options ...ResourceQueryOption) ([]*ResourceMatchingAttribute, error)
 }
 
 // besource struct that allows contacting the database using Gorm.
@@ -34,29 +34,26 @@ func NewResource(repository Base[model.Resource]) Resource {
 	}
 }
 
-type MatchingAttributeResourcePrincipal struct {
-	PrincipalID   string
-	ResourceKind  string
-	ResourceValue string
+type ResourceMatchingAttribute struct {
+	ResourceKind   string
+	ResourceValue  string
+	AttributeValue string
 }
 
-func (r *resource) FindMatchingAttributesWithPrincipals(
+func (r *resource) FindMatchingAttribute(
 	resourceAttribute string,
-	principalAttribute string,
 	options ...ResourceQueryOption,
-) ([]*MatchingAttributeResourcePrincipal, error) {
-	matches := []*MatchingAttributeResourcePrincipal{}
+) ([]*ResourceMatchingAttribute, error) {
+	matches := []*ResourceMatchingAttribute{}
 
 	tx := applyResourceOptions(r.DB(), options)
 
 	err := tx.
-		Select("authz_principals_attributes.principal_id AS principal_id, authz_resources.kind AS resource_kind, authz_resources.value AS resource_value").
+		Select("authz_resources.kind AS resource_kind, authz_resources.value AS resource_value, authz_attributes.value AS attribute_value").
 		Model(&model.Resource{}).
 		Joins("INNER JOIN authz_resources_attributes ON authz_resources.id = authz_resources_attributes.resource_id").
 		Joins("INNER JOIN authz_attributes ON authz_resources_attributes.attribute_id = authz_attributes.id").
-		Joins("INNER JOIN authz_principals_attributes ON authz_attributes.id = authz_principals_attributes.attribute_id").
-		Where("authz_attributes.key = ? OR authz_attributes.key = ?", resourceAttribute, principalAttribute).
-		Where("authz_principals_attributes.principal_id IS NOT NULL").
+		Where("authz_attributes.key = ?", resourceAttribute).
 		Where("authz_resources.value <> ?", "*").
 		Scan(&matches).Error
 	if err != nil {

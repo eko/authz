@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/eko/authz/backend/internal/entity/manager"
+	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/eko/authz/backend/internal/security/jwt"
 	"github.com/eko/authz/backend/pkg/authz"
 	"google.golang.org/grpc/codes"
@@ -49,7 +50,7 @@ func (h *auth) Authenticate(ctx context.Context, req *authz.AuthenticateRequest)
 		return nil, InvalidCredentialsErr
 	}
 
-	token, err := h.tokenManager.Generate(client.ID)
+	token, err := h.tokenManager.Generate(model.ClientPrincipal(client.Name))
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

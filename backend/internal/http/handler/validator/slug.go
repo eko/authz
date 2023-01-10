@@ -11,7 +11,10 @@ var (
 )
 
 func ValidateSlug(fl validator.FieldLevel) bool {
-	value := fl.Field().String()
+	return ValidateSlugFromString(fl.Field().String())
+}
+
+func ValidateSlugFromString(value string) bool {
 	compared := slugReplaceCharacters.ReplaceAllString(value, "-")
 
 	return value == compared

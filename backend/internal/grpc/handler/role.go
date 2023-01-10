@@ -7,6 +7,7 @@ import (
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/entity/transformer"
+	"github.com/eko/authz/backend/internal/http/handler/validator"
 	"github.com/eko/authz/backend/pkg/authz"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -32,8 +33,8 @@ func NewRole(
 }
 
 func (h *role) RoleCreate(ctx context.Context, req *authz.RoleCreateRequest) (*authz.RoleCreateResponse, error) {
-	if err := req.ValidateAll(); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+	if !validator.ValidateSlugFromString(req.GetId()) {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("identifier must be a slug, found: %s", req.GetId()))
 	}
 
 	role, err := h.roleManager.Create(req.GetId(), req.GetPolicies())
@@ -58,7 +59,7 @@ func (h *role) RoleDelete(ctx context.Context, req *authz.RoleDeleteRequest) (*a
 }
 
 func (h *role) RoleGet(ctx context.Context, req *authz.RoleGetRequest) (*authz.RoleGetResponse, error) {
-	role, err := h.roleManager.GetRepository().Get(req.GetId(), repository.WithPreloads("Attributes", "Roles"))
+	role, err := h.roleManager.GetRepository().Get(req.GetId(), repository.WithPreloads("Policies"))
 	if err != nil {
 		return nil, status.Error(codes.NotFound, fmt.Sprintf("unable to retrieve: %v", err.Error()))
 	}
@@ -69,10 +70,6 @@ func (h *role) RoleGet(ctx context.Context, req *authz.RoleGetRequest) (*authz.R
 }
 
 func (h *role) RoleUpdate(ctx context.Context, req *authz.RoleUpdateRequest) (*authz.RoleUpdateResponse, error) {
-	if err := req.ValidateAll(); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
 	role, err := h.roleManager.Update(req.GetId(), req.GetPolicies())
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("unable to update: %v", err.Error()))

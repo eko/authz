@@ -7,6 +7,7 @@ import (
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/entity/transformer"
+	"github.com/eko/authz/backend/internal/http/handler/validator"
 	"github.com/eko/authz/backend/pkg/authz"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -32,8 +33,8 @@ func NewPrincipal(
 }
 
 func (h *principal) PrincipalCreate(ctx context.Context, req *authz.PrincipalCreateRequest) (*authz.PrincipalCreateResponse, error) {
-	if err := req.ValidateAll(); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+	if !validator.ValidateSlugFromString(req.GetId()) {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("identifier must be a slug, found: %s", req.GetId()))
 	}
 
 	principal, err := h.principalManager.Create(req.GetId(), req.GetRoles(), attributesMap(req.GetAttributes()))
@@ -69,10 +70,6 @@ func (h *principal) PrincipalGet(ctx context.Context, req *authz.PrincipalGetReq
 }
 
 func (h *principal) PrincipalUpdate(ctx context.Context, req *authz.PrincipalUpdateRequest) (*authz.PrincipalUpdateResponse, error) {
-	if err := req.ValidateAll(); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
 	principal, err := h.principalManager.Update(req.GetId(), req.GetRoles(), attributesMap(req.GetAttributes()))
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("unable to update: %v", err.Error()))
