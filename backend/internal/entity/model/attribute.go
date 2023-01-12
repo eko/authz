@@ -2,7 +2,7 @@ package model
 
 type Attribute struct {
 	ID    int    `json:"-" gorm:"primarykey"`
-	Key   string `json:"key"`
+	Key   string `json:"key" gorm:"column:key_name"`
 	Value string `json:"value"`
 }
 

@@ -36,13 +36,14 @@ Feature: role
         "id": "my-post-123-role",
         "policies": [
           {
+            "attribute_rules": null,
             "id": "my-post-123-policy",
             "created_at": "2100-01-01T02:00:00+01:00",
             "updated_at": "2100-01-01T02:00:00+01:00"
           }
         ],
-        "created_at": "2100-01-01T02:00:00+01:00",
-        "updated_at": "2100-01-01T02:00:00+01:00"
+        "created_at": "2100-01-01T01:00:00Z",
+        "updated_at": "2100-01-01T01:00:00Z"
       }
       """
 
@@ -100,13 +101,14 @@ Feature: role
         "id": "my-post-role",
         "policies": [
           {
+            "attribute_rules": null,
             "id": "my-post-policy-update",
             "created_at": "2100-01-01T02:00:00+01:00",
             "updated_at": "2100-01-01T02:00:00+01:00"
           }
         ],
         "created_at": "2100-01-01T02:00:00+01:00",
-        "updated_at": "2100-01-01T02:00:00+01:00"
+        "updated_at": "2100-01-01T01:00:00Z"
       }
       """
 
@@ -146,6 +148,7 @@ Feature: role
         "id": "my-post-123-role",
         "policies": [
           {
+            "attribute_rules": null,
             "id": "my-post-123-policy",
             "updated_at": "2100-01-01T02:00:00+01:00",
             "created_at": "2100-01-01T02:00:00+01:00"
@@ -254,6 +257,7 @@ Feature: role
             "id": "my-post-123-role-create",
             "policies": [
               {
+                "attribute_rules": null,
                 "id": "my-post-123-policy-create",
                 "created_at": "2100-01-01T02:00:00+01:00",
                 "updated_at": "2100-01-01T02:00:00+01:00"
@@ -266,6 +270,7 @@ Feature: role
             "id": "my-post-123-role-update",
             "policies": [
               {
+                "attribute_rules": null,
                 "id": "my-post-123-policy-update",
                 "created_at": "2100-01-01T02:00:00+01:00",
                 "updated_at": "2100-01-01T02:00:00+01:00"

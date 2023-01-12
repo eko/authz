@@ -30,6 +30,7 @@ Feature: policy
             "updated_at": "2100-01-01T02:00:00+01:00"
           }
         ],
+        "attribute_rules": null,
         "id": "my-post-123-policy",
         "resources": [
           {
@@ -41,8 +42,8 @@ Feature: policy
             "value": "123"
           }
         ],
-        "created_at": "2100-01-01T02:00:00+01:00",
-        "updated_at": "2100-01-01T02:00:00+01:00"
+        "created_at": "2100-01-01T01:00:00Z",
+        "updated_at": "2100-01-01T01:00:00Z"
       }
       """
 
@@ -89,6 +90,7 @@ Feature: policy
             "updated_at": "2100-01-01T02:00:00+01:00"
           }
         ],
+        "attribute_rules": null,
         "id": "my-post-policy",
         "resources": [
           {
@@ -101,7 +103,7 @@ Feature: policy
           }
         ],
         "created_at": "2100-01-01T02:00:00+01:00",
-        "updated_at": "2100-01-01T02:00:00+01:00"
+        "updated_at": "2100-01-01T01:00:00Z"
       }
       """
 
@@ -135,6 +137,7 @@ Feature: policy
             "updated_at": "2100-01-01T02:00:00+01:00"
           }
         ],
+        "attribute_rules": null,
         "id": "my-post-123-policy",
         "resources": [
           {
@@ -223,6 +226,7 @@ Feature: policy
                 "updated_at": "2100-01-01T02:00:00+01:00"
               }
             ],
+            "attribute_rules": null,
             "id": "my-post-123-policy-1",
             "resources": [
               {
@@ -245,6 +249,7 @@ Feature: policy
                 "updated_at": "2100-01-01T02:00:00+01:00"
               }
             ],
+            "attribute_rules": null,
             "id": "my-post-123-policy-2",
             "resources": [
               {

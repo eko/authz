@@ -17,7 +17,7 @@ var (
 )
 
 type Dispatcher interface {
-	Dispatch(eventType EventType, identifier string) error
+	Dispatch(eventType EventType, data any) error
 	Subscribe(eventType EventType) chan *Event
 	Unsubscribe(eventType EventType, eventChanToClose chan *Event) error
 }
@@ -38,7 +38,7 @@ func NewDispatcher(
 	}
 }
 
-func (n *dispatcher) Dispatch(eventType EventType, identifier string) error {
+func (n *dispatcher) Dispatch(eventType EventType, data any) error {
 	eventChanSlice, ok := n.subscribers.Load(eventType)
 	if !ok {
 		return ErrNoSubscriberForEventType
@@ -51,7 +51,7 @@ func (n *dispatcher) Dispatch(eventType EventType, identifier string) error {
 
 	for _, eventChan := range eventChans {
 		eventChan <- &Event{
-			ID:        identifier,
+			Data:      data,
 			Timestamp: n.clock.Now().Unix(),
 		}
 	}

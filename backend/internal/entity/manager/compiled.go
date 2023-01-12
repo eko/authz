@@ -6,6 +6,7 @@ import (
 
 	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/eko/authz/backend/internal/entity/repository"
+	"github.com/eko/authz/backend/internal/event"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
@@ -20,6 +21,7 @@ type compiledPolicyManager struct {
 	repository          repository.Base[model.CompiledPolicy]
 	principalRepository repository.Base[model.Principal]
 	logger              *slog.Logger
+	dispatcher          event.Dispatcher
 }
 
 // NewCompiledPolicy initializes a new compiledPolicy manager.
@@ -27,11 +29,13 @@ func NewCompiledPolicy(
 	repository repository.Base[model.CompiledPolicy],
 	principalRepository repository.Base[model.Principal],
 	logger *slog.Logger,
+	dispatcher event.Dispatcher,
 ) CompiledPolicy {
 	return &compiledPolicyManager{
 		repository:          repository,
 		principalRepository: principalRepository,
 		logger:              logger,
+		dispatcher:          dispatcher,
 	}
 }
 

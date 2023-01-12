@@ -34,7 +34,7 @@ func (r *principal) FindMatchingAttribute(principalAttribute string) ([]*Princip
 		Model(&model.Principal{}).
 		Joins("INNER JOIN authz_principals_attributes ON authz_principals_attributes.principal_id = authz_principals.id").
 		Joins("INNER JOIN authz_attributes ON authz_principals_attributes.attribute_id = authz_attributes.id").
-		Where("authz_attributes.key = ?", principalAttribute).
+		Where("authz_attributes.key_name = ?", principalAttribute).
 		Scan(&matches).Error
 	if err != nil {
 		return nil, err

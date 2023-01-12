@@ -12,6 +12,29 @@ export type Client = {
     updated_at: Date
 }
 
+export type Policy = {
+    id: string
+    actions: Action[]
+    resources: Resource[]
+    attribute_rules?: string[]
+    created_at: Date
+    updated_at: Date
+}
+
+export type PrincipalAttribute = {
+    key: string
+    value: string
+}
+
+export type Principal = {
+    id: string
+    name: string
+    roles: Role[]
+    attributes?: PrincipalAttribute[]
+    created_at: Date
+    updated_at: Date
+}
+
 export type ResourceAttribute = {
     key: string
     value: string
@@ -27,15 +50,6 @@ export type Resource = {
     updated_at: Date
 }
 
-export type Policy = {
-    id: string
-    actions: Action[]
-    resources: Resource[]
-    attribute_rules?: string[]
-    created_at: Date
-    updated_at: Date
-}
-
 export type Role = {
     id: string
     name: string
@@ -44,26 +58,14 @@ export type Role = {
     updated_at: Date
 }
 
-
-export type PrincipalAttribute = {
-    key: string
-    value: string
-}
-export type Principal = {
+export type StatsDay = {
     id: string
-    name: string
-    roles: Role[]
-    attributes?: PrincipalAttribute[]
-    created_at: Date
-    updated_at: Date
+    date: string
+    checks_allowed_number: number
+    checks_denied_number: number
 }
 
-export type Group = {
-    id: string
-    name: string
-    created_at: Date
-    updated_at: Date
-}
+export type Stats = StatsDay[]
 
 export type User = {
     username: string

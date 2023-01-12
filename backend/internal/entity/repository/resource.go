@@ -53,7 +53,7 @@ func (r *resource) FindMatchingAttribute(
 		Model(&model.Resource{}).
 		Joins("INNER JOIN authz_resources_attributes ON authz_resources.id = authz_resources_attributes.resource_id").
 		Joins("INNER JOIN authz_attributes ON authz_resources_attributes.attribute_id = authz_attributes.id").
-		Where("authz_attributes.key = ?", resourceAttribute).
+		Where("authz_attributes.key_name = ?", resourceAttribute).
 		Where("authz_resources.value <> ?", "*").
 		Scan(&matches).Error
 	if err != nil {

@@ -69,7 +69,7 @@ func (c *compiler) CompilePolicy(identifier string) error {
 	}
 
 	// In case policy has attribute rules, just compile them.
-	if len(policy.AttributeRules) > 0 {
+	if len(policy.AttributeRules.Data) > 0 {
 		return c.compilePolicyAttributes(policy)
 	}
 
@@ -117,7 +117,7 @@ func (c *compiler) CompilePolicy(identifier string) error {
 func (c *compiler) compilePolicyAttributes(policy *model.Policy) error {
 	version := c.clock.Now().Unix()
 
-	for _, attributeRuleStr := range policy.AttributeRules {
+	for _, attributeRuleStr := range policy.AttributeRules.Data {
 		attributeRule, err := attribute.ConvertStringToRuleOperator(attributeRuleStr)
 		if err != nil {
 			return fmt.Errorf("cannot convert attribute rule string to object: %v", err)
@@ -285,7 +285,7 @@ func (c *compiler) retrieveResources(resources []*model.Resource, rule *attribut
 		}
 
 		if rule.ResourceAttribute != "" && rule.Value != "" {
-			filters["authz_attributes.key"] = repository.FieldValue{
+			filters["authz_attributes.key_name"] = repository.FieldValue{
 				Operator: "=", Value: rule.ResourceAttribute,
 			}
 
@@ -322,7 +322,7 @@ func (c *compiler) retrievePrincipals(rule *attribute.Rule) ([]*model.Principal,
 	var filters = map[string]repository.FieldValue{}
 
 	if rule.PrincipalAttribute != "" && rule.Value != "" {
-		filters["authz_attributes.key"] = repository.FieldValue{
+		filters["authz_attributes.key_name"] = repository.FieldValue{
 			Operator: "=", Value: rule.PrincipalAttribute,
 		}
 
@@ -368,7 +368,7 @@ func (c *compiler) CompilePrincipal(identifier string) error {
 	}
 
 	for _, policy := range policies {
-		for _, attributeRuleStr := range policy.AttributeRules {
+		for _, attributeRuleStr := range policy.AttributeRules.Data {
 			attributeRule, err := attribute.ConvertStringToRuleOperator(attributeRuleStr)
 			if err != nil {
 				return fmt.Errorf("cannot convert attribute rule string to object: %v", err)
@@ -408,7 +408,7 @@ func (c *compiler) CompileResource(identifier string) error {
 	}
 
 	for _, policy := range policies {
-		for _, attributeRuleStr := range policy.AttributeRules {
+		for _, attributeRuleStr := range policy.AttributeRules.Data {
 			attributeRule, err := attribute.ConvertStringToRuleOperator(attributeRuleStr)
 			if err != nil {
 				return fmt.Errorf("cannot convert attribute rule string to object: %v", err)

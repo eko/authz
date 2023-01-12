@@ -9,6 +9,7 @@ import (
 	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/event"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -175,7 +176,7 @@ func (m *policyManager) attachToPolicy(
 	policy.ID = identifier
 	policy.Resources = resourceObjects
 	policy.Actions = actionObjects
-	policy.AttributeRules = attributeRules
+	policy.AttributeRules = datatypes.JSONType[[]string]{Data: attributeRules}
 
 	return nil
 }

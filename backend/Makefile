@@ -1,4 +1,4 @@
-.PHONY: help install-tools lint proto schema-dump swag test-functional test-mocks test-unit
+.PHONY: help install-tools lint proto mysql-schema-dump postgres-schema-dump swag test-functional test-mocks test-unit
 
 help: ## Show this help
 	@echo 'usage: make [target]'
@@ -25,8 +25,13 @@ proto: ## Generate Go packages from proto files
 		--go-grpc_out=./pkg/authz --go-grpc_opt=paths=source_relative \
 		api.proto
 
-schema-dump: ## Dump current database schema into schema.sql file
-	docker-compose exec postgres pg_dump -x -s -U root -w -d root > schema.sql
+mysql-schema-dump: ## Dump current database schema into schema.sql file
+	docker-compose -f ../docker-compose.mysql.yaml exec mysql \
+		mysqldump -u root -ptoor --no-data root > schema.sql
+
+postgres-schema-dump: ## Dump current database schema into schema.sql file
+	docker-compose -f ../docker-compose.postgres.yaml exec postgres \
+		pg_dump -x -s -U root -w -d root > schema.sql
 
 # install needed dependency:
 # go install github.com/swaggo/swag/cmd/swag@latest

@@ -15,6 +15,7 @@ import (
 type User interface {
 	Create(username string, password string) (*model.User, error)
 	Delete(username string) error
+	UpdatePassword(username string, password string) error
 	GetRepository() repository.Base[model.User]
 }
 
@@ -120,6 +121,36 @@ func (m *userManager) Delete(username string) error {
 	if err := m.GetRepository().WithTransaction(transaction).Delete(user); err != nil {
 		_ = transaction.Rollback()
 		return fmt.Errorf("cannot delete user: %v", err)
+	}
+
+	return nil
+}
+
+func (m *userManager) UpdatePassword(username string, password string) error {
+	user, err := m.repository.GetByFields(map[string]repository.FieldValue{
+		"username": {Operator: "=", Value: username},
+	})
+	if err != nil {
+		return fmt.Errorf("unable to retrieve user: %v", err)
+	}
+
+	if password == "" {
+		password, err = m.tokenGenerator.Generate(10)
+		if err != nil {
+			return fmt.Errorf("unable to generate a random password: %v", err)
+		}
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
+	if err != nil {
+		return err
+	}
+
+	user.Password = password
+	user.PasswordHash = string(hashedPassword)
+
+	if err := m.repository.Update(user); err != nil {
+		return fmt.Errorf("unable to update user password: %v", err)
 	}
 
 	return nil

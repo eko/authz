@@ -24,6 +24,7 @@ var (
 		"principals": {"list", "get", "create", "update", "delete"},
 		"resources":  {"list", "get", "create", "update", "delete"},
 		"roles":      {"list", "get", "create", "update", "delete"},
+		"stats":      {"get"},
 		"users":      {"list", "get", "create", "delete"},
 	}
 )
@@ -112,11 +113,16 @@ func (i *initializer) initializeResources() error {
 }
 
 func (i *initializer) checkAlreadyInitialized() bool {
-	_, err := i.userManager.GetRepository().GetByFields(map[string]repository.FieldValue{
+	adminUser, err := i.userManager.GetRepository().GetByFields(map[string]repository.FieldValue{
 		"username": {Operator: "=", Value: defaultAdminUsername},
 	})
 
-	return err == nil
+	if err == nil && adminUser != nil {
+		_ = i.userManager.UpdatePassword(defaultAdminUsername, i.cfg.AdminDefaultPassword)
+		return true
+	}
+
+	return false
 }
 
 func (i *initializer) initializePolicies() error {

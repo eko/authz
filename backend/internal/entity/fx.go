@@ -19,6 +19,7 @@ func FxModule() fx.Option {
 			manager.NewPrincipal,
 			manager.NewResource,
 			manager.NewRole,
+			manager.NewStats,
 			manager.NewUser,
 
 			func(db *gorm.DB) repository.Base[model.Action] {
@@ -51,6 +52,10 @@ func FxModule() fx.Option {
 
 			func(db *gorm.DB) repository.Base[model.Role] {
 				return repository.New[model.Role](db)
+			},
+
+			func(db *gorm.DB) repository.Base[model.Stats] {
+				return repository.New[model.Stats](db)
 			},
 
 			func(db *gorm.DB) repository.Base[model.User] {

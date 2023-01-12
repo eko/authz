@@ -4,7 +4,9 @@ import (
 	"context"
 
 	"github.com/eko/authz/backend/internal/entity/manager"
+	"github.com/eko/authz/backend/internal/event"
 	"github.com/eko/authz/backend/pkg/authz"
+	"golang.org/x/exp/slog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -15,13 +17,19 @@ type Check interface {
 
 type check struct {
 	compiledManager manager.CompiledPolicy
+	logger          *slog.Logger
+	dispatcher      event.Dispatcher
 }
 
 func NewCheck(
 	compiledManager manager.CompiledPolicy,
+	logger *slog.Logger,
+	dispatcher event.Dispatcher,
 ) Check {
 	return &check{
 		compiledManager: compiledManager,
+		logger:          logger,
+		dispatcher:      dispatcher,
 	}
 }
 
@@ -32,6 +40,10 @@ func (h *check) Check(ctx context.Context, req *authz.CheckRequest) (*authz.Chec
 		isAllowed, err := h.compiledManager.IsAllowed(check.Principal, check.ResourceKind, check.ResourceValue, check.Action)
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
+		}
+
+		if err := h.dispatcher.Dispatch(event.EventTypeCheck, isAllowed); err != nil {
+			h.logger.Error("unable to dispatch check event", err)
 		}
 
 		checkAnswers[i] = &authz.CheckAnswer{

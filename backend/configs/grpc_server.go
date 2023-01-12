@@ -1,7 +1,7 @@
 package configs
 
 type GRPCServer struct {
-	Addr string `config:"http_server_addr"`
+	Addr string `config:"grpc_server_addr"`
 }
 
 func newGRPCServer() *GRPCServer {

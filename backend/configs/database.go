@@ -1,6 +1,15 @@
 package configs
 
+import "fmt"
+
+const (
+	DriverPostgres = "postgres"
+	DriverMysql    = "mysql"
+	DriverSqlite   = "sqlite"
+)
+
 type Database struct {
+	Driver   string `config:"database_driver"`
 	Host     string `config:"database_host"`
 	Port     string `config:"database_port"`
 	SSLMode  string `config:"database_ssl"`
@@ -10,7 +19,18 @@ type Database struct {
 	Timezone string `config:"database_timezone"`
 }
 
-func (d Database) DSN() string {
+func (d Database) MysqlDSN() string {
+	return fmt.Sprintf(
+		"%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local",
+		d.User,
+		d.Password,
+		d.Host,
+		d.Port,
+		d.Dbname,
+	)
+}
+
+func (d Database) PostgresDSN() string {
 	return "host=" + d.Host +
 		" user=" + d.User +
 		" password=" + d.Password +
@@ -20,8 +40,13 @@ func (d Database) DSN() string {
 		" TimeZone=" + d.Timezone
 }
 
+func (d Database) SqliteDSN() string {
+	return fmt.Sprintf("file:%s?cache=shared", d.Dbname)
+}
+
 func newDatabase() *Database {
 	return &Database{
+		Driver:   "postgres",
 		Host:     "localhost",
 		User:     "root",
 		Password: "toor",

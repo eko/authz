@@ -3,11 +3,13 @@ package handler
 import (
 	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/entity/manager"
+	"github.com/eko/authz/backend/internal/event"
 	"github.com/eko/authz/backend/internal/security/jwt"
 	"github.com/go-oauth2/oauth2/v4/server"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
+	"golang.org/x/exp/slog"
 )
 
 const (
@@ -40,6 +42,7 @@ const (
 	RoleGetKey          = "role-get"
 	RoleListKey         = "role-list"
 	RoleUpdateKey       = "role-update"
+	StatsGetKey         = "stats-get"
 	UserCreateKey       = "user-create-key"
 	UserDeleteKey       = "user-delete-key"
 	UserGetKey          = "user-get-key"
@@ -55,7 +58,10 @@ func (h Handlers) Get(name string) Handler {
 
 func NewHandlers(
 	authCfg *configs.Auth,
+	logger *slog.Logger,
 	validate *validator.Validate,
+	tokenManager jwt.Manager,
+	dispatcher event.Dispatcher,
 	actionManager manager.Action,
 	clientManager manager.Client,
 	compiledManager manager.CompiledPolicy,
@@ -63,8 +69,8 @@ func NewHandlers(
 	principalManager manager.Principal,
 	resourceManager manager.Resource,
 	roleManager manager.Role,
+	statsManager manager.Stats,
 	userManager manager.User,
-	tokenManager jwt.Manager,
 	oauthServer *server.Server,
 ) Handlers {
 	return Handlers{
@@ -72,7 +78,7 @@ func NewHandlers(
 		ActionListKey:       ActionList(actionManager),
 		AuthAuthenticateKey: Authenticate(validate, userManager, tokenManager),
 		AuthTokenNewKey:     adaptor.HTTPHandlerFunc(TokenNew(oauthServer)),
-		CheckKey:            Check(validate, compiledManager),
+		CheckKey:            Check(logger, validate, compiledManager, dispatcher),
 		ClientCreateKey:     ClientCreate(validate, clientManager, authCfg),
 		ClientDeleteKey:     ClientDelete(clientManager),
 		ClientGetKey:        ClientGet(clientManager),
@@ -97,6 +103,7 @@ func NewHandlers(
 		RoleGetKey:          RoleGet(roleManager),
 		RoleListKey:         RoleList(roleManager),
 		RoleUpdateKey:       RoleUpdate(validate, roleManager),
+		StatsGetKey:         StatsGet(statsManager),
 		UserCreateKey:       UserCreate(validate, userManager),
 		UserDeleteKey:       UserDelete(userManager),
 		UserGetKey:          UserGet(userManager),

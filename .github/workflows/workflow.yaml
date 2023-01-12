@@ -44,7 +44,7 @@ jobs:
           node-version: 16
       - uses: isbang/compose-action@v1.4.1
         with:
-          compose-file: "./docker-compose.yaml"
+          compose-file: "./docker-compose.postgres.yaml"
 
       - name: Install json-to-messages
         run: npm install -g @cucumber/json-to-messages

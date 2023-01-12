@@ -2,12 +2,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
-	"reflect"
 	"strings"
 
 	"github.com/cucumber/godog"
@@ -117,7 +117,7 @@ func (a *apiFeature) theResponseShouldMatchJSON(body *godog.DocString) (err erro
 		return fmt.Errorf("http response is nil")
 	}
 
-	var expected, actual interface{}
+	var expected, actual map[string]any
 
 	// re-encode expected response
 	if err = json.Unmarshal([]byte(body.Content), &expected); err != nil {
@@ -133,18 +133,26 @@ func (a *apiFeature) theResponseShouldMatchJSON(body *godog.DocString) (err erro
 		return
 	}
 
-	// the matching may be adapted per different requirementa.
-	if !reflect.DeepEqual(expected, actual) {
-		expectedBytes, err := json.MarshalIndent(expected, "", "  ")
-		if err != nil {
-			return fmt.Errorf("unable to marshal expected to JSON: %v", expected)
-		}
-		actualBytes, err := json.MarshalIndent(actual, "", "  ")
-		if err != nil {
-			return fmt.Errorf("unable to marshal actuel JSON: %v", actual)
-		}
+	sortArray(expected)
+	sortArray(actual)
 
-		return fmt.Errorf("expected JSON does not match.\n-> expected:\n%v\n-> actual:\n%v", string(expectedBytes), string(actualBytes))
+	jsonExpected, _ := json.MarshalIndent(expected, "", " ")
+	jsonActual, _ := json.MarshalIndent(actual, "", " ")
+
+	// the matching may be adapted per different requirementa.
+	if !bytes.Equal(jsonExpected, jsonActual) {
+		return fmt.Errorf("expected JSON does not match.\n-> expected:\n%v\n-> actual:\n%v", string(jsonExpected), string(jsonActual))
 	}
 	return nil
+}
+
+func sortArray(data map[string]interface{}) {
+	for _, v := range data {
+		switch vv := v.(type) {
+		case []interface{}:
+			sortArray(vv[0].(map[string]interface{}))
+		case map[string]interface{}:
+			sortArray(vv)
+		}
+	}
 }

@@ -1,0 +1,49 @@
+# syntax = docker/dockerfile:experimental
+FROM golang:1.19-alpine3.17 as backend-builder
+
+WORKDIR /project
+
+COPY ./backend/cmd/ ./cmd/
+COPY ./backend/configs/ ./configs/
+COPY ./backend/internal/ ./internal/
+COPY ./backend/pkg/authz/ ./pkg/authz/
+COPY ./backend/vendor/ ./vendor/
+COPY ./backend/go.mod .
+COPY ./backend/go.sum .
+
+RUN apk add --no-cache gcc musl-dev
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=1 go build -mod vendor -ldflags "-s -w" -o authz ./cmd/
+
+FROM node:19.4 as frontend-builder
+
+WORKDIR /app
+
+COPY ./frontend/public ./public/
+COPY ./frontend/src ./src/
+COPY ./frontend/package.json .
+COPY ./frontend/package-lock.json .
+COPY ./frontend/tsconfig.json .
+
+RUN npm install && \
+    npm run build
+
+FROM nginx:1.23-alpine
+
+ARG GRPC_SERVER_ADDR=:8081
+ARG HTTP_SERVER_ADDR=:8080
+
+ENV GRPC_SERVER_ADDR=$GRPC_SERVER_ADDR
+ENV HTTP_SERVER_ADDR=$HTTP_SERVER_ADDR
+
+COPY --from=backend-builder /project/authz /authz
+COPY --from=frontend-builder /app/build /usr/share/nginx/html
+
+COPY ./.docker/cmd.sh /cmd.sh
+COPY ./frontend/.docker/vhost.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80 ${GRPC_SERVER_ADDR} ${HTTP_SERVER_ADDR}
+
+ENTRYPOINT [ "/cmd.sh" ]

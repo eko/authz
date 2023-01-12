@@ -4,7 +4,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import MuiAppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
-import { MenuItem, Theme, useMediaQuery } from '@mui/material';
+import { Link, MenuItem, Theme, useMediaQuery } from '@mui/material';
 import UserMenu from 'layout/UserMenu';
 
 type AppBarProps = {
@@ -66,8 +66,8 @@ export default function AppBar(props: AppBarProps) {
                     {title || 'Authz'}
                 </Typography>
 
-                <MenuItem>
-                  <Typography textAlign='center'>Aide</Typography>
+                <MenuItem component={Link} href='https://github.com/eko/authz' target='_blank'>
+                  GitHub
                 </MenuItem>
 
                 <UserMenu />

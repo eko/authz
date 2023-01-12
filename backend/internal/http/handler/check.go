@@ -4,8 +4,10 @@ import (
 	"net/http"
 
 	"github.com/eko/authz/backend/internal/entity/manager"
+	"github.com/eko/authz/backend/internal/event"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
+	"golang.org/x/exp/slog"
 )
 
 type CheckRequestQuery struct {
@@ -40,8 +42,10 @@ type CheckResponse struct {
 //	@Failure	500		{object}	model.ErrorResponse
 //	@Router		/v1/check [Post]
 func Check(
+	logger *slog.Logger,
 	validate *validator.Validate,
 	compiledManager manager.CompiledPolicy,
+	dispatcher event.Dispatcher,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		request := &CheckRequest{}
@@ -63,6 +67,10 @@ func Check(
 			isAllowed, err := compiledManager.IsAllowed(check.Principal, check.ResourceKind, check.ResourceValue, check.Action)
 			if err != nil {
 				return returnError(c, http.StatusInternalServerError, err)
+			}
+
+			if err := dispatcher.Dispatch(event.EventTypeCheck, isAllowed); err != nil {
+				logger.Error("unable to dispatch check event", err)
 			}
 
 			responseChecks[i] = &CheckResponseQuery{

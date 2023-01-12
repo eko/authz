@@ -16,6 +16,7 @@ import (
 	"github.com/eko/authz/backend/internal/log"
 	"github.com/eko/authz/backend/internal/oauth"
 	"github.com/eko/authz/backend/internal/security"
+	"github.com/eko/authz/backend/internal/stats"
 	"go.uber.org/fx"
 )
 
@@ -36,6 +37,7 @@ func main() {
 		entity.FxModule(),
 		oauth.FxModule(),
 		security.FxModule(),
+		stats.FxModule(),
 
 		fx.Invoke(
 			grpc.Run,

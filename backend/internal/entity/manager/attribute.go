@@ -39,8 +39,8 @@ func (m *attributeManager) MapToSlice(attributes map[string]any) ([]*model.Attri
 		}
 
 		attribute, err := m.repository.GetByFields(map[string]repository.FieldValue{
-			"key":   {Operator: "=", Value: attributeKey},
-			"value": {Operator: "=", Value: value},
+			"key_name": {Operator: "=", Value: attributeKey},
+			"value":    {Operator: "=", Value: value},
 		})
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("unable to check for existing attribute: %v", err)
