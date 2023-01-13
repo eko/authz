@@ -1,7 +1,9 @@
 # Documentation
 
-Here is the `authz` documentation.
+Here is some Authz topics to help you have a better view on how to use it.
 
-## Architecture
+## General
 
-* ### [How it works](./architecture)
+* ### [Architecture](./architecture/index.md)
+
+* ### [Data model](./model/index.md)

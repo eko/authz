@@ -98,7 +98,7 @@ Feature: resource
             "value": "bar4"
           }
         ],
-        "created_at": "2100-01-01T02:00:00+01:00",
+        "created_at": "2100-01-01T01:00:00Z",
         "id": "custom-post",
         "is_locked": false,
         "kind": "post",
@@ -122,8 +122,8 @@ Feature: resource
         "id": "all-posts",
         "is_locked": false,
         "kind": "post",
-        "created_at": "2100-01-01T02:00:00+01:00",
-        "updated_at": "2100-01-01T02:00:00+01:00",
+        "created_at": "2100-01-01T01:00:00Z",
+        "updated_at": "2100-01-01T01:00:00Z",
         "value": "*"
       }
       """
@@ -168,16 +168,16 @@ Feature: resource
             "id": "all-posts",
             "is_locked": false,
             "kind": "post",
-            "created_at": "2100-01-01T02:00:00+01:00",
-            "updated_at": "2100-01-01T02:00:00+01:00",
+            "created_at": "2100-01-01T01:00:00Z",
+            "updated_at": "2100-01-01T01:00:00Z",
             "value": "*"
           },
           {
             "id": "custom-post",
             "is_locked": false,
             "kind": "post",
-            "created_at": "2100-01-01T02:00:00+01:00",
-            "updated_at": "2100-01-01T02:00:00+01:00",
+            "created_at": "2100-01-01T01:00:00Z",
+            "updated_at": "2100-01-01T01:00:00Z",
             "value": "97fdb1dc-b1e0-4652-ab82-5d174031a681"
           }
         ],

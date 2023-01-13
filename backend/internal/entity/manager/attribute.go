@@ -9,23 +9,25 @@ import (
 	"gorm.io/gorm"
 )
 
+type AttributeRepository repository.Base[model.Attribute]
+
 type Attribute interface {
 	MapToSlice(attributes map[string]any) ([]*model.Attribute, error)
-	GetRepository() repository.Base[model.Attribute]
+	GetRepository() AttributeRepository
 }
 
 type attributeManager struct {
-	repository repository.Base[model.Attribute]
+	repository AttributeRepository
 }
 
 // NewAttribute initializes a new attribute manager.
-func NewAttribute(repository repository.Base[model.Attribute]) Attribute {
+func NewAttribute(repository AttributeRepository) Attribute {
 	return &attributeManager{
 		repository: repository,
 	}
 }
 
-func (m *attributeManager) GetRepository() repository.Base[model.Attribute] {
+func (m *attributeManager) GetRepository() AttributeRepository {
 	return m.repository
 }
 

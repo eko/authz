@@ -10,25 +10,27 @@ import (
 	"gorm.io/gorm"
 )
 
+type StatsRepository repository.Base[model.Stats]
+
 type Stats interface {
 	BatchAddCheck(timestamp int64, allowed int64, denied int64) error
-	GetRepository() repository.Base[model.Stats]
+	GetRepository() StatsRepository
 }
 
 type statsManager struct {
-	repository repository.Base[model.Stats]
+	repository StatsRepository
 }
 
 // NewStats initializes a new stats manager.
 func NewStats(
-	repository repository.Base[model.Stats],
+	repository StatsRepository,
 ) Stats {
 	return &statsManager{
 		repository: repository,
 	}
 }
 
-func (m *statsManager) GetRepository() repository.Base[model.Stats] {
+func (m *statsManager) GetRepository() StatsRepository {
 	return m.repository
 }
 

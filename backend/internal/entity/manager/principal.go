@@ -20,7 +20,7 @@ type Principal interface {
 
 type principalManager struct {
 	repository         repository.Principal
-	roleRepository     repository.Base[model.Role]
+	roleRepository     RoleRepository
 	attributeManager   Attribute
 	transactionManager database.TransactionManager
 	dispatcher         event.Dispatcher
@@ -29,7 +29,7 @@ type principalManager struct {
 // NewPrincipal initializes a new principal manager.
 func NewPrincipal(
 	repository repository.Principal,
-	roleRepository repository.Base[model.Role],
+	roleRepository RoleRepository,
 	attributeManager Attribute,
 	transactionManager database.TransactionManager,
 	dispatcher event.Dispatcher,

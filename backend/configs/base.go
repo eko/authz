@@ -13,6 +13,7 @@ const (
 )
 
 type Base struct {
+	App        *App
 	Auth       *Auth
 	Database   *Database
 	Logger     *Logger
@@ -23,6 +24,7 @@ type Base struct {
 
 func Load(ctx context.Context) *Base {
 	var cfg = &Base{
+		App:        newApp(),
 		Auth:       newAuth(),
 		Database:   newDatabase(),
 		Logger:     newLogger(),

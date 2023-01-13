@@ -64,6 +64,9 @@ func FxApp() *fx.App {
 
 		fx.Provide(
 			configs.Load,
+			func(cfg *configs.Base) *configs.App {
+				return cfg.App
+			},
 			func(cfg *configs.Base) *configs.Database {
 				return cfg.Database
 			},

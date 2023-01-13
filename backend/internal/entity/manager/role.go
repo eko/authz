@@ -10,23 +10,25 @@ import (
 	"gorm.io/gorm"
 )
 
+type RoleRepository repository.Base[model.Role]
+
 type Role interface {
 	Create(identifier string, policies []string) (*model.Role, error)
 	Delete(identifier string) error
-	GetRepository() repository.Base[model.Role]
+	GetRepository() RoleRepository
 	Update(identifier string, policies []string) (*model.Role, error)
 }
 
 type roleManager struct {
-	repository         repository.Base[model.Role]
-	policyRepository   repository.Base[model.Policy]
+	repository         RoleRepository
+	policyRepository   PolicyRepository
 	transactionManager database.TransactionManager
 }
 
 // NewRole initializes a new role manager.
 func NewRole(
-	repository repository.Base[model.Role],
-	policyRepository repository.Base[model.Policy],
+	repository RoleRepository,
+	policyRepository PolicyRepository,
 	transactionManager database.TransactionManager,
 ) Role {
 	return &roleManager{
@@ -36,7 +38,7 @@ func NewRole(
 	}
 }
 
-func (m *roleManager) GetRepository() repository.Base[model.Role] {
+func (m *roleManager) GetRepository() RoleRepository {
 	return m.repository
 }
 
