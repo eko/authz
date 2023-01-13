@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/event"
 	"github.com/eko/authz/backend/internal/helper/spooler"
@@ -12,20 +13,23 @@ import (
 )
 
 type subscriber struct {
-	logger       *slog.Logger
-	dispatcher   event.Dispatcher
-	statsManager manager.Stats
+	logger          *slog.Logger
+	dispatcher      event.Dispatcher
+	statsManager    manager.Stats
+	statsFlushDelay time.Duration
 }
 
 func NewSubscriber(
+	cfg *configs.App,
 	logger *slog.Logger,
 	dispatcher event.Dispatcher,
 	statsManager manager.Stats,
 ) *subscriber {
 	return &subscriber{
-		logger:       logger,
-		dispatcher:   dispatcher,
-		statsManager: statsManager,
+		logger:          logger,
+		dispatcher:      dispatcher,
+		statsManager:    statsManager,
+		statsFlushDelay: cfg.StatsFlushDelay,
 	}
 }
 
@@ -43,7 +47,7 @@ func (s *subscriber) subscribeToChecks(lc fx.Lifecycle) {
 		OnStop: func(_ context.Context) error {
 			close(checkEventChan)
 
-			s.logger.Info("Stats: subscribtion to event dispatcher stopped")
+			s.logger.Info("Stats: subscription to event dispatcher stopped")
 
 			return nil
 		},
@@ -72,7 +76,7 @@ func (s *subscriber) handleCheckEvents(eventChan chan *event.Event) {
 		if err := s.statsManager.BatchAddCheck(timestamp, allowed, denied); err != nil {
 			s.logger.Error("Stats: unable to add check event", err)
 		}
-	}, spooler.WithFlushInterval(5*time.Second))
+	}, spooler.WithFlushInterval(s.statsFlushDelay))
 
 	for event := range eventChan {
 		spooler.Add(event)

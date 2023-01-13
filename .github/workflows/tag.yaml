@@ -1,0 +1,156 @@
+name: Test/Build/Push (tag)
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go_version: [ '1.19' ]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go_version }}
+
+      - name: Install go dependencies & run tests
+        shell: script -q -e -c "bash {0}"
+        run: |
+          export TERM=xterm
+          cd backend
+          go test -v -cover -race ./...
+
+  docker-build-push-standalone:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: azure/docker-login@v1
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Docker buildx available platforms
+      run: echo ${{ steps.buildx.outputs.platforms }}
+
+    - name: Get the version
+      id: get_version
+      run: echo ::set-output name=TAG_NAME::${GITHUB_REF/refs\/tags\//}
+
+    - name: Run docker buildx build
+      run: |
+        docker buildx build \
+          -f Dockerfile.standalone \
+          --build-arg Version=${{ github.ref }} \
+          --platform linux/amd64 \
+          --output=type=registry \
+          --tag ekofr/authz:${{ steps.get_version.outputs.TAG_NAME }}-standalone \
+          .
+
+  docker-build-push:
+    strategy:
+      matrix:
+        directory: ['backend', 'frontend']
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: azure/docker-login@v1
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Set up docker buildx
+      id: buildx
+      uses: crazy-max/ghaction-docker-buildx@v1
+      with:
+        buildx-version: latest
+        qemu-version: latest
+
+    - name: Docker buildx available platforms
+      run: echo ${{ steps.buildx.outputs.platforms }}
+
+    - name: Get the version
+      id: get_version
+      run: echo ::set-output name=TAG_NAME::${GITHUB_REF/refs\/tags\//}
+
+    - name: Run docker buildx build
+      run: |
+        cd ${{ matrix.directory }}
+        docker buildx build \
+          --build-arg Version=${{ github.ref }} \
+          --platform linux/amd64 \
+          --output=type=registry \
+          --tag ekofr/authz:${{ steps.get_version.outputs.TAG_NAME }}-${{ matrix.directory }} \
+          .
+
+  release:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Create release
+        id: create
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: false
+          prerelease: false
+    outputs:
+      upload_url: ${{ steps.create.outputs.upload_url }}
+
+  upload-binaries:
+    needs: release
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: 386
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: 1.19
+
+      - name: Create release
+        run: |
+          cd backend
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags "-s -w -X main.Version=${{ github.ref }}" -o authz-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd
+
+      - name: Upload release assets
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ./backend/authz-${{ matrix.goos }}-${{ matrix.goarch }}
+          asset_name: authz-${{ matrix.goos }}-${{ matrix.goarch }}
+          asset_content_type: application/octet-stream

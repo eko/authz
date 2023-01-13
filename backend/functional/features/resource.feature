@@ -30,8 +30,7 @@ Feature: resource
         "kind": "post",
         "value": "97fdb1dc-b1e0-4652-ab82-5d174031a681",
         "attributes": [
-          {"key": "foo1", "value": "bar1"},
-          {"key": "foo2", "value": "bar2"}
+          {"key": "foo1", "value": "bar1"}
         ]
       }
       """
@@ -41,12 +40,8 @@ Feature: resource
       {
       "attributes": [
         {
-        "key": "foo1",
-        "value": "bar1"
-        },
-        {
-        "key": "foo2",
-        "value": "bar2"
+          "key": "foo1",
+          "value": "bar1"
         }
       ],
       "id": "custom-post",
@@ -67,8 +62,7 @@ Feature: resource
         "kind": "post",
         "value": "97fdb1dc-b1e0-4652-ab82-5d174031a681",
         "attributes": [
-          {"key": "foo1", "value": "bar1"},
-          {"key": "foo2", "value": "bar2"}
+          {"key": "foo1", "value": "bar1"}
         ]
       }
       """
@@ -79,8 +73,7 @@ Feature: resource
         "kind": "post",
         "value": "97fdb1dc-b1e0-4652-ab82-5d174031a681",
         "attributes": [
-          {"key": "foo3", "value": "bar3"},
-          {"key": "foo4", "value": "bar4"}
+          {"key": "foo3", "value": "bar3"}
         ]
       }
       """
@@ -92,13 +85,9 @@ Feature: resource
           {
             "key": "foo3",
             "value": "bar3"
-          },
-          {
-            "key": "foo4",
-            "value": "bar4"
           }
         ],
-        "created_at": "2100-01-01T02:00:00+01:00",
+        "created_at": "2100-01-01T01:00:00Z",
         "id": "custom-post",
         "is_locked": false,
         "kind": "post",
@@ -122,8 +111,8 @@ Feature: resource
         "id": "all-posts",
         "is_locked": false,
         "kind": "post",
-        "created_at": "2100-01-01T02:00:00+01:00",
-        "updated_at": "2100-01-01T02:00:00+01:00",
+        "created_at": "2100-01-01T01:00:00Z",
+        "updated_at": "2100-01-01T01:00:00Z",
         "value": "*"
       }
       """
@@ -168,16 +157,16 @@ Feature: resource
             "id": "all-posts",
             "is_locked": false,
             "kind": "post",
-            "created_at": "2100-01-01T02:00:00+01:00",
-            "updated_at": "2100-01-01T02:00:00+01:00",
+            "created_at": "2100-01-01T01:00:00Z",
+            "updated_at": "2100-01-01T01:00:00Z",
             "value": "*"
           },
           {
             "id": "custom-post",
             "is_locked": false,
             "kind": "post",
-            "created_at": "2100-01-01T02:00:00+01:00",
-            "updated_at": "2100-01-01T02:00:00+01:00",
+            "created_at": "2100-01-01T01:00:00Z",
+            "updated_at": "2100-01-01T01:00:00Z",
             "value": "97fdb1dc-b1e0-4652-ab82-5d174031a681"
           }
         ],

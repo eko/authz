@@ -46,7 +46,20 @@ test-functional: ## Run functional tests
 	go test -count=1 --tags=functional -v ./functional --godog.tags=$(tags)
 
 test-mocks: ## Generate unit test mocks
+	mockgen -source=internal/compile/compiler.go -destination=internal/compile/compiler_mock.go -package=compile
+	mockgen -source=internal/event/dispatcher.go -destination=internal/event/dispatcher_mock.go -package=event
+	mockgen -source=internal/entity/manager/action.go -destination=internal/entity/manager/action_mock.go -package=manager
+	mockgen -source=internal/entity/manager/attribute.go -destination=internal/entity/manager/attribute_mock.go -package=manager
+	mockgen -source=internal/entity/manager/client.go -destination=internal/entity/manager/client_mock.go -package=manager
+	mockgen -source=internal/entity/manager/compiled.go -destination=internal/entity/manager/compiled_mock.go -package=manager
+	mockgen -source=internal/entity/manager/policy.go -destination=internal/entity/manager/policy_mock.go -package=manager
+	mockgen -source=internal/entity/manager/principal.go -destination=internal/entity/manager/principal_mock.go -package=manager
+	mockgen -source=internal/entity/manager/resource.go -destination=internal/entity/manager/resource_mock.go -package=manager
+	mockgen -source=internal/entity/manager/role.go -destination=internal/entity/manager/role_mock.go -package=manager
+	mockgen -source=internal/entity/manager/stats.go -destination=internal/entity/manager/stats_mock.go -package=manager
+	mockgen -source=internal/entity/manager/user.go -destination=internal/entity/manager/user_mock.go -package=manager
 	mockgen -source=internal/helper/time/clock.go -destination=internal/helper/time/clock_mock.go -package=time
+	mockgen -source=internal/helper/token/generator.go -destination=internal/helper/token/generator_mock.go -package=token
 	mockgen -source=internal/security/jwt/manager.go -destination=internal/security/jwt/manager_mock.go -package=jwt
 
 test-unit: ## Run unit tests

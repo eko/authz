@@ -46,7 +46,7 @@ func (s *subscriber) subscribeToPolicies(lc fx.Lifecycle) {
 			close(principalEventChan)
 			close(resourceEventChan)
 
-			s.logger.Info("Compiler: subscribtion to event dispatcher stopped")
+			s.logger.Info("Compiler: subscription to event dispatcher stopped")
 
 			return nil
 		},

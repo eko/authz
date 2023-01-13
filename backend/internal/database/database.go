@@ -6,10 +6,10 @@ import (
 	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/eko/authz/backend/internal/helper/time"
+	"github.com/glebarez/sqlite"
 	"golang.org/x/exp/slog"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 

@@ -6,6 +6,17 @@ import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.2/index.js';
 const baseURL = 'http://localhost:8080/v1';
 
 export function setup() {
+  // Authentication
+  console.log('0/4 retrieve an authentication token...');
+  const authResponse = http.post(baseURL + '/auth', JSON.stringify({
+    username: 'admin',
+    password: 'changeme',
+  }), {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  }).json();
+
   // Load resources.
   console.log('1/4 loading resources...');
   for (let i = 0; i < 10000; i++) {
@@ -18,6 +29,7 @@ export function setup() {
     http.post(baseURL + '/resources', data, {
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + authResponse.access_token,
       },
     });
   }
@@ -42,6 +54,7 @@ export function setup() {
     http.post(baseURL + '/policies', data, {
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + authResponse.access_token,
       },
     });
   }
@@ -63,6 +76,7 @@ export function setup() {
     http.post(baseURL + '/roles', data, {
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + authResponse.access_token,
       },
     });
   }
@@ -72,7 +86,7 @@ export function setup() {
 
   for (let i = 0; i < 10000; i++) {
     const associatedRoles = [];
-    for (let j = 0; j < 10; j++) {
+    for (let j = 1; j < 10; j++) {
       associatedRoles.push('role-post-' + j);
     }
     
@@ -81,12 +95,17 @@ export function setup() {
       roles: associatedRoles,
     });
 
-    http.post(baseURL + '/principals', data, {
+    const test = http.post(baseURL + '/principals', data, {
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + authResponse.access_token,
       },
     });
   }
+
+  return {
+    authResponse: authResponse,
+  };
 }
 
 export const options = {
@@ -95,13 +114,13 @@ export const options = {
   target: 100,
 };
 
-export default function () {
+export default function (data) {
   const min = 1;
   const max = 10000;
 
   const randomInteger = Math.floor(Math.random() * (max - min + 1)) + min;
 
-  const data = JSON.stringify({
+  const checkRequest = JSON.stringify({
     checks: [
       {
         principal: 'test-principal-' + randomInteger,
@@ -112,9 +131,10 @@ export default function () {
     ],
   });
 
-  const response = http.post(baseURL + '/check', data, {
+  const response = http.post(baseURL + '/check', checkRequest, {
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + data.authResponse.access_token,
     },
   });
 

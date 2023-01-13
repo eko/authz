@@ -41,7 +41,7 @@ func (d Database) PostgresDSN() string {
 }
 
 func (d Database) SqliteDSN() string {
-	return fmt.Sprintf("file:%s?cache=shared", d.Dbname)
+	return fmt.Sprintf("file:%s?cache=shared&mode=rwc&_pragma=foreign_keys(1)", d.Dbname)
 }
 
 func newDatabase() *Database {
@@ -53,6 +53,6 @@ func newDatabase() *Database {
 		Dbname:   "root",
 		Port:     "5432",
 		SSLMode:  "disable",
-		Timezone: "Europe/Paris",
+		Timezone: "UTC",
 	}
 }

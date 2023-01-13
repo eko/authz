@@ -9,23 +9,25 @@ import (
 	"gorm.io/gorm"
 )
 
+type ActionRepository repository.Base[model.Action]
+
 type Action interface {
 	Create(identifier string) (*model.Action, error)
-	GetRepository() repository.Base[model.Action]
+	GetRepository() ActionRepository
 }
 
 type actionManager struct {
-	repository repository.Base[model.Action]
+	repository ActionRepository
 }
 
 // NewAction initializes a new action manager.
-func NewAction(repository repository.Base[model.Action]) Action {
+func NewAction(repository ActionRepository) Action {
 	return &actionManager{
 		repository: repository,
 	}
 }
 
-func (m *actionManager) GetRepository() repository.Base[model.Action] {
+func (m *actionManager) GetRepository() ActionRepository {
 	return m.repository
 }
 

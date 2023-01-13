@@ -12,23 +12,25 @@ import (
 	"gorm.io/gorm"
 )
 
+type ClientRepository repository.Base[model.Client]
+
 type Client interface {
 	Create(name string, domain string) (*model.Client, error)
 	Delete(identifier string) error
-	GetRepository() repository.Base[model.Client]
+	GetRepository() ClientRepository
 }
 
 type clientManager struct {
-	repository          repository.Base[model.Client]
-	principalRepository repository.Base[model.Principal]
+	repository          ClientRepository
+	principalRepository repository.Principal
 	transactionManager  database.TransactionManager
 	tokenGenerator      token.Generator
 }
 
 // NewClient initializes a new client manager.
 func NewClient(
-	repository repository.Base[model.Client],
-	principalRepository repository.Base[model.Principal],
+	repository ClientRepository,
+	principalRepository repository.Principal,
 	transactionManager database.TransactionManager,
 	tokenGenerator token.Generator,
 ) Client {
@@ -40,7 +42,7 @@ func NewClient(
 	}
 }
 
-func (m *clientManager) GetRepository() repository.Base[model.Client] {
+func (m *clientManager) GetRepository() ClientRepository {
 	return m.repository
 }
 

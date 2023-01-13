@@ -11,14 +11,16 @@ import (
 	"gorm.io/gorm"
 )
 
+type CompiledPolicyRepository repository.Base[model.CompiledPolicy]
+
 type CompiledPolicy interface {
 	Create(compiledPolicy []*model.CompiledPolicy) error
-	GetRepository() repository.Base[model.CompiledPolicy]
+	GetRepository() CompiledPolicyRepository
 	IsAllowed(principalID string, resourceKind string, resourceValue string, actionID string) (bool, error)
 }
 
 type compiledPolicyManager struct {
-	repository          repository.Base[model.CompiledPolicy]
+	repository          CompiledPolicyRepository
 	principalRepository repository.Base[model.Principal]
 	logger              *slog.Logger
 	dispatcher          event.Dispatcher
@@ -26,7 +28,7 @@ type compiledPolicyManager struct {
 
 // NewCompiledPolicy initializes a new compiledPolicy manager.
 func NewCompiledPolicy(
-	repository repository.Base[model.CompiledPolicy],
+	repository CompiledPolicyRepository,
 	principalRepository repository.Base[model.Principal],
 	logger *slog.Logger,
 	dispatcher event.Dispatcher,
@@ -39,7 +41,7 @@ func NewCompiledPolicy(
 	}
 }
 
-func (m *compiledPolicyManager) GetRepository() repository.Base[model.CompiledPolicy] {
+func (m *compiledPolicyManager) GetRepository() CompiledPolicyRepository {
 	return m.repository
 }
 

@@ -12,15 +12,17 @@ import (
 	"gorm.io/gorm"
 )
 
+type UserRepository repository.Base[model.User]
+
 type User interface {
 	Create(username string, password string) (*model.User, error)
 	Delete(username string) error
 	UpdatePassword(username string, password string) error
-	GetRepository() repository.Base[model.User]
+	GetRepository() UserRepository
 }
 
 type userManager struct {
-	repository          repository.Base[model.User]
+	repository          UserRepository
 	principalRepository repository.Base[model.Principal]
 	transactionManager  database.TransactionManager
 	tokenGenerator      token.Generator
@@ -28,7 +30,7 @@ type userManager struct {
 
 // NewUser initializes a new user manager.
 func NewUser(
-	repository repository.Base[model.User],
+	repository UserRepository,
 	principalRepository repository.Base[model.Principal],
 	transactionManager database.TransactionManager,
 	tokenGenerator token.Generator,
@@ -41,7 +43,7 @@ func NewUser(
 	}
 }
 
-func (m *userManager) GetRepository() repository.Base[model.User] {
+func (m *userManager) GetRepository() UserRepository {
 	return m.repository
 }
 

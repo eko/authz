@@ -13,15 +13,17 @@ import (
 	"gorm.io/gorm"
 )
 
+type PolicyRepository repository.Base[model.Policy]
+
 type Policy interface {
 	Create(identifier string, resources []string, actions []string, attributeRules []string) (*model.Policy, error)
 	Delete(identifier string) error
 	Update(identifier string, resources []string, actions []string, attributeRules []string) (*model.Policy, error)
-	GetRepository() repository.Base[model.Policy]
+	GetRepository() PolicyRepository
 }
 
 type policyManager struct {
-	repository         repository.Base[model.Policy]
+	repository         PolicyRepository
 	resourceManager    Resource
 	actionManager      Action
 	transactionManager database.TransactionManager
@@ -30,7 +32,7 @@ type policyManager struct {
 
 // NewPolicy initializes a new policy manager.
 func NewPolicy(
-	repository repository.Base[model.Policy],
+	repository PolicyRepository,
 	resourceManager Resource,
 	actionManager Action,
 	transactionManager database.TransactionManager,
@@ -45,7 +47,7 @@ func NewPolicy(
 	}
 }
 
-func (m *policyManager) GetRepository() repository.Base[model.Policy] {
+func (m *policyManager) GetRepository() PolicyRepository {
 	return m.repository
 }
 
