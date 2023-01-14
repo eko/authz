@@ -67,7 +67,7 @@ jobs:
           REPORT_LINK=$(echo $OUTPUT | grep -Eo 'https://reports.cucumber.io/reports/[0-9a-z-]+' | tr -d '\r')
           echo "::set-output name=REPORT_LINK::$REPORT_LINK"
 
-      - uses: mshick/add-pr-comment@v1
+      - uses: mshick/add-pr-comment@v2
         if: ${{ github.event_name == 'pull_request' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
