@@ -7,8 +7,12 @@ import (
 func FxModule() fx.Option {
 	return fx.Module("stats",
 		fx.Provide(
+			NewCleaner,
 			NewSubscriber,
 		),
-		fx.Invoke(RunSubscriber),
+		fx.Invoke(
+			RunCleaner,
+			RunSubscriber,
+		),
 	)
 }

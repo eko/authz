@@ -2,9 +2,7 @@
 
 Authz is a backend server for managing authorizations using RBAC or ABAC.
 
-## Model
-
-![Model Diagram](./model.svg)
+## Model explanation
 
 1. First, you have to declare `principals` (optionnally with some attributes). They can be your users, group of users or event a service account,
 2. Then, your services have to declare `resources` (optionnally with some attributes) as soon as they are created (for instance an article in a CMS),
@@ -13,11 +11,15 @@ Authz is a backend server for managing authorizations using RBAC or ABAC.
 
 ## Using RBAC
 
+![Model Diagram](./model.rbac.svg)
+
 You can give `roles` to `principals` in order to give them authorization to do action on resources.
 
 This can be done because a `role` contains a set of `policies`.
 
 ## Using ABAC
+
+![Model Diagram](./model.abac.svg)
 
 You can give a `principal` authorization to do action on resources depending on resources attributes, without having to give him a `role`.
 

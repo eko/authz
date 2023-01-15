@@ -27,11 +27,11 @@ proto: ## Generate Go packages from proto files
 
 mysql-schema-dump: ## Dump current database schema into schema.sql file
 	docker-compose -f ../docker-compose.mysql.yaml exec mysql \
-		mysqldump -u root -ptoor --no-data root > schema.sql
+		mysqldump -u root -ptoor --no-data root > schema.mysql.sql
 
 postgres-schema-dump: ## Dump current database schema into schema.sql file
 	docker-compose -f ../docker-compose.postgres.yaml exec postgres \
-		pg_dump -x -s -U root -w -d root > schema.sql
+		pg_dump -x -s -U root -w -d root > schema.postgres.sql
 
 # install needed dependency:
 # go install github.com/swaggo/swag/cmd/swag@latest

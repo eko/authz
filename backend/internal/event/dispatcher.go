@@ -4,11 +4,8 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/helper/time"
-)
-
-const (
-	defaultEventChanSize uint32 = 1000
 )
 
 var (
@@ -25,16 +22,17 @@ type Dispatcher interface {
 type dispatcher struct {
 	clock         time.Clock
 	subscribers   *sync.Map
-	eventChanSize uint32
+	eventChanSize int
 }
 
 func NewDispatcher(
+	cfg *configs.App,
 	clock time.Clock,
 ) *dispatcher {
 	return &dispatcher{
 		clock:         clock,
 		subscribers:   &sync.Map{},
-		eventChanSize: defaultEventChanSize,
+		eventChanSize: cfg.DispatcherEventChannelSize,
 	}
 }
 

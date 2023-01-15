@@ -285,7 +285,7 @@ DROP TABLE IF EXISTS `authz_stats`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `authz_stats` (
   `id` varchar(191) NOT NULL,
-  `date` longtext,
+  `date` datetime(3) DEFAULT NULL,
   `checks_allowed_number` bigint DEFAULT NULL,
   `checks_denied_number` bigint DEFAULT NULL,
   PRIMARY KEY (`id`)
@@ -317,4 +317,4 @@ CREATE TABLE `authz_users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2023-01-13 16:08:22
+-- Dump completed on 2023-01-15 12:37:11

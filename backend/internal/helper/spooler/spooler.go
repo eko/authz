@@ -6,7 +6,7 @@ import (
 
 const (
 	// Default temporary channel size value.
-	defaultChanSize uint32 = 1000
+	defaultChanSize uint32 = 10000
 
 	// Default flush interval value: all items in channel will be flushed.
 	defaultFlushInterval = 3 * time.Second

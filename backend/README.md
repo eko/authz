@@ -39,6 +39,7 @@ Here are the available configuration options available as environment variable:
 | DATABASE_SSL | `disable` | Should database SSL mode be enabled? |
 | DATABASE_TIMEZONE | `UTC` | Database timezone for date/time |
 | DATABASE_USER | `root` | Database user |
+| DISPATCHER_EVENT_CHANNEL_SIZE | `10000` | Event dispatcher channel size |
 | GRPC_SERVER_ADDR | `:8081` | gRPC server address (hostname and port) |
 | HTTP_SERVER_ADDR | `:8080` | HTTP server address (hostname and port) |
 | HTTP_SERVER_CORS_ALLOW_CREDENTIALS | `true` | Should CORS allow credentials requests? |
@@ -47,6 +48,8 @@ Here are the available configuration options available as environment variable:
 | HTTP_SERVER_CORS_ALLOWED_METHODS | `GET,POST,PATCH,PUT,DELETE,HEAD,OPTIONS` | CORS allowed methods |
 | HTTP_SERVER_CORS_CACHE_MAX_AGE | `12h` | CORS cache max age value to be returned by server |
 | LOGGER_LEVEL | `INFO` | Log level, could be `DEBUG`, `INFO`, `WARN` or `ERROR` |
+| APP_STATS_CLEAN_DAYS_TO_KEEP | `30` | Statistics number of days to keep in database |
+| APP_STATS_CLEAN_DELAY | `1h` | Statistics clean delay |
 | USER_ADMIN_DEFAULT_PASSWORD | `changeme` | Default admin password updated on app launch |
 
 ## Tests

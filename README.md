@@ -14,7 +14,7 @@ You can use both Role-Based Acccess Control (RBAC) and Attribute-Based Access Co
 
 ## Why use it?
 
-🌍  A centralized backend for all your authorizations
+🌍  A centralized backend for all your applications authorizations
 
 🙋‍♂️  Supports Role-Based Access Control (RBAC)
 

@@ -48,7 +48,7 @@ func (m *statsManager) BatchAddCheck(timestamp int64, allowed int64, denied int6
 	if !found {
 		stats = &model.Stats{
 			ID:   formattedDate,
-			Date: date.Format(time.RFC3339),
+			Date: date,
 		}
 	}
 

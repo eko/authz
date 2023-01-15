@@ -276,7 +276,7 @@ ALTER TABLE public.authz_roles_policies OWNER TO root;
 
 CREATE TABLE public.authz_stats (
     id text NOT NULL,
-    date text,
+    date timestamp with time zone,
     checks_allowed_number bigint,
     checks_denied_number bigint
 );

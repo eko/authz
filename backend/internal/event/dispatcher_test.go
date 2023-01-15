@@ -5,6 +5,7 @@ import (
 	"testing"
 	lib_time "time"
 
+	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/helper/time"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -14,13 +15,18 @@ func TestNewDispatcher(t *testing.T) {
 	// Given
 	ctrl := gomock.NewController(t)
 
+	cfg := &configs.App{
+		DispatcherEventChannelSize: 10,
+	}
+
 	clock := time.NewMockClock(ctrl)
 
 	// When
-	dispatcherInstance := NewDispatcher(clock)
+	dispatcherInstance := NewDispatcher(cfg, clock)
 
 	// Then
 	assert.IsType(t, new(dispatcher), dispatcherInstance)
+	assert.Equal(t, 10, dispatcherInstance.eventChanSize)
 	assert.Equal(t, clock, dispatcherInstance.clock)
 	assert.Equal(t, new(sync.Map), dispatcherInstance.subscribers)
 }
@@ -29,11 +35,15 @@ func TestDispatcher_Dispatch_WhenNoSubscriber(t *testing.T) {
 	// Given
 	ctrl := gomock.NewController(t)
 
+	cfg := &configs.App{
+		DispatcherEventChannelSize: 10,
+	}
+
 	clock := time.NewMockClock(ctrl)
 
 	data := "my-data"
 
-	dispatcher := NewDispatcher(clock)
+	dispatcher := NewDispatcher(cfg, clock)
 
 	// When
 	result := dispatcher.Dispatch(EventTypePrincipal, data)
@@ -46,6 +56,10 @@ func TestDispatcher_Dispatch_WhenSubscriber(t *testing.T) {
 	// Given
 	ctrl := gomock.NewController(t)
 
+	cfg := &configs.App{
+		DispatcherEventChannelSize: 10,
+	}
+
 	date := lib_time.Date(2023, lib_time.January, 1, 0, 0, 0, 0, lib_time.UTC)
 
 	clock := time.NewMockClock(ctrl)
@@ -53,7 +67,7 @@ func TestDispatcher_Dispatch_WhenSubscriber(t *testing.T) {
 
 	data := "my-data"
 
-	dispatcher := NewDispatcher(clock)
+	dispatcher := NewDispatcher(cfg, clock)
 
 	// When
 	_ = dispatcher.Subscribe(EventTypePrincipal)
@@ -67,9 +81,13 @@ func TestDispatcher_Subscribe(t *testing.T) {
 	// Given
 	ctrl := gomock.NewController(t)
 
+	cfg := &configs.App{
+		DispatcherEventChannelSize: 10,
+	}
+
 	clock := time.NewMockClock(ctrl)
 
-	dispatcher := NewDispatcher(clock)
+	dispatcher := NewDispatcher(cfg, clock)
 
 	// When
 	eventChan := dispatcher.Subscribe(EventTypePrincipal)
@@ -82,12 +100,16 @@ func TestDispatcher_Subscribe_DispatchEvent(t *testing.T) {
 	// Given
 	ctrl := gomock.NewController(t)
 
+	cfg := &configs.App{
+		DispatcherEventChannelSize: 10,
+	}
+
 	date := lib_time.Date(2023, lib_time.January, 1, 0, 0, 0, 0, lib_time.UTC)
 
 	clock := time.NewMockClock(ctrl)
 	clock.EXPECT().Now().Return(date)
 
-	dispatcher := NewDispatcher(clock)
+	dispatcher := NewDispatcher(cfg, clock)
 
 	// When
 	eventChan := dispatcher.Subscribe(EventTypePrincipal)
@@ -109,9 +131,13 @@ func TestDispatcher_Unsubscribe_WhenNoSubscriber(t *testing.T) {
 	// Given
 	ctrl := gomock.NewController(t)
 
+	cfg := &configs.App{
+		DispatcherEventChannelSize: 10,
+	}
+
 	clock := time.NewMockClock(ctrl)
 
-	dispatcher := NewDispatcher(clock)
+	dispatcher := NewDispatcher(cfg, clock)
 
 	// When
 	eventChan := make(chan *Event)
@@ -125,9 +151,13 @@ func TestDispatcher_Unsubscribe_WhenHaveSubscriber(t *testing.T) {
 	// Given
 	ctrl := gomock.NewController(t)
 
+	cfg := &configs.App{
+		DispatcherEventChannelSize: 10,
+	}
+
 	clock := time.NewMockClock(ctrl)
 
-	dispatcher := NewDispatcher(clock)
+	dispatcher := NewDispatcher(cfg, clock)
 
 	// When
 	eventChan := dispatcher.Subscribe(EventTypePrincipal)
