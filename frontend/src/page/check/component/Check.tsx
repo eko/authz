@@ -128,6 +128,7 @@ export default function Check() {
               <Grid container spacing={2}>
                 <Grid item xs={12} md={12}>
                   <SingleAutocompleteInput
+                    allowAdd
                     label='Resource'
                     placeholder='Search for a resource...'
                     defaultValue={defaultValues?.resource as any}

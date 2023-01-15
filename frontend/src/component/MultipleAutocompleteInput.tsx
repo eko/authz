@@ -1,10 +1,11 @@
 import * as React from 'react';
-import { InputAdornment, SxProps } from '@mui/material';
+import { FilterOptionsState, InputAdornment, SxProps } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 import Autocomplete, {
   AutocompleteCloseReason,
+  createFilterOptions,
 } from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import { Button, List, ListItem, ListItemText, TextField } from '@mui/material';
@@ -22,6 +23,7 @@ type SetValueFunc = (items: ItemType[]) => void;
 
 type AutocompleteInputProps = {
   disabled?: boolean
+  allowAdd?: boolean
   defaultValues?: ItemType[]
   errorField?: any
   fetcher: FetcherFunc
@@ -34,6 +36,7 @@ type AutocompleteInputProps = {
 
 export default function MultipleAutocompleteInput({
   disabled,
+  allowAdd,
   defaultValues,
   errorField,
   fetcher,
@@ -89,16 +92,37 @@ export default function MultipleAutocompleteInput({
     setItems(defaultValues);
   }, [defaultValues]);
 
+  const filter = createFilterOptions<ItemType>();
+
+  const filterOptions = (options: ItemType[], params: FilterOptionsState<ItemType>) => {
+    const filtered = filter(options, params);
+
+    const { inputValue } = params;
+    const isExisting = options.some((option) => inputValue === option.id);
+    if (inputValue !== '' && !isExisting) {
+      filtered.push({
+        id: inputValue,
+        label: inputValue,
+      });
+    }
+
+    return filtered;
+  };
+
   return (
     <div style={style}>
       <Autocomplete
         disabled={disabled}
         multiple
         openOnFocus
+        freeSolo={allowAdd}
+        selectOnFocus
+        clearOnBlur
         onClose={handleOnClose}
         value={items}
         onChange={handleOnChange}
         disableCloseOnSelect
+        filterOptions={allowAdd ? filterOptions : undefined}
         isOptionEqualToValue={(option: ItemType, value: ItemType): boolean => {
           return option.id === value.id;
         }}
@@ -124,7 +148,7 @@ export default function MultipleAutocompleteInput({
           </li>
         )}
         options={[...listItems]}
-        getOptionLabel={(option) => option.label}
+        getOptionLabel={(option) => typeof(option) === 'string' ? option : option.label}
         onFocus={handleOnKeyUp}
         onKeyUp={handleOnKeyUp}
         renderInput={(params) => (
