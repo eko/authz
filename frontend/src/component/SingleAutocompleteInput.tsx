@@ -1,9 +1,10 @@
 import * as React from 'react';
-import { InputAdornment, SxProps } from '@mui/material';
+import { InputAdornment, SxProps, FilterOptionsState } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
 import Autocomplete, {
   AutocompleteCloseReason,
+  createFilterOptions,
 } from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import { TextField } from '@mui/material';
@@ -14,6 +15,7 @@ type SetValueFunc = (items: ItemType) => void;
 
 type AutocompleteInputProps = {
   disabled?: boolean
+  allowAdd?: boolean
   defaultValue?: ItemType
   errorField?: any
   fetcher: FetcherFunc
@@ -26,6 +28,7 @@ type AutocompleteInputProps = {
 
 export default function SingleAutocompleteInput({
   disabled,
+  allowAdd,
   defaultValue,
   errorField,
   fetcher,
@@ -57,16 +60,37 @@ export default function SingleAutocompleteInput({
     }
   };
 
-  const handleOnChange = (event: React.SyntheticEvent, newItem: ItemType | null, reason: string) => {
+  const handleOnChange = (event: React.SyntheticEvent, newItem: NonNullable<string | ItemType>, reason: string) => {
     if (event.type === 'keydown' &&
       (event as React.KeyboardEvent).key === 'Backspace' &&
       reason === 'removeOption') {
       return;
     }
 
+    if (typeof(newItem) === 'string') {
+      return;
+    }
+
     if (newItem !== null) {
         setValue(newItem);
     }
+  };
+
+  const filter = createFilterOptions<ItemType>();
+
+  const filterOptions = (options: ItemType[], params: FilterOptionsState<ItemType>) => {
+    const filtered = filter(options, params);
+
+    const { inputValue } = params;
+    const isExisting = options.some((option) => inputValue === option.id);
+    if (inputValue !== '' && !isExisting) {
+      filtered.push({
+        id: inputValue,
+        label: inputValue,
+      });
+    }
+
+    return filtered;
   };
 
   React.useEffect(() => {
@@ -82,10 +106,14 @@ export default function SingleAutocompleteInput({
       <Autocomplete
         disabled={disabled}
         openOnFocus
+        freeSolo={allowAdd}
+        selectOnFocus
+        clearOnBlur
         onClose={handleOnClose}
         onChange={handleOnChange}
         disableClearable
         defaultValue={defaultValue}
+        filterOptions={allowAdd ? filterOptions : undefined}
         isOptionEqualToValue={(option: ItemType, value: ItemType): boolean => {
           return option.id === value.id;
         }}
@@ -106,7 +134,7 @@ export default function SingleAutocompleteInput({
           </li>
         )}
         options={[...listItems]}
-        getOptionLabel={(option) => option.label}
+        getOptionLabel={(option) => typeof(option) === 'string' ? option : option.label}
         onFocus={handleOnKeyUp}
         onKeyUp={handleOnKeyUp}
         renderInput={(params) => (
