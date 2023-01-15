@@ -18,6 +18,10 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM node:19.4-alpine as frontend-builder
 
+ARG REACT_APP_API_BASE_URI=http://localhost:8080/v1
+
+ENV REACT_APP_API_BASE_URI=$REACT_APP_API_BASE_URI
+
 WORKDIR /app
 
 COPY ./frontend/public ./public/
@@ -33,6 +37,7 @@ FROM nginx:1.23-alpine
 
 ARG GRPC_SERVER_ADDR=:8081
 ARG HTTP_SERVER_ADDR=:8080
+ARG NGINX_VHOST=./frontend/.docker/vhost.demo.conf
 
 ENV GRPC_SERVER_ADDR=$GRPC_SERVER_ADDR
 ENV HTTP_SERVER_ADDR=$HTTP_SERVER_ADDR
@@ -41,7 +46,7 @@ COPY --from=backend-builder /project/authz /authz
 COPY --from=frontend-builder /app/build /usr/share/nginx/html
 
 COPY ./.docker/cmd.sh /cmd.sh
-COPY ./frontend/.docker/vhost.conf /etc/nginx/conf.d/default.conf
+COPY ${NGINX_VHOST} /etc/nginx/conf.d/default.conf
 
 EXPOSE 80 ${GRPC_SERVER_ADDR} ${HTTP_SERVER_ADDR}
 
