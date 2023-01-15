@@ -1,0 +1,40 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'buildx',
+      'build',
+      '-f', 'Dockerfile.standalone',
+      '--build-arg', 'NGINX_VHOST=./frontend/.docker/vhost.demo.conf',
+      '--build-arg', 'REACT_APP_API_BASE_URI=https://demo.authz.fr/api/v1',
+      '--build-arg', 'REACT_APP_DEMO_ENABLED=true',
+      '--platform', 'linux/amd64',
+       '--output=type=registry',
+      '-t', 'europe-west1-docker.pkg.dev/authz-374814/authz/authz-demo',
+      '.'
+    ]
+
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'europe-west1-docker.pkg.dev/authz-374814/authz/authz-demo']
+
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: [
+      'run',
+      'deploy',
+      'authz-demo',
+      '--image', 'europe-west1-docker.pkg.dev/authz-374814/authz/authz-demo',
+      '--region', 'europe-west1',
+      '--platform', 'managed',
+      '--memory', '4Gi',
+      '--min-instances', '0',
+      '--max-instances', '1',
+      '--port', '80',
+      '--allow-unauthenticated',
+      '--set-env-vars',
+      'DATABASE_DRIVER=sqlite,DATABASE_NAME=:memory:'
+    ]
+
+images:
+  - europe-west1-docker.pkg.dev/authz-374814/authz/authz-demo

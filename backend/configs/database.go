@@ -41,7 +41,7 @@ func (d Database) PostgresDSN() string {
 }
 
 func (d Database) SqliteDSN() string {
-	return fmt.Sprintf("file:%s?cache=shared&mode=rwc&_pragma=foreign_keys(1)", d.Dbname)
+	return fmt.Sprintf("file:%s?cache=shared&mode=rwc&_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)", d.Dbname)
 }
 
 func newDatabase() *Database {

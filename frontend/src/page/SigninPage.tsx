@@ -1,4 +1,4 @@
-import { Button, Divider, Grid, InputAdornment, TextField, Typography } from '@mui/material';
+import { Alert, AlertTitle, Button, Chip, Divider, Grid, InputAdornment, TextField, Typography } from '@mui/material';
 import Paper from '@mui/material/Paper';
 import { getOauthButtonLabel, getOauthLogoUrl, isOauthEnabled } from 'service/common/oauth';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
@@ -10,6 +10,7 @@ import AnonymousLayout from 'layout/AnonymousLayout';
 import useSigninForm from 'form/signin';
 import { LoadingButton } from '@mui/lab';
 import { baseUrl } from 'service/common/api';
+import { isDemoEnabled } from 'service/common/demo';
 
 export default function SigninPage() {
   const navigate = useNavigate();
@@ -37,6 +38,17 @@ export default function SigninPage() {
               <Typography variant="h3" gutterBottom sx={{ textAlign: 'center', marginBottom: 4 }}>
                   Sign In
               </Typography>
+
+              {isDemoEnabled() ? (
+                <>
+                  <Alert variant='standard' severity='info'>
+                    <AlertTitle><strong>This is a demo instance</strong></AlertTitle>
+                    Use following credentials: <Chip variant='outlined' label='admin' /> / <Chip variant='outlined' label='changeme' />
+                  </Alert>
+
+                  <Divider sx={{ mt: 2, mb: 2 }} />
+                </>
+              ) : null}
 
               {isOauthEnabled() ? (
                 <>
