@@ -15,6 +15,7 @@ import (
 const (
 	ActionGetKey        = "action-get"
 	ActionListKey       = "action-list"
+	AuditGetKey         = "audit-get"
 	AuthAuthenticateKey = "auth-authenticate"
 	AuthTokenNewKey     = "auth-token-new"
 	CheckKey            = "check"
@@ -63,6 +64,7 @@ func NewHandlers(
 	tokenManager jwt.Manager,
 	dispatcher event.Dispatcher,
 	actionManager manager.Action,
+	auditManager manager.Audit,
 	clientManager manager.Client,
 	compiledManager manager.CompiledPolicy,
 	policyManager manager.Policy,
@@ -76,6 +78,7 @@ func NewHandlers(
 	return Handlers{
 		ActionGetKey:        ActionGet(actionManager),
 		ActionListKey:       ActionList(actionManager),
+		AuditGetKey:         AuditGet(auditManager),
 		AuthAuthenticateKey: Authenticate(validate, userManager, tokenManager),
 		AuthTokenNewKey:     adaptor.HTTPHandlerFunc(TokenNew(oauthServer)),
 		CheckKey:            Check(logger, validate, compiledManager, dispatcher),

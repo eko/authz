@@ -14,18 +14,18 @@ import (
 
 // Lists actions.
 //
-//	@security	Authentication
-//	@Summary	Lists actions
-//	@Tags		Action
-//	@Produce	json
-//	@Param		page	query		int		false	"page number"			example(1)
-//	@Param		size	query		int		false	"page size"				minimum(1)	maximum(1000)	default(100)
-//	@Param		filter	query		string	false	"filter on a field"		example(name:contains:something)
-//	@Param		sort	query		string	false	"sort field and order"	example(name:desc)
-//	@Success	200		{object}	[]model.Action
-//	@Failure	400		{object}	model.ErrorResponse
-//	@Failure	500		{object}	model.ErrorResponse
-//	@Router		/v1/actions [Get]
+// @security  Authentication
+// @Summary   Lists actions
+// @Tags      Action
+// @Produce   json
+// @Param     page    query            int            false                   "page number"      example(1)
+// @Param     size    query            int            false                   "page size"          minimum(1)  maximum(1000)  default(100)
+// @Param     filter  query            string  false  "filter on a field"                    example(name:contains:something)
+// @Param     sort    query            string  false  "sort field and order"  example(name:desc)
+// @Success   200            {object}  []model.Action
+// @Failure   400            {object}  model.ErrorResponse
+// @Failure   500            {object}  model.ErrorResponse
+// @Router    /v1/actions [Get]
 func ActionList(
 	actionManager manager.Action,
 ) fiber.Handler {
@@ -52,14 +52,14 @@ func ActionList(
 
 // Retrieve an action.
 //
-//	@security	Authentication
-//	@Summary	Retrieve an action
-//	@Tags		Action
-//	@Produce	json
-//	@Success	200	{object}	model.Action
-//	@Failure	404	{object}	model.ErrorResponse
-//	@Failure	500	{object}	model.ErrorResponse
-//	@Router		/v1/actions/{identifier} [Get]
+// @security  Authentication
+// @Summary   Retrieve an action
+// @Tags      Action
+// @Produce   json
+// @Success   200  {object}  model.Action
+// @Failure   404  {object}  model.ErrorResponse
+// @Failure   500  {object}  model.ErrorResponse
+// @Router    /v1/actions/{identifier} [Get]
 func ActionGet(
 	actionManager manager.Action,
 ) fiber.Handler {

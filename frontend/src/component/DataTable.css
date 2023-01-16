@@ -3,6 +3,17 @@ div.MuiDataGrid-columnHeader:focus-within {
     outline: none !important;
 }
 
+/* Column headers */
+div.MuiDataGrid-columnHeaders {
+    background-image: url('../../public/background.svg');
+    color: #ffffff;
+}
+
+button.MuiIconButton-root {
+    color: #ffffff;
+    opacity: 0.9;
+}
+
 /* Disable cell border on focus */
 div.MuiDataGrid-row div.MuiDataGrid-cell:focus-within {
     outline: none !important;

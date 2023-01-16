@@ -26,7 +26,12 @@ Here are the available configuration options available as environment variable:
 
 | Property | Default value | Description |
 | -------- | ------------- | ----------- |
-| APP_STATS_FLUSH_DELAY | `5s` | Delay in which statistics will be batch into database |
+| APP_AUDIT_CLEAN_DAYS_TO_KEEP | `7` | Audit logs number of days to keep in database |
+| APP_AUDIT_CLEAN_DELAY | `1h` | Audit logs clean delay |
+| APP_AUDIT_FLUSH_DELAY | `3s` | Delay in which audit logs will be batch into database |
+| APP_STATS_CLEAN_DAYS_TO_KEEP | `30` | Statistics number of days to keep in database |
+| APP_STATS_CLEAN_DELAY | `1h` | Statistics clean delay |
+| APP_STATS_FLUSH_DELAY | `3s` | Delay in which statistics will be batch into database |
 | AUTH_ACCESS_TOKEN_DURATION | `6h` | Access token duration  |
 | AUTH_DOMAIN | `http://localhost:8080` | OAuth domain to be used  |
 | AUTH_JWT_SIGN_STRING | `4uthz-s3cr3t-valu3-pl3as3-ch4ng3!` | Default HMAC to use for JWT tokens |
@@ -48,8 +53,6 @@ Here are the available configuration options available as environment variable:
 | HTTP_SERVER_CORS_ALLOWED_METHODS | `GET,POST,PATCH,PUT,DELETE,HEAD,OPTIONS` | CORS allowed methods |
 | HTTP_SERVER_CORS_CACHE_MAX_AGE | `12h` | CORS cache max age value to be returned by server |
 | LOGGER_LEVEL | `INFO` | Log level, could be `DEBUG`, `INFO`, `WARN` or `ERROR` |
-| APP_STATS_CLEAN_DAYS_TO_KEEP | `30` | Statistics number of days to keep in database |
-| APP_STATS_CLEAN_DELAY | `1h` | Statistics clean delay |
 | USER_ADMIN_DEFAULT_PASSWORD | `changeme` | Default admin password updated on app launch |
 
 ## Tests

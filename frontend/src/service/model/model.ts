@@ -4,6 +4,17 @@ export type Action = {
     updated_at: Date
 }
 
+export type Audit = {
+    id: string
+    date: string
+    principal: string
+    resource_kind: string
+    resource_value: string
+    action: string
+    is_allowed: boolean
+    policy_id: string
+}
+
 export type Client = {
     client_id: string
     client_secret: string

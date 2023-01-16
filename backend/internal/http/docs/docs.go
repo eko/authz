@@ -123,6 +123,77 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/audits": {
+            "get": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Check"
+                ],
+                "summary": "Retrieve audits for last days",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 1000,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "kind:contains:something",
+                        "description": "filter on a field",
+                        "name": "filter",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "kind:desc",
+                        "description": "sort field and order",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Audit"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/auth": {
             "post": {
                 "security": [
@@ -1327,6 +1398,45 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/stats": {
+            "get": {
+                "security": [
+                    {
+                        "Authentication": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Check"
+                ],
+                "summary": "Retrieve statistics for last days",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Stats"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/model.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/token": {
             "post": {
                 "security": [
@@ -1572,9 +1682,7 @@ const docTemplate = `{
                 "key": {
                     "type": "string"
                 },
-                "value": {
-                    "type": "string"
-                }
+                "value": {}
             }
         },
         "handler.AuthRequest": {
@@ -1941,6 +2049,35 @@ const docTemplate = `{
                 }
             }
         },
+        "model.Audit": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_allowed": {
+                    "type": "boolean"
+                },
+                "policy_id": {
+                    "type": "string"
+                },
+                "principal": {
+                    "type": "string"
+                },
+                "resource_kind": {
+                    "type": "string"
+                },
+                "resource_value": {
+                    "type": "string"
+                }
+            }
+        },
         "model.Client": {
             "type": "object",
             "properties": {
@@ -2091,6 +2228,23 @@ const docTemplate = `{
                 }
             }
         },
+        "model.Stats": {
+            "type": "object",
+            "properties": {
+                "checks_allowed_number": {
+                    "type": "integer"
+                },
+                "checks_denied_number": {
+                    "type": "integer"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
         "model.User": {
             "type": "object",
             "properties": {
@@ -2123,17 +2277,24 @@ const docTemplate = `{
                 }
             }
         }
+    },
+    "securityDefinitions": {
+        "Authentication": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
+	Version:          "1.0",
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Title:            "Authz API",
+	Description:      "Authorization management HTTP APIs",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 }

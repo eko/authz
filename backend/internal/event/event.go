@@ -1,5 +1,7 @@
 package event
 
+import "github.com/eko/authz/backend/internal/entity/model"
+
 type EventType string
 
 const (
@@ -12,4 +14,13 @@ const (
 type Event struct {
 	Data      any
 	Timestamp int64
+}
+
+type CheckEvent struct {
+	Principal      string
+	ResourceKind   string
+	ResourceValue  string
+	Action         string
+	IsAllowed      bool
+	CompiledPilicy *model.CompiledPolicy
 }

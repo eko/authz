@@ -24,13 +24,18 @@ You can use both Role-Based Acccess Control (RBAC) and Attribute-Based Access Co
 
 ✅  Reliable: Authz uses Authz itself for managing its own internal authorizations
 
+🔍  Audit: We log each check decisions and which policy matched
+
 ## How it works?
 
 Authorization is simple: a `principal` wants to make an `action` on a `resource`. That's it.
 
 Authz allows you to manage all the authorizations you want to manage. All of them, centralized in a single application.
 
-<h1 align="center"><img src="docs/architecture/howitworks.svg" alt="Authz" width="600"></h1>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture/howitworks.dark.svg">
+  <img alt="Text changing depending on mode. Light: 'So light!' Dark: 'So dark!'" src="docs/architecture/howitworks.svg">
+</picture>
 
 All you need to do is to host the backend server (a Go single binary), the frontend (static files) if you want it and use our SDKs.
 

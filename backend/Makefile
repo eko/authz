@@ -50,6 +50,7 @@ test-mocks: ## Generate unit test mocks
 	mockgen -source=internal/event/dispatcher.go -destination=internal/event/dispatcher_mock.go -package=event
 	mockgen -source=internal/entity/manager/action.go -destination=internal/entity/manager/action_mock.go -package=manager
 	mockgen -source=internal/entity/manager/attribute.go -destination=internal/entity/manager/attribute_mock.go -package=manager
+	mockgen -source=internal/entity/manager/audit.go -destination=internal/entity/manager/audit_mock.go -package=manager
 	mockgen -source=internal/entity/manager/client.go -destination=internal/entity/manager/client_mock.go -package=manager
 	mockgen -source=internal/entity/manager/compiled.go -destination=internal/entity/manager/compiled_mock.go -package=manager
 	mockgen -source=internal/entity/manager/policy.go -destination=internal/entity/manager/policy_mock.go -package=manager

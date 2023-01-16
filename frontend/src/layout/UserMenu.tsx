@@ -83,7 +83,7 @@ export default function UserMenu() {
                         <Logout fontSize='small' />
                     </ListItemIcon>
                     <ListItemText>
-                        Déconnexion
+                        Logout
                     </ListItemText>
                 </MenuItem>
             </Menu>

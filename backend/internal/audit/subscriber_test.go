@@ -1,4 +1,4 @@
-package stats
+package audit
 
 import (
 	"testing"
@@ -18,17 +18,17 @@ func TestNewSubscriber(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	cfg := &configs.App{
-		StatsFlushDelay: 10 * time.Millisecond,
+		AuditFlushDelay: 10 * time.Millisecond,
 	}
 
 	logger := slog.New(log.NewNopHandler())
 
 	dispatcher := event.NewMockDispatcher(ctrl)
 
-	statsManager := manager.NewMockStats(ctrl)
+	auditManager := manager.NewMockAudit(ctrl)
 
 	// When
-	subscriberInstance := NewSubscriber(cfg, logger, dispatcher, statsManager)
+	subscriberInstance := NewSubscriber(cfg, logger, dispatcher, auditManager)
 
 	// Then
 	assert := assert.New(t)
@@ -37,8 +37,8 @@ func TestNewSubscriber(t *testing.T) {
 
 	assert.Equal(logger, subscriberInstance.logger)
 	assert.Equal(dispatcher, subscriberInstance.dispatcher)
-	assert.Equal(statsManager, subscriberInstance.statsManager)
-	assert.Equal(cfg.StatsFlushDelay, subscriberInstance.statsFlushDelay)
+	assert.Equal(auditManager, subscriberInstance.auditManager)
+	assert.Equal(cfg.AuditFlushDelay, subscriberInstance.auditFlushDelay)
 }
 
 func TestHandleCheckEvents(t *testing.T) {
@@ -46,17 +46,17 @@ func TestHandleCheckEvents(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	cfg := &configs.App{
-		StatsFlushDelay: 10 * time.Millisecond,
+		AuditFlushDelay: 10 * time.Millisecond,
 	}
 
 	logger := slog.New(log.NewNopHandler())
 
 	dispatcher := event.NewMockDispatcher(ctrl)
 
-	statsManager := manager.NewMockStats(ctrl)
-	statsManager.EXPECT().BatchAddCheck(int64(123457), int64(2), int64(1)).Times(1)
+	auditManager := manager.NewMockAudit(ctrl)
+	auditManager.EXPECT().BatchAdd(gomock.Len(3)).Times(1)
 
-	subscriber := NewSubscriber(cfg, logger, dispatcher, statsManager)
+	subscriber := NewSubscriber(cfg, logger, dispatcher, auditManager)
 
 	eventChan := make(chan *event.Event, 1)
 

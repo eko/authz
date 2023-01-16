@@ -50,7 +50,7 @@ export const ListColumns = ({
 
         const date = moment(params.row.created_at);
         return (
-          <div title={`${date.format('L')} à ${date.format('LT')}`}>
+          <div title={`${date.format('L')} at ${date.format('LT')}`}>
             {date.fromNow()}
           </div>
         )
@@ -69,7 +69,7 @@ export const ListColumns = ({
 
         const date = moment(params.row.updated_at);
         return (
-          <div title={`${date.format('L')} à ${date.format('LT')}`}>
+          <div title={`${date.format('L')} at ${date.format('LT')}`}>
             {date.fromNow()}
           </div>
         )

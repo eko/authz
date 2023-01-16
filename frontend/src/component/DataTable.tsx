@@ -74,6 +74,7 @@ export default function DataTable<T>({
 
   const handleOnSortModelChange = useCallback((sortModel: GridSortModel) => {
     if (sortModel.length !== 1) {
+      setSort(undefined);
       return;
     }
 
@@ -83,6 +84,7 @@ export default function DataTable<T>({
 
   const handleOnFilterModelChange = useCallback((filterModel: GridFilterModel) => {
     if (filterModel.items.length !== 1) {
+      setFilter(undefined);
       return;
     }
 

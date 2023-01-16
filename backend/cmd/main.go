@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/eko/authz/backend/configs"
+	"github.com/eko/authz/backend/internal/audit"
 	"github.com/eko/authz/backend/internal/compile"
 	"github.com/eko/authz/backend/internal/database"
 	"github.com/eko/authz/backend/internal/entity"
@@ -25,6 +26,7 @@ func main() {
 		fx.Provide(context.Background),
 		internal_fx.Logger,
 
+		audit.FxModule(),
 		compile.FxModule(),
 		configs.FxModule(),
 		database.FxModule(),
