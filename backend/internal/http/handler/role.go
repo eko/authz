@@ -24,15 +24,15 @@ type UpdateRoleRequest struct {
 
 // Creates a new role.
 //
-//	@security	Authentication
-//	@Summary	Creates a new role
-//	@Tags		Role
-//	@Produce	json
-//	@Param		default	body		CreateRoleRequest	true	"Role creation request"
-//	@Success	200		{object}	model.Role
-//	@Failure	400		{object}	model.ErrorResponse
-//	@Failure	500		{object}	model.ErrorResponse
-//	@Router		/v1/roles [Post]
+// @security  Authentication
+// @Summary   Creates a new role
+// @Tags      Role
+// @Produce   json
+// @Param     default  body            CreateRoleRequest  true  "Role creation request"
+// @Success   200            {object}  model.Role
+// @Failure   400            {object}  model.ErrorResponse
+// @Failure   500            {object}  model.ErrorResponse
+// @Router    /v1/roles [Post]
 func RoleCreate(
 	validate *validator.Validate,
 	roleManager manager.Role,
@@ -63,18 +63,18 @@ func RoleCreate(
 
 // Lists roles.
 //
-//	@security	Authentication
-//	@Summary	Lists roles
-//	@Tags		Role
-//	@Produce	json
-//	@Param		page	query		int		false	"page number"			example(1)
-//	@Param		size	query		int		false	"page size"				minimum(1)	maximum(1000)	default(100)
-//	@Param		filter	query		string	false	"filter on a field"		example(kind:contains:something)
-//	@Param		sort	query		string	false	"sort field and order"	example(kind:desc)
-//	@Success	200		{object}	[]model.Role
-//	@Failure	400		{object}	model.ErrorResponse
-//	@Failure	500		{object}	model.ErrorResponse
-//	@Router		/v1/roles [Get]
+// @security  Authentication
+// @Summary   Lists roles
+// @Tags      Role
+// @Produce   json
+// @Param     page    query            int            false                   "page number"      example(1)
+// @Param     size    query            int            false                   "page size"          minimum(1)  maximum(1000)  default(100)
+// @Param     filter  query            string  false  "filter on a field"                    example(kind:contains:something)
+// @Param     sort    query            string  false  "sort field and order"  example(kind:desc)
+// @Success   200            {object}  []model.Role
+// @Failure   400            {object}  model.ErrorResponse
+// @Failure   500            {object}  model.ErrorResponse
+// @Router    /v1/roles [Get]
 func RoleList(
 	roleManager manager.Role,
 ) fiber.Handler {
@@ -102,14 +102,14 @@ func RoleList(
 
 // Retrieve a role.
 //
-//	@security	Authentication
-//	@Summary	Retrieve a role
-//	@Tags		Role
-//	@Produce	json
-//	@Success	200	{object}	model.Role
-//	@Failure	404	{object}	model.ErrorResponse
-//	@Failure	500	{object}	model.ErrorResponse
-//	@Router		/v1/roles/{identifier} [Get]
+// @security  Authentication
+// @Summary   Retrieve a role
+// @Tags      Role
+// @Produce   json
+// @Success   200  {object}  model.Role
+// @Failure   404  {object}  model.ErrorResponse
+// @Failure   500  {object}  model.ErrorResponse
+// @Router    /v1/roles/{identifier} [Get]
 func RoleGet(
 	roleManager manager.Role,
 ) fiber.Handler {
@@ -139,15 +139,15 @@ func RoleGet(
 
 // Updates a role.
 //
-//	@security	Authentication
-//	@Summary	Updates a role
-//	@Tags		Role
-//	@Produce	json
-//	@Param		default	body		UpdateRoleRequest	true	"Role update request"
-//	@Success	200		{object}	model.Role
-//	@Failure	400		{object}	model.ErrorResponse
-//	@Failure	500		{object}	model.ErrorResponse
-//	@Router		/v1/roles/{identifier} [Put]
+// @security  Authentication
+// @Summary   Updates a role
+// @Tags      Role
+// @Produce   json
+// @Param     default  body            UpdateRoleRequest  true  "Role update request"
+// @Success   200            {object}  model.Role
+// @Failure   400            {object}  model.ErrorResponse
+// @Failure   500            {object}  model.ErrorResponse
+// @Router    /v1/roles/{identifier} [Put]
 func RoleUpdate(
 	validate *validator.Validate,
 	roleManager manager.Role,
@@ -182,14 +182,14 @@ func RoleUpdate(
 
 // Deletes a role.
 //
-//	@security	Authentication
-//	@Summary	Deletes a role
-//	@Tags		Role
-//	@Produce	json
-//	@Success	200	{object}	model.Role
-//	@Failure	400	{object}	model.ErrorResponse
-//	@Failure	500	{object}	model.ErrorResponse
-//	@Router		/v1/roles/{identifier} [Delete]
+// @security  Authentication
+// @Summary   Deletes a role
+// @Tags      Role
+// @Produce   json
+// @Success   200  {object}  model.Role
+// @Failure   400  {object}  model.ErrorResponse
+// @Failure   500  {object}  model.ErrorResponse
+// @Router    /v1/roles/{identifier} [Delete]
 func RoleDelete(
 	roleManager manager.Role,
 ) fiber.Handler {

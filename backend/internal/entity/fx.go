@@ -13,6 +13,7 @@ func FxModule() fx.Option {
 		fx.Provide(
 			manager.NewAction,
 			manager.NewAttribute,
+			manager.NewAudit,
 			manager.NewClient,
 			manager.NewCompiledPolicy,
 			manager.NewPolicy,
@@ -37,6 +38,15 @@ func FxModule() fx.Option {
 			},
 
 			func(repository repository.Base[model.Attribute]) manager.AttributeRepository {
+				return repository
+			},
+
+			// Audit
+			func(db *gorm.DB) repository.Base[model.Audit] {
+				return repository.New[model.Audit](db)
+			},
+
+			func(repository repository.Base[model.Audit]) manager.AuditRepository {
 				return repository
 			},
 

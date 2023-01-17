@@ -10,14 +10,14 @@ import (
 
 // Retrieve statistics for last days
 //
-//	@security	Authentication
-//	@Summary	Retrieve statistics for last days
-//	@Tags		Check
-//	@Produce	json
-//	@Success	200		{object}	[]model.Stats
-//	@Failure	400		{object}	model.ErrorResponse
-//	@Failure	500		{object}	model.ErrorResponse
-//	@Router		/v1/stats [Get]
+// @security  Authentication
+// @Summary   Retrieve statistics for last days
+// @Tags      Check
+// @Produce   json
+// @Success   200    {object}  []model.Stats
+// @Failure   400    {object}  model.ErrorResponse
+// @Failure   500    {object}  model.ErrorResponse
+// @Router    /v1/stats [Get]
 func StatsGet(
 	statsManager manager.Stats,
 ) fiber.Handler {

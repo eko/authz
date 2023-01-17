@@ -68,6 +68,45 @@ ALTER SEQUENCE public.authz_attributes_id_seq OWNED BY public.authz_attributes.i
 
 
 --
+-- Name: authz_audit; Type: TABLE; Schema: public; Owner: root
+--
+
+CREATE TABLE public.authz_audit (
+    id bigint NOT NULL,
+    date timestamp with time zone,
+    principal text,
+    resource_kind text,
+    resource_value text,
+    action text,
+    is_allowed boolean,
+    policy_id text
+);
+
+
+ALTER TABLE public.authz_audit OWNER TO root;
+
+--
+-- Name: authz_audit_id_seq; Type: SEQUENCE; Schema: public; Owner: root
+--
+
+CREATE SEQUENCE public.authz_audit_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.authz_audit_id_seq OWNER TO root;
+
+--
+-- Name: authz_audit_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: root
+--
+
+ALTER SEQUENCE public.authz_audit_id_seq OWNED BY public.authz_audit.id;
+
+
+--
 -- Name: authz_clients; Type: TABLE; Schema: public; Owner: root
 --
 
@@ -306,6 +345,13 @@ ALTER TABLE ONLY public.authz_attributes ALTER COLUMN id SET DEFAULT nextval('pu
 
 
 --
+-- Name: authz_audit id; Type: DEFAULT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_audit ALTER COLUMN id SET DEFAULT nextval('public.authz_audit_id_seq'::regclass);
+
+
+--
 -- Name: authz_oauth_tokens id; Type: DEFAULT; Schema: public; Owner: root
 --
 
@@ -326,6 +372,14 @@ ALTER TABLE ONLY public.authz_actions
 
 ALTER TABLE ONLY public.authz_attributes
     ADD CONSTRAINT authz_attributes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: authz_audit authz_audit_pkey; Type: CONSTRAINT; Schema: public; Owner: root
+--
+
+ALTER TABLE ONLY public.authz_audit
+    ADD CONSTRAINT authz_audit_pkey PRIMARY KEY (id);
 
 
 --

@@ -50,6 +50,7 @@ func New(
 	if cfg.Driver == configs.DriverSqlite {
 		checkErr(slogLogger, db.AutoMigrate(model.Action{}))
 		checkErr(slogLogger, db.AutoMigrate(model.Attribute{}))
+		checkErr(slogLogger, db.AutoMigrate(model.Audit{}))
 		checkErr(slogLogger, db.AutoMigrate(model.Client{}))
 		checkErr(slogLogger, db.AutoMigrate(model.CompiledPolicy{}))
 		checkErr(slogLogger, db.AutoMigrate(model.Policy{}))

@@ -19,15 +19,15 @@ type UserCreateRequest struct {
 
 // Creates a new user
 //
-//	@security	Authentication
-//	@Summary	Creates a new user
-//	@Tags		User
-//	@Produce	json
-//	@Param		default	body		UserCreateRequest	true	"User creation request"
-//	@Success	200		{object}	model.User
-//	@Failure	400		{object}	model.ErrorResponse
-//	@Failure	500		{object}	model.ErrorResponse
-//	@Router		/v1/users [Post]
+// @security  Authentication
+// @Summary   Creates a new user
+// @Tags      User
+// @Produce   json
+// @Param     default  body            UserCreateRequest  true  "User creation request"
+// @Success   200            {object}  model.User
+// @Failure   400            {object}  model.ErrorResponse
+// @Failure   500            {object}  model.ErrorResponse
+// @Router    /v1/users [Post]
 func UserCreate(
 	validate *validator.Validate,
 	userManager manager.User,
@@ -56,18 +56,18 @@ func UserCreate(
 
 // Lists users.
 //
-//	@security	Authentication
-//	@Summary	Lists users
-//	@Tags		User
-//	@Produce	json
-//	@Param		page	query		int		false	"page number"			example(1)
-//	@Param		size	query		int		false	"page size"				minimum(1)	maximum(1000)	default(100)
-//	@Param		filter	query		string	false	"filter on a field"		example(name:contains:something)
-//	@Param		sort	query		string	false	"sort field and order"	example(name:desc)
-//	@Success	200		{object}	[]model.User
-//	@Failure	400		{object}	model.ErrorResponse
-//	@Failure	500		{object}	model.ErrorResponse
-//	@Router		/v1/users [Get]
+// @security  Authentication
+// @Summary   Lists users
+// @Tags      User
+// @Produce   json
+// @Param     page    query            int            false                   "page number"      example(1)
+// @Param     size    query            int            false                   "page size"          minimum(1)  maximum(1000)  default(100)
+// @Param     filter  query            string  false  "filter on a field"                    example(name:contains:something)
+// @Param     sort    query            string  false  "sort field and order"  example(name:desc)
+// @Success   200            {object}  []model.User
+// @Failure   400            {object}  model.ErrorResponse
+// @Failure   500            {object}  model.ErrorResponse
+// @Router    /v1/users [Get]
 func UserList(
 	userManager manager.User,
 ) fiber.Handler {
@@ -94,14 +94,14 @@ func UserList(
 
 // Retrieve a user.
 //
-//	@security	Authentication
-//	@Summary	Retrieve a user
-//	@Tags		User
-//	@Produce	json
-//	@Success	200	{object}	model.User
-//	@Failure	404	{object}	model.ErrorResponse
-//	@Failure	500	{object}	model.ErrorResponse
-//	@Router		/v1/users/{identifier} [Get]
+// @security  Authentication
+// @Summary   Retrieve a user
+// @Tags      User
+// @Produce   json
+// @Success   200  {object}  model.User
+// @Failure   404  {object}  model.ErrorResponse
+// @Failure   500  {object}  model.ErrorResponse
+// @Router    /v1/users/{identifier} [Get]
 func UserGet(
 	userManager manager.User,
 ) fiber.Handler {
@@ -130,14 +130,14 @@ func UserGet(
 
 // Deletes a user.
 //
-//	@security	Authentication
-//	@Summary	Deletes a user
-//	@Tags		User
-//	@Produce	json
-//	@Success	200	{object}	model.User
-//	@Failure	400	{object}	model.ErrorResponse
-//	@Failure	500	{object}	model.ErrorResponse
-//	@Router		/v1/users/{identifier} [Delete]
+// @security  Authentication
+// @Summary   Deletes a user
+// @Tags      User
+// @Produce   json
+// @Success   200  {object}  model.User
+// @Failure   400  {object}  model.ErrorResponse
+// @Failure   500  {object}  model.ErrorResponse
+// @Router    /v1/users/{identifier} [Delete]
 func UserDelete(
 	userManager manager.User,
 ) fiber.Handler {

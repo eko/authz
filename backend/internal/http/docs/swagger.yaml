@@ -3,8 +3,7 @@ definitions:
     properties:
       key:
         type: string
-      value:
-        type: string
+      value: {}
     required:
     - key
     - value
@@ -251,6 +250,25 @@ definitions:
       value:
         type: string
     type: object
+  model.Audit:
+    properties:
+      action:
+        type: string
+      date:
+        type: string
+      id:
+        type: integer
+      is_allowed:
+        type: boolean
+      policy_id:
+        type: string
+      principal:
+        type: string
+      resource_kind:
+        type: string
+      resource_value:
+        type: string
+    type: object
   model.Client:
     properties:
       client_id:
@@ -349,6 +367,17 @@ definitions:
       updated_at:
         type: string
     type: object
+  model.Stats:
+    properties:
+      checks_allowed_number:
+        type: integer
+      checks_denied_number:
+        type: integer
+      date:
+        type: string
+      id:
+        type: string
+    type: object
   model.User:
     properties:
       created_at:
@@ -372,6 +401,9 @@ definitions:
     type: object
 info:
   contact: {}
+  description: Authorization management HTTP APIs
+  title: Authz API
+  version: "1.0"
 paths:
   /v1/actions:
     get:
@@ -442,6 +474,53 @@ paths:
       summary: Retrieve an action
       tags:
       - Action
+  /v1/audits:
+    get:
+      parameters:
+      - description: page number
+        example: 1
+        in: query
+        name: page
+        type: integer
+      - default: 100
+        description: page size
+        in: query
+        maximum: 1000
+        minimum: 1
+        name: size
+        type: integer
+      - description: filter on a field
+        example: kind:contains:something
+        in: query
+        name: filter
+        type: string
+      - description: sort field and order
+        example: kind:desc
+        in: query
+        name: sort
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Audit'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Retrieve audits for last days
+      tags:
+      - Check
   /v1/auth:
     post:
       parameters:
@@ -1202,6 +1281,30 @@ paths:
       summary: Updates a role
       tags:
       - Role
+  /v1/stats:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Stats'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Retrieve statistics for last days
+      tags:
+      - Check
   /v1/token:
     post:
       parameters:
@@ -1349,4 +1452,9 @@ paths:
       summary: Retrieve a user
       tags:
       - User
+securityDefinitions:
+  Authentication:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

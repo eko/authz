@@ -42,10 +42,6 @@ func (h *check) Check(ctx context.Context, req *authz.CheckRequest) (*authz.Chec
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 
-		if err := h.dispatcher.Dispatch(event.EventTypeCheck, isAllowed); err != nil {
-			h.logger.Error("unable to dispatch check event", err)
-		}
-
 		checkAnswers[i] = &authz.CheckAnswer{
 			Principal:     check.Principal,
 			ResourceKind:  check.ResourceKind,

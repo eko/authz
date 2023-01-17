@@ -32,15 +32,15 @@ type CheckResponse struct {
 
 // Check if a principal has access to do action on resource.
 //
-//	@security	Authentication
-//	@Summary	Check if a principal has access to do action on resource
-//	@Tags		Check
-//	@Produce	json
-//	@Param		default	body		CheckRequest	true	"Check request"
-//	@Success	200		{object}	CheckResponse
-//	@Failure	400		{object}	model.ErrorResponse
-//	@Failure	500		{object}	model.ErrorResponse
-//	@Router		/v1/check [Post]
+// @security  Authentication
+// @Summary   Check if a principal has access to do action on resource
+// @Tags      Check
+// @Produce   json
+// @Param     default  body            CheckRequest  true  "Check request"
+// @Success   200            {object}  CheckResponse
+// @Failure   400            {object}  model.ErrorResponse
+// @Failure   500            {object}  model.ErrorResponse
+// @Router    /v1/check [Post]
 func Check(
 	logger *slog.Logger,
 	validate *validator.Validate,
@@ -67,10 +67,6 @@ func Check(
 			isAllowed, err := compiledManager.IsAllowed(check.Principal, check.ResourceKind, check.ResourceValue, check.Action)
 			if err != nil {
 				return returnError(c, http.StatusInternalServerError, err)
-			}
-
-			if err := dispatcher.Dispatch(event.EventTypeCheck, isAllowed); err != nil {
-				logger.Error("unable to dispatch check event", err)
 			}
 
 			responseChecks[i] = &CheckResponseQuery{

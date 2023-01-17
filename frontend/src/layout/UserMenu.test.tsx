@@ -55,7 +55,7 @@ test('user menu: should not be visible when user not authenticated', async () =>
   });
 
   // Then
-  expect(screen.queryByText('Déconnexion')).toBeNull();
+  expect(screen.queryByText('Logout')).toBeNull();
 });
 
 test('user menu: should be visible when user authenticated', async () => {
@@ -88,7 +88,7 @@ test('user menu: should be visible when user authenticated', async () => {
   await userEvent.click(screen.getByRole('user-menu'));
 
   // Then
-  expect(screen.queryByText('Déconnexion')).toBeVisible();
+  expect(screen.queryByText('Logout')).toBeVisible();
   expect(logout).toBeCalledTimes(0);
 });
 
@@ -120,7 +120,7 @@ test('user menu: click on logout button', async () => {
   });
 
   await userEvent.click(screen.getByRole('user-menu'));
-  await userEvent.click(screen.getByText('Déconnexion'));
+  await userEvent.click(screen.getByText('Logout'));
 
   // Then
   expect(logout).toBeCalledTimes(1);

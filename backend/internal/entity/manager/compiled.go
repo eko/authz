@@ -66,13 +66,13 @@ func (m *compiledPolicyManager) IsAllowed(principalID string, resourceKind strin
 		}
 	}
 
-	isAllowed, err := m.isPolicyAllowed(policyIDs, resourceKind, resourceValue, actionID)
+	isAllowed, compiledPolicy, err := m.isPolicyAllowed(policyIDs, resourceKind, resourceValue, actionID)
 	if err != nil {
 		return false, err
 	}
 
 	if !isAllowed {
-		isAllowed, err = m.isPrincipalAllowed(principalID, resourceKind, resourceValue, actionID)
+		isAllowed, compiledPolicy, err = m.isPrincipalAllowed(principalID, resourceKind, resourceValue, actionID)
 		if err != nil {
 			return false, err
 		}
@@ -87,10 +87,21 @@ func (m *compiledPolicyManager) IsAllowed(principalID string, resourceKind strin
 		slog.Bool("result", isAllowed),
 	)
 
-	return isAllowed, err
+	if err := m.dispatcher.Dispatch(event.EventTypeCheck, &event.CheckEvent{
+		Principal:      principalID,
+		ResourceKind:   resourceKind,
+		ResourceValue:  resourceValue,
+		Action:         actionID,
+		IsAllowed:      isAllowed,
+		CompiledPilicy: compiledPolicy,
+	}); err != nil {
+		m.logger.Error("unable to dispatch check event", err)
+	}
+
+	return isAllowed, nil
 }
 
-func (m *compiledPolicyManager) isPolicyAllowed(policyIDs []string, resourceKind string, resourceValue string, actionID string) (bool, error) {
+func (m *compiledPolicyManager) isPolicyAllowed(policyIDs []string, resourceKind string, resourceValue string, actionID string) (bool, *model.CompiledPolicy, error) {
 	fields := map[string]repository.FieldValue{
 		"policy_id":      {Operator: "IN", Value: policyIDs},
 		"resource_kind":  {Operator: "=", Value: resourceKind},
@@ -98,21 +109,21 @@ func (m *compiledPolicyManager) isPolicyAllowed(policyIDs []string, resourceKind
 		"action_id":      {Operator: "=", Value: actionID},
 	}
 
-	_, err := m.repository.GetByFields(fields)
+	commiledPolicy, err := m.repository.GetByFields(fields)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if resourceValue != WildcardValue {
 			return m.isPolicyAllowed(policyIDs, resourceKind, WildcardValue, actionID)
 		}
 
-		return false, nil
+		return false, nil, nil
 	} else if err != nil {
-		return false, fmt.Errorf("unable to retrieve compiled policies: %v", err)
+		return false, nil, fmt.Errorf("unable to retrieve compiled policies: %v", err)
 	}
 
-	return true, nil
+	return true, commiledPolicy, nil
 }
 
-func (m *compiledPolicyManager) isPrincipalAllowed(principalID string, resourceKind string, resourceValue string, actionID string) (bool, error) {
+func (m *compiledPolicyManager) isPrincipalAllowed(principalID string, resourceKind string, resourceValue string, actionID string) (bool, *model.CompiledPolicy, error) {
 	fields := map[string]repository.FieldValue{
 		"principal_id":   {Operator: "=", Value: principalID},
 		"resource_kind":  {Operator: "=", Value: resourceKind},
@@ -120,16 +131,16 @@ func (m *compiledPolicyManager) isPrincipalAllowed(principalID string, resourceK
 		"action_id":      {Operator: "=", Value: actionID},
 	}
 
-	_, err := m.repository.GetByFields(fields)
+	compiledPolicy, err := m.repository.GetByFields(fields)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if resourceValue != WildcardValue {
 			return m.isPrincipalAllowed(principalID, resourceKind, WildcardValue, actionID)
 		}
 
-		return false, nil
+		return false, nil, nil
 	} else if err != nil {
-		return false, fmt.Errorf("unable to retrieve compiled policies: %v", err)
+		return false, nil, fmt.Errorf("unable to retrieve compiled policies: %v", err)
 	}
 
-	return true, nil
+	return true, compiledPolicy, nil
 }
