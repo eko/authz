@@ -41,6 +41,7 @@ export default function Dashboard() {
 
   const [allowedVsDeniedPerDayData, setAllowedVsDeniedPerDayData] = useState<BarData>([]);
   const [allowedVsDeniedData, setAllowedVsDeniedData] = useState<PieData>([]);
+  const [sort, setSort] = useState<SortRequest>();
 
   useEffect(() => {
     if (user === undefined) {
@@ -58,6 +59,7 @@ export default function Dashboard() {
     };
 
     fetchStats();
+    setSort({ field: 'date', order: 'desc' });
   // eslint-disable-next-line
   }, [user]);
 
@@ -177,6 +179,7 @@ export default function Dashboard() {
           defaultSize={5}
           columns={auditColumns}
           fetcher={fetcher}
+          forcedSort={sort}
           sx={{ p: 2 }}
         />
       </Grid>

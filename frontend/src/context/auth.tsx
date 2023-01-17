@@ -1,6 +1,8 @@
 import { useState, useEffect, createContext, ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { AuthResponseUser } from 'service/auth/model';
+import Cookies from 'js-cookie';
+import jwt_decode from 'jwt-decode';
 
 export type User = {
     username: string
@@ -25,10 +27,13 @@ export const AuthenticationExpiration = 'authzExpiration';
 export const AuthenticationToken = 'authzToken';
 export const AuthenticationUser = 'authzUser';
 
+export const OAuthAccessTokenCookieName = 'authz_access_token';
+export const OAuthExpiresInCookieName = 'authz_expires_in';
+
 const AuthContextProvider = ({ children }: AuthContextProviderType) => {
     const [user, setUser] = useState<User | undefined>();
     const navigate = useNavigate();
-    
+
     const logout = () => {
         localStorage.removeItem(AuthenticationToken);
         localStorage.removeItem(AuthenticationExpiration);
@@ -38,9 +43,32 @@ const AuthContextProvider = ({ children }: AuthContextProviderType) => {
     }
 
     useEffect(() => {
-        const authToken = localStorage.getItem(AuthenticationToken);
+        let authToken = Cookies.get(OAuthAccessTokenCookieName) || null;
+        const authExpiresIn = Cookies.get(OAuthExpiresInCookieName) || null;
+
+        if (authToken === null || authExpiresIn === null) {
+            authToken = localStorage.getItem(AuthenticationToken);
+        } else {
+            const expireAt = new Date();
+            expireAt.setSeconds(expireAt.getSeconds() + Number(authExpiresIn));
+
+            localStorage.setItem(AuthenticationToken, authToken);
+            localStorage.setItem(AuthenticationExpiration, expireAt.toISOString());
+
+            const decodedHeader = jwt_decode(authToken);
+            if (decodedHeader !== undefined) {
+                localStorage.setItem(AuthenticationUser, JSON.stringify({
+                    username: (decodedHeader as any)?.sub,
+                }));
+            }
+
+            Cookies.remove(OAuthAccessTokenCookieName);
+            Cookies.remove(OAuthExpiresInCookieName);
+        }
+
         const authUser = localStorage.getItem(AuthenticationUser);
- 
+        const authExpiration = localStorage.getItem(AuthenticationExpiration);
+
         if (
             (authToken === undefined || authToken === null)
             || (authUser === undefined || authUser === null)
@@ -49,7 +77,6 @@ const AuthContextProvider = ({ children }: AuthContextProviderType) => {
             return;
         }
 
-        const authExpiration = localStorage.getItem(AuthenticationExpiration);
         const expirationDate = new Date(authExpiration!);
 
         if (expirationDate < new Date()) {
@@ -65,6 +92,7 @@ const AuthContextProvider = ({ children }: AuthContextProviderType) => {
         }
 
         setUser(userData);
+    // eslint-disable-next-line
     }, [navigate]);
 
     return (

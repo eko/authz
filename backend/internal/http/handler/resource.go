@@ -47,15 +47,15 @@ type UpdateResourceRequest struct {
 
 // Creates a new resource.
 //
-// @security  Authentication
-// @Summary   Creates a new resource
-// @Tags      Resource
-// @Produce   json
-// @Param     default  body            CreateResourceRequest  true  "Resource creation request"
-// @Success   200            {object}  model.Resource
-// @Failure   400            {object}  model.ErrorResponse
-// @Failure   500            {object}  model.ErrorResponse
-// @Router    /v1/resources [Post]
+//	@security	Authentication
+//	@Summary	Creates a new resource
+//	@Tags		Resource
+//	@Produce	json
+//	@Param		default	body		CreateResourceRequest	true	"Resource creation request"
+//	@Success	200		{object}	model.Resource
+//	@Failure	400		{object}	model.ErrorResponse
+//	@Failure	500		{object}	model.ErrorResponse
+//	@Router		/v1/resources [Post]
 func ResourceCreate(
 	validate *validator.Validate,
 	resourceManager manager.Resource,
@@ -86,18 +86,18 @@ func ResourceCreate(
 
 // Lists resources.
 //
-// @security  Authentication
-// @Summary   Lists resources
-// @Tags      Resource
-// @Produce   json
-// @Param     page    query            int            false                   "page number"      example(1)
-// @Param     size    query            int            false                   "page size"          minimum(1)  maximum(1000)  default(100)
-// @Param     filter  query            string  false  "filter on a field"                    example(kind:contains:something)
-// @Param     sort    query            string  false  "sort field and order"  example(kind:desc)
-// @Success   200            {object}  []model.Resource
-// @Failure   400            {object}  model.ErrorResponse
-// @Failure   500            {object}  model.ErrorResponse
-// @Router    /v1/resources [Get]
+//	@security	Authentication
+//	@Summary	Lists resources
+//	@Tags		Resource
+//	@Produce	json
+//	@Param		page	query		int		false	"page number"			example(1)
+//	@Param		size	query		int		false	"page size"				minimum(1)	maximum(1000)	default(100)
+//	@Param		filter	query		string	false	"filter on a field"		example(kind:contains:something)
+//	@Param		sort	query		string	false	"sort field and order"	example(kind:desc)
+//	@Success	200		{object}	[]model.Resource
+//	@Failure	400		{object}	model.ErrorResponse
+//	@Failure	500		{object}	model.ErrorResponse
+//	@Router		/v1/resources [Get]
 func ResourceList(
 	resourceManager manager.Resource,
 ) fiber.Handler {
@@ -125,14 +125,14 @@ func ResourceList(
 
 // Retrieve a resource.
 //
-// @security  Authentication
-// @Summary   Retrieve a resource
-// @Tags      Resource
-// @Produce   json
-// @Success   200  {object}  model.Resource
-// @Failure   404  {object}  model.ErrorResponse
-// @Failure   500  {object}  model.ErrorResponse
-// @Router    /v1/resources/{identifier} [Get]
+//	@security	Authentication
+//	@Summary	Retrieve a resource
+//	@Tags		Resource
+//	@Produce	json
+//	@Success	200	{object}	model.Resource
+//	@Failure	404	{object}	model.ErrorResponse
+//	@Failure	500	{object}	model.ErrorResponse
+//	@Router		/v1/resources/{identifier} [Get]
 func ResourceGet(
 	resourceManager manager.Resource,
 ) fiber.Handler {
@@ -162,15 +162,15 @@ func ResourceGet(
 
 // Updates a resource.
 //
-// @security  Authentication
-// @Summary   Updates a resource
-// @Tags      Resource
-// @Produce   json
-// @Param     default  body            UpdateResourceRequest  true  "Resource update request"
-// @Success   200            {object}  model.Resource
-// @Failure   400            {object}  model.ErrorResponse
-// @Failure   500            {object}  model.ErrorResponse
-// @Router    /v1/resources/{identifier} [Put]
+//	@security	Authentication
+//	@Summary	Updates a resource
+//	@Tags		Resource
+//	@Produce	json
+//	@Param		default	body		UpdateResourceRequest	true	"Resource update request"
+//	@Success	200		{object}	model.Resource
+//	@Failure	400		{object}	model.ErrorResponse
+//	@Failure	500		{object}	model.ErrorResponse
+//	@Router		/v1/resources/{identifier} [Put]
 func ResourceUpdate(
 	validate *validator.Validate,
 	resourceManager manager.Resource,
@@ -205,14 +205,14 @@ func ResourceUpdate(
 
 // Deletes a resource.
 //
-// @security  Authentication
-// @Summary   Deletes a resource
-// @Tags      Resource
-// @Produce   json
-// @Success   200  {object}  model.Resource
-// @Failure   400  {object}  model.ErrorResponse
-// @Failure   500  {object}  model.ErrorResponse
-// @Router    /v1/resources/{identifier} [Delete]
+//	@security	Authentication
+//	@Summary	Deletes a resource
+//	@Tags		Resource
+//	@Produce	json
+//	@Success	200	{object}	model.Resource
+//	@Failure	400	{object}	model.ErrorResponse
+//	@Failure	500	{object}	model.ErrorResponse
+//	@Router		/v1/resources/{identifier} [Delete]
 func ResourceDelete(
 	resourceManager manager.Resource,
 ) fiber.Handler {

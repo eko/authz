@@ -697,6 +697,40 @@ paths:
       summary: Retrieve a client
       tags:
       - Client
+  /v1/oauth:
+    get:
+      responses:
+        "302":
+          description: Found
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Authenticates a user using an OAuth OpenID Connect provider
+      tags:
+      - Auth
+  /v1/oauth/callback:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Callback of the OAuth OpenID Connect provider authentication
+      tags:
+      - Auth
   /v1/policies:
     get:
       parameters:

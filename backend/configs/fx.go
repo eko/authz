@@ -14,6 +14,7 @@ func FxModule() fx.Option {
 			func(cfg *Base) *GRPCServer { return cfg.GRPCServer },
 			func(cfg *Base) *HTTPServer { return cfg.HTTPServer },
 			func(cfg *Base) *Logger { return cfg.Logger },
+			func(cfg *Base) *OAuth { return cfg.OAuth },
 			func(cfg *Base) *User { return cfg.User },
 		),
 	)

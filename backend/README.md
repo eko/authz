@@ -54,6 +54,13 @@ Here are the available configuration options available as environment variable:
 | HTTP_SERVER_CORS_CACHE_MAX_AGE | `12h` | CORS cache max age value to be returned by server |
 | LOGGER_LEVEL | `INFO` | Log level, could be `DEBUG`, `INFO`, `WARN` or `ERROR` |
 | USER_ADMIN_DEFAULT_PASSWORD | `changeme` | Default admin password updated on app launch |
+| OAUTH_CLIENT_ID | N/A | OAuth client ID provided by your issuer |
+| OAUTH_CLIENT_SECRET | N/A | OAuth client Secret provider by your issuer |
+| OAUTH_COOKIES_DOMAIN_NAME | `localhost` | OAuth domain name on which cookies will be stored |
+| OAUTH_FRONTEND_REDIRECT_URL | `http://localhost:3000` | Frontend redirect URL when OAuth authentication is successful |
+| OAUTH_ISSUER_URL | N/A | Issuer OpenID Connect URL (will be used to retrieve /.well-known/openid-configuration) |
+| OAUTH_REDIRECT_URL | `[12h](http://localhost:8080/v1/oauth/callback)` | Backend OAuth callback URL |
+| OAUTH_SCOPES | `profile,email` | OAuth scopes to be retrieved from your issuer |
 
 ## Tests
 

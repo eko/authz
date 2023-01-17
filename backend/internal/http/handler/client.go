@@ -20,15 +20,15 @@ type ClientCreateRequest struct {
 
 // Creates a new client
 //
-// @security  Authentication
-// @Summary   Creates a new client
-// @Tags      Client
-// @Produce   json
-// @Param     default  body            ClientCreateRequest  true  "Client creation request"
-// @Success   200            {object}  model.Client
-// @Failure   400            {object}  model.ErrorResponse
-// @Failure   500            {object}  model.ErrorResponse
-// @Router    /v1/clients [Post]
+//	@security	Authentication
+//	@Summary	Creates a new client
+//	@Tags		Client
+//	@Produce	json
+//	@Param		default	body		ClientCreateRequest	true	"Client creation request"
+//	@Success	200		{object}	model.Client
+//	@Failure	400		{object}	model.ErrorResponse
+//	@Failure	500		{object}	model.ErrorResponse
+//	@Router		/v1/clients [Post]
 func ClientCreate(
 	validate *validator.Validate,
 	clientManager manager.Client,
@@ -58,18 +58,18 @@ func ClientCreate(
 
 // Lists clients.
 //
-// @security  Authentication
-// @Summary   Lists clients
-// @Tags      Client
-// @Produce   json
-// @Param     page    query            int            false                   "page number"      example(1)
-// @Param     size    query            int            false                   "page size"          minimum(1)  maximum(1000)  default(100)
-// @Param     filter  query            string  false  "filter on a field"                    example(name:contains:something)
-// @Param     sort    query            string  false  "sort field and order"  example(name:desc)
-// @Success   200            {object}  []model.Client
-// @Failure   400            {object}  model.ErrorResponse
-// @Failure   500            {object}  model.ErrorResponse
-// @Router    /v1/clients [Get]
+//	@security	Authentication
+//	@Summary	Lists clients
+//	@Tags		Client
+//	@Produce	json
+//	@Param		page	query		int		false	"page number"			example(1)
+//	@Param		size	query		int		false	"page size"				minimum(1)	maximum(1000)	default(100)
+//	@Param		filter	query		string	false	"filter on a field"		example(name:contains:something)
+//	@Param		sort	query		string	false	"sort field and order"	example(name:desc)
+//	@Success	200		{object}	[]model.Client
+//	@Failure	400		{object}	model.ErrorResponse
+//	@Failure	500		{object}	model.ErrorResponse
+//	@Router		/v1/clients [Get]
 func ClientList(
 	clientManager manager.Client,
 ) fiber.Handler {
@@ -96,14 +96,14 @@ func ClientList(
 
 // Retrieve a client.
 //
-// @security  Authentication
-// @Summary   Retrieve a client
-// @Tags      Client
-// @Produce   json
-// @Success   200  {object}  model.Client
-// @Failure   404  {object}  model.ErrorResponse
-// @Failure   500  {object}  model.ErrorResponse
-// @Router    /v1/clients/{identifier} [Get]
+//	@security	Authentication
+//	@Summary	Retrieve a client
+//	@Tags		Client
+//	@Produce	json
+//	@Success	200	{object}	model.Client
+//	@Failure	404	{object}	model.ErrorResponse
+//	@Failure	500	{object}	model.ErrorResponse
+//	@Router		/v1/clients/{identifier} [Get]
 func ClientGet(
 	clientManager manager.Client,
 ) fiber.Handler {
@@ -130,14 +130,14 @@ func ClientGet(
 
 // Deletes a client.
 //
-// @security  Authentication
-// @Summary   Deletes a client
-// @Tags      Client
-// @Produce   json
-// @Success   200  {object}  model.Client
-// @Failure   400  {object}  model.ErrorResponse
-// @Failure   500  {object}  model.ErrorResponse
-// @Router    /v1/clients/{identifier} [Delete]
+//	@security	Authentication
+//	@Summary	Deletes a client
+//	@Tags		Client
+//	@Produce	json
+//	@Success	200	{object}	model.Client
+//	@Failure	400	{object}	model.ErrorResponse
+//	@Failure	500	{object}	model.ErrorResponse
+//	@Router		/v1/clients/{identifier} [Delete]
 func ClientDelete(
 	clientManager manager.Client,
 ) fiber.Handler {

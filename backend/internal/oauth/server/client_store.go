@@ -1,4 +1,4 @@
-package oauth
+package server
 
 import (
 	"context"

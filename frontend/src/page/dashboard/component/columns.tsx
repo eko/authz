@@ -15,7 +15,7 @@ export const AuditColumns = (): GridColDef[] => [
           return (<i>Unknown</i>);
         }
 
-        const date = moment(params.row.created_at);
+        const date = moment(params.row.date);
         return (
           <div>
             {date.format('L')} at {date.format('LTS')}
@@ -52,7 +52,7 @@ export const AuditColumns = (): GridColDef[] => [
         (operator) => operator.value === 'contains',
       ),
       renderCell: (params: GridRenderCellParams) => {
-        return (
+        return params.row.policy_id === '' ? 'None' : (
           <List dense>
             <ListItemButton dense component='a' href={`/policies/edit/${params.row.policy_id}`}>
               <ListItemIcon>

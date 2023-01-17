@@ -26,15 +26,15 @@ type UpdatePrincipalRequest struct {
 
 // Creates a new principal.
 //
-// @security  Authentication
-// @Summary   Creates a new principal
-// @Tags      Principal
-// @Produce   json
-// @Param     default  body            CreatePrincipalRequest  true  "Principal creation request"
-// @Success   200            {object}  model.Principal
-// @Failure   400            {object}  model.ErrorResponse
-// @Failure   500            {object}  model.ErrorResponse
-// @Router    /v1/principals [Post]
+//	@security	Authentication
+//	@Summary	Creates a new principal
+//	@Tags		Principal
+//	@Produce	json
+//	@Param		default	body		CreatePrincipalRequest	true	"Principal creation request"
+//	@Success	200		{object}	model.Principal
+//	@Failure	400		{object}	model.ErrorResponse
+//	@Failure	500		{object}	model.ErrorResponse
+//	@Router		/v1/principals [Post]
 func PrincipalCreate(
 	validate *validator.Validate,
 	principalManager manager.Principal,
@@ -64,18 +64,18 @@ func PrincipalCreate(
 
 // Lists principals.
 //
-// @security  Authentication
-// @Summary   Lists principals
-// @Tags      Principal
-// @Produce   json
-// @Param     page    query            int            false                   "page number"      example(1)
-// @Param     size    query            int            false                   "page size"          minimum(1)  maximum(1000)  default(100)
-// @Param     filter  query            string  false  "filter on a field"                    example(name:contains:something)
-// @Param     sort    query            string  false  "sort field and order"  example(name:desc)
-// @Success   200            {object}  []model.Principal
-// @Failure   400            {object}  model.ErrorResponse
-// @Failure   500            {object}  model.ErrorResponse
-// @Router    /v1/principals [Get]
+//	@security	Authentication
+//	@Summary	Lists principals
+//	@Tags		Principal
+//	@Produce	json
+//	@Param		page	query		int		false	"page number"			example(1)
+//	@Param		size	query		int		false	"page size"				minimum(1)	maximum(1000)	default(100)
+//	@Param		filter	query		string	false	"filter on a field"		example(name:contains:something)
+//	@Param		sort	query		string	false	"sort field and order"	example(name:desc)
+//	@Success	200		{object}	[]model.Principal
+//	@Failure	400		{object}	model.ErrorResponse
+//	@Failure	500		{object}	model.ErrorResponse
+//	@Router		/v1/principals [Get]
 func PrincipalList(
 	principalManager manager.Principal,
 ) fiber.Handler {
@@ -103,14 +103,14 @@ func PrincipalList(
 
 // Retrieve a principal.
 //
-// @security  Authentication
-// @Summary   Retrieve a principal
-// @Tags      Principal
-// @Produce   json
-// @Success   200  {object}  model.Principal
-// @Failure   404  {object}  model.ErrorResponse
-// @Failure   500  {object}  model.ErrorResponse
-// @Router    /v1/principals/{identifier} [Get]
+//	@security	Authentication
+//	@Summary	Retrieve a principal
+//	@Tags		Principal
+//	@Produce	json
+//	@Success	200	{object}	model.Principal
+//	@Failure	404	{object}	model.ErrorResponse
+//	@Failure	500	{object}	model.ErrorResponse
+//	@Router		/v1/principals/{identifier} [Get]
 func PrincipalGet(
 	principalManager manager.Principal,
 ) fiber.Handler {
@@ -140,15 +140,15 @@ func PrincipalGet(
 
 // Updates a principal.
 //
-// @security  Authentication
-// @Summary   Updates a principal
-// @Tags      Principal
-// @Produce   json
-// @Param     default  body            UpdatePrincipalRequest  true  "Principal update request"
-// @Success   200            {object}  model.Principal
-// @Failure   400            {object}  model.ErrorResponse
-// @Failure   500            {object}  model.ErrorResponse
-// @Router    /v1/principals/{identifier} [Put]
+//	@security	Authentication
+//	@Summary	Updates a principal
+//	@Tags		Principal
+//	@Produce	json
+//	@Param		default	body		UpdatePrincipalRequest	true	"Principal update request"
+//	@Success	200		{object}	model.Principal
+//	@Failure	400		{object}	model.ErrorResponse
+//	@Failure	500		{object}	model.ErrorResponse
+//	@Router		/v1/principals/{identifier} [Put]
 func PrincipalUpdate(
 	validate *validator.Validate,
 	principalManager manager.Principal,
@@ -183,14 +183,14 @@ func PrincipalUpdate(
 
 // Deletes a principal.
 //
-// @security  Authentication
-// @Summary   Deletes a principal
-// @Tags      Principal
-// @Produce   json
-// @Success   200  {object}  model.Principal
-// @Failure   400  {object}  model.ErrorResponse
-// @Failure   500  {object}  model.ErrorResponse
-// @Router    /v1/principals/{identifier} [Delete]
+//	@security	Authentication
+//	@Summary	Deletes a principal
+//	@Tags		Principal
+//	@Produce	json
+//	@Success	200	{object}	model.Principal
+//	@Failure	400	{object}	model.ErrorResponse
+//	@Failure	500	{object}	model.ErrorResponse
+//	@Router		/v1/principals/{identifier} [Delete]
 func PrincipalDelete(
 	principalManager manager.Principal,
 ) fiber.Handler {

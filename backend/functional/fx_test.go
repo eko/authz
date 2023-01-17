@@ -36,7 +36,6 @@ func FxApp() *fx.App {
 		database.FxModule(),
 		entity.FxModule(),
 		event.FxModule(),
-		// helper.FxModule(),
 		http.FxModule(),
 		log.FxModule(),
 		oauth.FxModule(),
@@ -67,17 +66,14 @@ func FxApp() *fx.App {
 			func(cfg *configs.Base) *configs.App {
 				return cfg.App
 			},
-			func(cfg *configs.Base) *configs.Database {
-				return cfg.Database
-			},
-			func(cfg *configs.Base) *configs.HTTPServer {
-				return cfg.HTTPServer
-			},
+			func(cfg *configs.Base) *configs.Auth { return cfg.Auth },
+			func(cfg *configs.Base) *configs.Database { return cfg.Database },
+			func(cfg *configs.Base) *configs.HTTPServer { return cfg.HTTPServer },
 			func(cfg *configs.Base) *configs.Logger {
 				cfg.Logger.Level = "ERROR"
 				return cfg.Logger
 			},
-			func(cfg *configs.Base) *configs.Auth { return cfg.Auth },
+			func(cfg *configs.Base) *configs.OAuth { return cfg.OAuth },
 			func(cfg *configs.Base) *configs.User { return cfg.User },
 		),
 
