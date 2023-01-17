@@ -11,7 +11,7 @@ COPY ./tsconfig.json .
 RUN npm install && \
     npm run build
 
-FROM nginx:1.23-alpine
+FROM nginxinc/nginx-unprivileged:1.23-alpine
 
 COPY --from=builder /app/build /usr/share/nginx/html
 COPY ./.docker/vhost.conf /etc/nginx/conf.d/default.conf

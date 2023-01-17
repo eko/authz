@@ -18,6 +18,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM alpine:3.17
 
+RUN adduser -S app
+USER app
+
 COPY --from=builder /project/authz /authz
 
 CMD [ "/authz" ]
