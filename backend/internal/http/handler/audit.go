@@ -11,18 +11,18 @@ import (
 
 // Retrieve audits for last days
 //
-// @security  Authentication
-// @Summary   Retrieve audits for last days
-// @Tags      Check
-// @Produce   json
-// @Param     page    query            int            false                   "page number"      example(1)
-// @Param     size    query            int            false                   "page size"          minimum(1)  maximum(1000)  default(100)
-// @Param     filter  query            string  false  "filter on a field"                    example(kind:contains:something)
-// @Param     sort    query            string  false  "sort field and order"  example(kind:desc)
-// @Success   200            {object}  []model.Audit
-// @Failure   400            {object}  model.ErrorResponse
-// @Failure   500            {object}  model.ErrorResponse
-// @Router    /v1/audits [Get]
+//	@security	Authentication
+//	@Summary	Retrieve audits for last days
+//	@Tags		Check
+//	@Produce	json
+//	@Param		page	query		int		false	"page number"			example(1)
+//	@Param		size	query		int		false	"page size"				minimum(1)	maximum(1000)	default(100)
+//	@Param		filter	query		string	false	"filter on a field"		example(kind:contains:something)
+//	@Param		sort	query		string	false	"sort field and order"	example(kind:desc)
+//	@Success	200		{object}	[]model.Audit
+//	@Failure	400		{object}	model.ErrorResponse
+//	@Failure	500		{object}	model.ErrorResponse
+//	@Router		/v1/audits [Get]
 func AuditGet(
 	auditManager manager.Audit,
 ) fiber.Handler {

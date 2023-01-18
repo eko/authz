@@ -1,5 +1,6 @@
-import { Grid, InputAdornment, TextField, Typography } from '@mui/material';
+import { Button, Divider, Grid, InputAdornment, TextField, Typography } from '@mui/material';
 import Paper from '@mui/material/Paper';
+import { getOauthButtonLabel, getOauthLogoUrl, isOauthEnabled } from 'service/common/oauth';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import LoginIcon from '@mui/icons-material/Login';
 import PinIcon from '@mui/icons-material/Pin';
@@ -8,6 +9,7 @@ import { useNavigate } from 'react-router';
 import AnonymousLayout from 'layout/AnonymousLayout';
 import useSigninForm from 'form/signin';
 import { LoadingButton } from '@mui/lab';
+import { baseUrl } from 'service/common/api';
 
 export default function SigninPage() {
   const navigate = useNavigate();
@@ -19,6 +21,8 @@ export default function SigninPage() {
     errors,
     isSubmitting,
   } = useSigninForm(navigate);
+
+  const handleOauthButtonClick = () => window.location.href = baseUrl() + '/oauth';
 
   return (
     <AnonymousLayout>
@@ -33,6 +37,26 @@ export default function SigninPage() {
               <Typography variant="h3" gutterBottom sx={{ textAlign: 'center', marginBottom: 4 }}>
                   Sign In
               </Typography>
+
+              {isOauthEnabled() ? (
+                <>
+                  <Button
+                    onClick={handleOauthButtonClick}
+                    type='button'
+                    variant='outlined'
+                    startIcon={getOauthLogoUrl() ? (
+                      <img src={getOauthLogoUrl()} height='24' alt='' title='' />
+                    ) : (
+                      <LoginIcon />
+                    )}
+                    sx={{ marginTop: 2 }}
+                  >
+                    {getOauthButtonLabel()}
+                  </Button>
+
+                  <Divider sx={{ mt: 2, mb: 2 }} />
+                </>
+              ) : null}
 
               <TextField {...register('username')}
                 label='Username'

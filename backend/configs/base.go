@@ -19,6 +19,7 @@ type Base struct {
 	Logger     *Logger
 	GRPCServer *GRPCServer
 	HTTPServer *HTTPServer
+	OAuth      *OAuth
 	User       *User
 }
 
@@ -30,6 +31,7 @@ func Load(ctx context.Context) *Base {
 		Logger:     newLogger(),
 		GRPCServer: newGRPCServer(),
 		HTTPServer: newHTTPServer(),
+		OAuth:      newOAuth(),
 		User:       newUser(),
 	}
 

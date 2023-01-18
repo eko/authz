@@ -24,6 +24,7 @@ type DataTableProps<T> = {
   fetcher: FetcherFunc<T>
   columns: GridColDef[]
   defaultSize?: number
+  forcedSort?: SortRequest
   title?: string
   sx?: SxProps
   getRowId?: getRowId<T>
@@ -37,6 +38,7 @@ export default function DataTable<T>({
   fetcher,
   columns,
   defaultSize = 10,
+  forcedSort,
   title,
   sx,
   getRowId,
@@ -50,6 +52,7 @@ export default function DataTable<T>({
   const [filter, setFilter] = useState<FilterRequest>();
   const [total, setTotal] = useState(0);
   const [rows, setRows] = useState<T[]>([]);
+  const [forcedSortModel, setForcedSortModel] = useState<GridSortModel>([]);
 
   useEffect(() => {
     const fetch = async () => {
@@ -70,9 +73,22 @@ export default function DataTable<T>({
   // eslint-disable-next-line
   }, [size, page, sort, filter]);
 
+  useEffect(() => {
+    if (forcedSort === undefined) {
+      return;
+    }
+
+    setSort(forcedSort);
+    setForcedSortModel([
+      {field: forcedSort?.field, sort: forcedSort?.order},
+    ]);
+  }, [forcedSort]);
+
   const handleOnPageChange = (page: number) => setPage(page);
 
   const handleOnSortModelChange = useCallback((sortModel: GridSortModel) => {
+    setForcedSortModel(sortModel);
+
     if (sortModel.length !== 1) {
       setSort(undefined);
       return;
@@ -136,6 +152,7 @@ export default function DataTable<T>({
             rowCount={total}
             rows={rows}
             rowsPerPageOptions={[5,10,20,30,50,100]}
+            sortModel={forcedSortModel}
             sortingMode='server'
             sx={sx}
         />

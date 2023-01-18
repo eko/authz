@@ -3,6 +3,7 @@ module github.com/eko/authz/backend
 go 1.19
 
 require (
+	github.com/coreos/go-oidc/v3 v3.5.0
 	github.com/cucumber/godog v0.12.5
 	github.com/glebarez/sqlite v1.6.0
 	github.com/go-oauth2/oauth2/v4 v4.5.1
@@ -21,6 +22,7 @@ require (
 	go.uber.org/fx v1.18.2
 	golang.org/x/crypto v0.4.0
 	golang.org/x/exp v0.0.0-20221208152030-732eee02a75a
+	golang.org/x/oauth2 v0.3.0
 	google.golang.org/grpc v1.51.0
 	google.golang.org/protobuf v1.28.1
 	gorm.io/datatypes v1.1.0
@@ -39,6 +41,7 @@ require (
 	github.com/cucumber/messages-go/v16 v16.0.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/glebarez/go-sqlite v1.20.0 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.19.6 // indirect
 	github.com/go-openapi/spec v0.20.4 // indirect
@@ -77,7 +80,6 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/net v0.5.0 // indirect
-	golang.org/x/oauth2 v0.0.0-20210218202405-ba52d332ba99 // indirect
 	golang.org/x/sys v0.4.0 // indirect
 	golang.org/x/text v0.6.0 // indirect
 	golang.org/x/tools v0.5.0 // indirect

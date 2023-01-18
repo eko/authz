@@ -9,7 +9,7 @@ div.MuiDataGrid-columnHeaders {
     color: #ffffff;
 }
 
-button.MuiIconButton-root {
+div.MuiDataGrid-columnHeaders button.MuiIconButton-root {
     color: #ffffff;
     opacity: 0.9;
 }
