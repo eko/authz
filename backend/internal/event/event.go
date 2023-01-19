@@ -22,5 +22,5 @@ type CheckEvent struct {
 	ResourceValue  string
 	Action         string
 	IsAllowed      bool
-	CompiledPilicy *model.CompiledPolicy
+	CompiledPolicy *model.CompiledPolicy
 }

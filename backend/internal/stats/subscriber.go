@@ -2,6 +2,7 @@ package stats
 
 import (
 	"context"
+	"regexp"
 	"time"
 
 	"github.com/eko/authz/backend/configs"
@@ -13,10 +14,11 @@ import (
 )
 
 type subscriber struct {
-	logger          *slog.Logger
-	dispatcher      event.Dispatcher
-	statsManager    manager.Stats
-	statsFlushDelay time.Duration
+	logger            *slog.Logger
+	dispatcher        event.Dispatcher
+	statsManager      manager.Stats
+	statsFlushDelay   time.Duration
+	resourceKindRegex *regexp.Regexp
 }
 
 func NewSubscriber(
@@ -26,10 +28,11 @@ func NewSubscriber(
 	statsManager manager.Stats,
 ) *subscriber {
 	return &subscriber{
-		logger:          logger,
-		dispatcher:      dispatcher,
-		statsManager:    statsManager,
-		statsFlushDelay: cfg.StatsFlushDelay,
+		logger:            logger,
+		dispatcher:        dispatcher,
+		statsManager:      statsManager,
+		statsFlushDelay:   cfg.StatsFlushDelay,
+		resourceKindRegex: regexp.MustCompile(cfg.StatsResourceKindRegex),
 	}
 }
 
@@ -83,8 +86,15 @@ func (s *subscriber) handleCheckEvents(eventChan chan *event.Event) {
 		}
 	}, spooler.WithFlushInterval(s.statsFlushDelay))
 
-	for event := range eventChan {
-		spooler.Add(event)
+	for eventItem := range eventChan {
+		checkEvent, ok := eventItem.Data.(*event.CheckEvent)
+		if !ok {
+			continue
+		}
+
+		if s.resourceKindRegex.MatchString(checkEvent.ResourceKind) {
+			spooler.Add(eventItem)
+		}
 	}
 }
 
