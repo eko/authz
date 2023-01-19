@@ -58,6 +58,9 @@ func (s *Server) setRoutes() {
 		clients.Get("/:identifier", s.authorized("authz.clients", "get", s.handlers.Get(handler.ClientGetKey))...)
 		clients.Delete("/:identifier", s.authorized("authz.clients", "delete", s.handlers.Get(handler.ClientDeleteKey))...)
 
+		compiled := authenticated.Group("/compiled")
+		compiled.Get("", s.authorized("authz.compiled", "list", s.handlers.Get(handler.CompiledListKey))...)
+
 		policies := authenticated.Group("/policies")
 		policies.Post("", s.authorized("authz.policies", "create", s.handlers.Get(handler.PolicyCreateKey))...)
 		policies.Get("", s.authorized("authz.policies", "list", s.handlers.Get(handler.PolicyListKey))...)

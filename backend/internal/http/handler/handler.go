@@ -21,10 +21,11 @@ const (
 	AuthAuthenticateKey  = "auth-authenticate"
 	AuthTokenNewKey      = "auth-token-new"
 	CheckKey             = "check"
-	ClientCreateKey      = "client-create-key"
-	ClientDeleteKey      = "client-delete-key"
-	ClientGetKey         = "client-get-key"
-	ClientListKey        = "client-list-key"
+	ClientCreateKey      = "client-create"
+	ClientDeleteKey      = "client-delete"
+	ClientGetKey         = "client-get"
+	ClientListKey        = "client-list"
+	CompiledListKey      = "compiled-list"
 	OAuthAuthenticateKey = "oauth-authenticate"
 	OAuthCallbackKey     = "oauth-callback"
 	PolicyCreateKey      = "policy-create"
@@ -48,10 +49,10 @@ const (
 	RoleListKey          = "role-list"
 	RoleUpdateKey        = "role-update"
 	StatsGetKey          = "stats-get"
-	UserCreateKey        = "user-create-key"
-	UserDeleteKey        = "user-delete-key"
-	UserGetKey           = "user-get-key"
-	UserListKey          = "user-list-key"
+	UserCreateKey        = "user-create"
+	UserDeleteKey        = "user-delete"
+	UserGetKey           = "user-get"
+	UserListKey          = "user-list"
 )
 
 type Handler fiber.Handler
@@ -92,6 +93,7 @@ func NewHandlers(
 		ClientDeleteKey:      ClientDelete(clientManager),
 		ClientGetKey:         ClientGet(clientManager),
 		ClientListKey:        ClientList(clientManager),
+		CompiledListKey:      CompiledList(compiledManager),
 		OAuthAuthenticateKey: OAuthAuthenticate(oauthClientManager, tokenGenerator),
 		OAuthCallbackKey:     OAuthCallback(jwtManager, oauthClientManager, principalManager),
 		PolicyCreateKey:      PolicyCreate(validate, policyManager),

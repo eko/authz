@@ -21,6 +21,7 @@ var (
 		"actions":    {"list", "get"},
 		"audits":     {"get"},
 		"clients":    {"list", "get", "create", "delete"},
+		"compiled":   {"list"},
 		"policies":   {"list", "get", "create", "update", "delete"},
 		"principals": {"list", "get", "create", "update", "delete"},
 		"resources":  {"list", "get", "create", "update", "delete"},
