@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"regexp"
 	"time"
 
 	"github.com/eko/authz/backend/configs"
@@ -14,10 +15,11 @@ import (
 )
 
 type subscriber struct {
-	logger          *slog.Logger
-	dispatcher      event.Dispatcher
-	auditManager    manager.Audit
-	auditFlushDelay time.Duration
+	logger            *slog.Logger
+	dispatcher        event.Dispatcher
+	auditManager      manager.Audit
+	flushDelay        time.Duration
+	resourceKindRegex *regexp.Regexp
 }
 
 func NewSubscriber(
@@ -27,10 +29,11 @@ func NewSubscriber(
 	auditManager manager.Audit,
 ) *subscriber {
 	return &subscriber{
-		logger:          logger,
-		dispatcher:      dispatcher,
-		auditManager:    auditManager,
-		auditFlushDelay: cfg.AuditFlushDelay,
+		logger:            logger,
+		dispatcher:        dispatcher,
+		auditManager:      auditManager,
+		flushDelay:        cfg.AuditFlushDelay,
+		resourceKindRegex: regexp.MustCompile(cfg.AuditResourceKindRegex),
 	}
 }
 
@@ -81,8 +84,8 @@ func (s *subscriber) handleCheckEvents(eventChan chan *event.Event) {
 				IsAllowed:     checkEvent.IsAllowed,
 			}
 
-			if checkEvent.CompiledPilicy != nil {
-				audit.PolicyID = checkEvent.CompiledPilicy.PolicyID
+			if checkEvent.CompiledPolicy != nil {
+				audit.PolicyID = checkEvent.CompiledPolicy.PolicyID
 			}
 
 			audits = append(audits, audit)
@@ -91,10 +94,17 @@ func (s *subscriber) handleCheckEvents(eventChan chan *event.Event) {
 		if err := s.auditManager.BatchAdd(audits); err != nil {
 			s.logger.Error("Audit: unable to batch add audit events", err)
 		}
-	}, spooler.WithFlushInterval(s.auditFlushDelay))
+	}, spooler.WithFlushInterval(s.flushDelay))
 
-	for event := range eventChan {
-		spooler.Add(event)
+	for eventItem := range eventChan {
+		checkEvent, ok := eventItem.Data.(*event.CheckEvent)
+		if !ok {
+			continue
+		}
+
+		if s.resourceKindRegex.MatchString(checkEvent.ResourceKind) {
+			spooler.Add(eventItem)
+		}
 	}
 }
 

@@ -93,7 +93,7 @@ func (m *compiledPolicyManager) IsAllowed(principalID string, resourceKind strin
 		ResourceValue:  resourceValue,
 		Action:         actionID,
 		IsAllowed:      isAllowed,
-		CompiledPilicy: compiledPolicy,
+		CompiledPolicy: compiledPolicy,
 	}); err != nil {
 		m.logger.Error("unable to dispatch check event", err)
 	}
