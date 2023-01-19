@@ -286,6 +286,25 @@ definitions:
       updated_at:
         type: string
     type: object
+  model.CompiledPolicy:
+    properties:
+      action_id:
+        type: string
+      created_at:
+        type: string
+      policy_id:
+        type: string
+      principal_id:
+        type: string
+      resource_kind:
+        type: string
+      resource_value:
+        type: string
+      updated_at:
+        type: string
+      version:
+        type: integer
+    type: object
   model.ErrorResponse:
     properties:
       error:
@@ -875,6 +894,30 @@ paths:
       security:
       - Authentication: []
       summary: Updates a policy
+      tags:
+      - Policy
+  /v1/policies/{identifier}/matches:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.CompiledPolicy'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - Authentication: []
+      summary: Retrieve compiled policies
       tags:
       - Policy
   /v1/principals:
