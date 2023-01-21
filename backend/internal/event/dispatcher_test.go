@@ -49,7 +49,7 @@ func TestDispatcher_Dispatch_WhenNoSubscriber(t *testing.T) {
 	result := dispatcher.Dispatch(EventTypePrincipal, data)
 
 	// Then
-	assert.Equal(t, ErrNoSubscriberForEventType, result)
+	assert.Nil(t, result)
 }
 
 func TestDispatcher_Dispatch_WhenSubscriber(t *testing.T) {

@@ -9,6 +9,7 @@ const (
 	EventTypePolicy    EventType = "policy"
 	EventTypePrincipal EventType = "principal"
 	EventTypeResource  EventType = "resource"
+	EventTypeRole      EventType = "role"
 )
 
 type Event struct {
@@ -23,4 +24,16 @@ type CheckEvent struct {
 	Action         string
 	IsAllowed      bool
 	CompiledPolicy *model.CompiledPolicy
+}
+
+type ItemAction string
+
+const (
+	ItemActionCreate ItemAction = "create"
+	ItemActionUpdate ItemAction = "update"
+)
+
+type ItemEvent struct {
+	Action ItemAction
+	Data   any
 }

@@ -83,7 +83,10 @@ func (m *principalManager) Create(identifier string, roles []string, attributes 
 		return nil, fmt.Errorf("unable to create principal: %v", err)
 	}
 
-	if err := m.dispatcher.Dispatch(event.EventTypePrincipal, principal.ID); err != nil {
+	if err := m.dispatcher.Dispatch(event.EventTypePrincipal, &event.ItemEvent{
+		Action: event.ItemActionCreate,
+		Data:   principal,
+	}); err != nil {
 		return nil, fmt.Errorf("unable to dispatch event: %v", err)
 	}
 
@@ -136,7 +139,10 @@ func (m *principalManager) Update(identifier string, roles []string, attributes 
 		return nil, fmt.Errorf("unable to create principal: %v", err)
 	}
 
-	if err := m.dispatcher.Dispatch(event.EventTypePrincipal, principal.ID); err != nil {
+	if err := m.dispatcher.Dispatch(event.EventTypePrincipal, &event.ItemEvent{
+		Action: event.ItemActionUpdate,
+		Data:   principal,
+	}); err != nil {
 		_ = transaction.Rollback()
 		return nil, fmt.Errorf("unable to dispatch event: %v", err)
 	}

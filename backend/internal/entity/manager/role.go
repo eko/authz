@@ -7,6 +7,7 @@ import (
 	"github.com/eko/authz/backend/internal/database"
 	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/eko/authz/backend/internal/entity/repository"
+	"github.com/eko/authz/backend/internal/event"
 	"gorm.io/gorm"
 )
 
@@ -23,6 +24,7 @@ type roleManager struct {
 	repository         RoleRepository
 	policyRepository   PolicyRepository
 	transactionManager database.TransactionManager
+	dispatcher         event.Dispatcher
 }
 
 // NewRole initializes a new role manager.
@@ -30,11 +32,13 @@ func NewRole(
 	repository RoleRepository,
 	policyRepository PolicyRepository,
 	transactionManager database.TransactionManager,
+	dispatcher event.Dispatcher,
 ) Role {
 	return &roleManager{
 		repository:         repository,
 		policyRepository:   policyRepository,
 		transactionManager: transactionManager,
+		dispatcher:         dispatcher,
 	}
 }
 
@@ -74,6 +78,13 @@ func (m *roleManager) Create(identifier string, policies []string) (*model.Role,
 
 	if err := m.repository.Create(role); err != nil {
 		return nil, fmt.Errorf("unable to create role: %v", err)
+	}
+
+	if err := m.dispatcher.Dispatch(event.EventTypeRole, &event.ItemEvent{
+		Action: event.ItemActionCreate,
+		Data:   role,
+	}); err != nil {
+		return nil, fmt.Errorf("unable to dispatch event: %v", err)
 	}
 
 	return role, nil
@@ -124,6 +135,14 @@ func (m *roleManager) Update(identifier string, policies []string) (*model.Role,
 	if err := roleRepository.Update(role); err != nil {
 		_ = transaction.Rollback()
 		return nil, fmt.Errorf("unable to update role: %v", err)
+	}
+
+	if err := m.dispatcher.Dispatch(event.EventTypeRole, &event.ItemEvent{
+		Action: event.ItemActionUpdate,
+		Data:   role,
+	}); err != nil {
+		_ = transaction.Rollback()
+		return nil, fmt.Errorf("unable to dispatch event: %v", err)
 	}
 
 	return role, nil
