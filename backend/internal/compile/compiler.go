@@ -30,9 +30,9 @@ func WithPrincipals(principals ...*model.Principal) CompileOption {
 }
 
 type Compiler interface {
-	CompilePolicy(identifier string) error
-	CompilePrincipal(identifier string) error
-	CompileResource(identifier string) error
+	CompilePolicy(policy *model.Policy) error
+	CompilePrincipal(principal *model.Principal) error
+	CompileResource(resource *model.Resource) error
 }
 
 type compiler struct {
@@ -59,9 +59,9 @@ func NewCompiler(
 	}
 }
 
-func (c *compiler) CompilePolicy(identifier string) error {
+func (c *compiler) CompilePolicy(policy *model.Policy) error {
 	policy, err := c.policyManager.GetRepository().Get(
-		identifier,
+		policy.ID,
 		repository.WithPreloads("Resources", "Actions"),
 	)
 	if err != nil {
@@ -352,8 +352,8 @@ func (c *compiler) retrievePrincipals(rule *attribute.Rule) ([]*model.Principal,
 	return allPrincipals, nil
 }
 
-func (c *compiler) CompilePrincipal(identifier string) error {
-	principal, err := c.principalManager.GetRepository().Get(identifier)
+func (c *compiler) CompilePrincipal(principal *model.Principal) error {
+	principal, err := c.principalManager.GetRepository().Get(principal.ID)
 	if err != nil {
 		return fmt.Errorf("cannot retrieve principal: %v", err)
 	}
@@ -392,8 +392,8 @@ func (c *compiler) CompilePrincipal(identifier string) error {
 	})
 }
 
-func (c *compiler) CompileResource(identifier string) error {
-	resource, err := c.resourceManager.GetRepository().Get(identifier)
+func (c *compiler) CompileResource(resource *model.Resource) error {
+	resource, err := c.resourceManager.GetRepository().Get(resource.ID)
 	if err != nil {
 		return fmt.Errorf("cannot retrieve resource: %v", err)
 	}

@@ -7,6 +7,7 @@ package compile
 import (
 	reflect "reflect"
 
+	model "github.com/eko/authz/backend/internal/entity/model"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -34,43 +35,43 @@ func (m *MockCompiler) EXPECT() *MockCompilerMockRecorder {
 }
 
 // CompilePolicy mocks base method.
-func (m *MockCompiler) CompilePolicy(identifier string) error {
+func (m *MockCompiler) CompilePolicy(policy *model.Policy) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CompilePolicy", identifier)
+	ret := m.ctrl.Call(m, "CompilePolicy", policy)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CompilePolicy indicates an expected call of CompilePolicy.
-func (mr *MockCompilerMockRecorder) CompilePolicy(identifier interface{}) *gomock.Call {
+func (mr *MockCompilerMockRecorder) CompilePolicy(policy interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompilePolicy", reflect.TypeOf((*MockCompiler)(nil).CompilePolicy), identifier)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompilePolicy", reflect.TypeOf((*MockCompiler)(nil).CompilePolicy), policy)
 }
 
 // CompilePrincipal mocks base method.
-func (m *MockCompiler) CompilePrincipal(identifier string) error {
+func (m *MockCompiler) CompilePrincipal(principal *model.Principal) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CompilePrincipal", identifier)
+	ret := m.ctrl.Call(m, "CompilePrincipal", principal)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CompilePrincipal indicates an expected call of CompilePrincipal.
-func (mr *MockCompilerMockRecorder) CompilePrincipal(identifier interface{}) *gomock.Call {
+func (mr *MockCompilerMockRecorder) CompilePrincipal(principal interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompilePrincipal", reflect.TypeOf((*MockCompiler)(nil).CompilePrincipal), identifier)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompilePrincipal", reflect.TypeOf((*MockCompiler)(nil).CompilePrincipal), principal)
 }
 
 // CompileResource mocks base method.
-func (m *MockCompiler) CompileResource(identifier string) error {
+func (m *MockCompiler) CompileResource(resource *model.Resource) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CompileResource", identifier)
+	ret := m.ctrl.Call(m, "CompileResource", resource)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CompileResource indicates an expected call of CompileResource.
-func (mr *MockCompilerMockRecorder) CompileResource(identifier interface{}) *gomock.Call {
+func (mr *MockCompilerMockRecorder) CompileResource(resource interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompileResource", reflect.TypeOf((*MockCompiler)(nil).CompileResource), identifier)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompileResource", reflect.TypeOf((*MockCompiler)(nil).CompileResource), resource)
 }

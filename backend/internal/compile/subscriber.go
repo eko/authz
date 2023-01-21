@@ -3,6 +3,7 @@ package compile
 import (
 	"context"
 
+	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/eko/authz/backend/internal/event"
 	"go.uber.org/fx"
 	"golang.org/x/exp/slog"
@@ -54,36 +55,57 @@ func (s *subscriber) subscribeToPolicies(lc fx.Lifecycle) {
 }
 
 func (s *subscriber) handlePolicyEvents(eventChan chan *event.Event) {
-	for event := range eventChan {
-		if err := s.compiler.CompilePolicy(event.Data.(string)); err != nil {
+	for eventItem := range eventChan {
+		itemEvent, ok := eventItem.Data.(*event.ItemEvent)
+		if !ok {
+			continue
+		}
+
+		policy := itemEvent.Data.(*model.Policy)
+
+		if err := s.compiler.CompilePolicy(policy); err != nil {
 			s.logger.Warn(
 				"Compiler: unable to compile policy",
 				err,
-				slog.Any("policy_id", event.Data.(string)),
+				slog.Any("policy_id", policy.ID),
 			)
 		}
 	}
 }
 
 func (s *subscriber) handleResourceEvents(eventChan chan *event.Event) {
-	for event := range eventChan {
-		if err := s.compiler.CompileResource(event.Data.(string)); err != nil {
+	for eventItem := range eventChan {
+		itemEvent, ok := eventItem.Data.(*event.ItemEvent)
+		if !ok {
+			continue
+		}
+
+		resource := itemEvent.Data.(*model.Resource)
+
+		if err := s.compiler.CompileResource(resource); err != nil {
 			s.logger.Warn(
 				"Compiler: unable to compile resource",
 				err,
-				slog.Any("policy_id", event.Data.(string)),
+				slog.Any("policy_id", resource.ID),
 			)
 		}
 	}
 }
 
 func (s *subscriber) handlePrincipalEvents(eventChan chan *event.Event) {
-	for event := range eventChan {
-		if err := s.compiler.CompilePrincipal(event.Data.(string)); err != nil {
+	for eventItem := range eventChan {
+		itemEvent, ok := eventItem.Data.(*event.ItemEvent)
+		if !ok {
+			continue
+		}
+
+		principal := itemEvent.Data.(*model.Principal)
+
+		if err := s.compiler.CompilePrincipal(principal); err != nil {
 			s.logger.Warn(
 				"Compiler: unable to compile principal",
 				err,
-				slog.Any("policy_id", event.Data.(string)),
+				slog.Any("policy_id", principal.ID),
 			)
 		}
 	}

@@ -13,3 +13,7 @@ Here is some Authz topics to help you have a better view on how to use it.
 * ### [Username / Password](./authentication/user.md)
 
 * ### [OAuth - OpenID Connect](./authentication/oauth.md)
+
+## Observability
+
+* ### [Metrics](./observability/metrics.md)

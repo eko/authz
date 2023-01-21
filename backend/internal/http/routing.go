@@ -6,9 +6,11 @@ import (
 	_ "github.com/eko/authz/backend/internal/http/docs"
 	"github.com/eko/authz/backend/internal/http/handler"
 	"github.com/eko/authz/backend/internal/http/middleware"
+	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/swagger"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Is to define the swagger route and the dynamic swagger routes
@@ -16,13 +18,13 @@ func (s *Server) setSwagger() {
 	s.app.Get("/swagger/*", swagger.HandlerDefault)
 }
 
-//	@title						Authz API
-//	@version					1.0
-//	@description				Authorization management HTTP APIs
-//	@securitydefinitions.apikey	Authentication
-//	@in							header
-//	@name						Authorization
-//	@BasePath					/v1
+// @title						Authz API
+// @version					1.0
+// @description				Authorization management HTTP APIs
+// @securitydefinitions.apikey	Authentication
+// @in							header
+// @name						Authorization
+// @BasePath					/v1
 func (s *Server) setRoutes() {
 	s.app.Use(
 		cors.New(cors.Config{
@@ -36,11 +38,16 @@ func (s *Server) setRoutes() {
 
 	base := s.app.Group("/v1")
 	{
+		// Authentication
 		base.Post("/auth", s.handlers.Get(handler.AuthAuthenticateKey))
 		base.Get("/oauth", s.handlers.Get(handler.OAuthAuthenticateKey))
 		base.Get("/oauth/callback", s.handlers.Get(handler.OAuthCallbackKey))
 		base.Post("/token", s.handlers.Get(handler.AuthTokenNewKey))
 
+		// Observability
+		base.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
+
+		// Authz resources
 		authenticated := base.Use(s.middlewares.Get(middleware.AuthenticationKey))
 
 		authenticated.Post("/check", s.handlers.Get(handler.CheckKey))

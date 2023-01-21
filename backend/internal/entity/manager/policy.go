@@ -70,7 +70,10 @@ func (m *policyManager) Create(identifier string, resources []string, actions []
 		return nil, fmt.Errorf("unable to create policy: %v", err)
 	}
 
-	if err := m.dispatcher.Dispatch(event.EventTypePolicy, policy.ID); err != nil {
+	if err := m.dispatcher.Dispatch(event.EventTypePolicy, &event.ItemEvent{
+		Action: event.ItemActionCreate,
+		Data:   policy,
+	}); err != nil {
 		return nil, fmt.Errorf("unable to dispatch event: %v", err)
 	}
 
@@ -120,7 +123,10 @@ func (m *policyManager) Update(identifier string, resources []string, actions []
 		return nil, fmt.Errorf("unable to update policy: %v", err)
 	}
 
-	if err := m.dispatcher.Dispatch(event.EventTypePolicy, policy.ID); err != nil {
+	if err := m.dispatcher.Dispatch(event.EventTypePolicy, &event.ItemEvent{
+		Action: event.ItemActionUpdate,
+		Data:   policy,
+	}); err != nil {
 		_ = transaction.Rollback()
 		return nil, fmt.Errorf("unable to dispatch event: %v", err)
 	}

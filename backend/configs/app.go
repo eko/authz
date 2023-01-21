@@ -8,6 +8,7 @@ type App struct {
 	AuditFlushDelay            time.Duration `config:"app_audit_flush_delay"`
 	AuditResourceKindRegex     string        `config:"app_audit_resource_kind_regex"`
 	DispatcherEventChannelSize int           `config:"dispatcher_event_channel_size"`
+	MetricsEnabled             bool          `config:"app_metrics_enabled"`
 	StatsCleanDelay            time.Duration `config:"app_stats_clean_delay"`
 	StatsCleanDaysToKeep       int           `config:"app_stats_clean_days_to_keep"`
 	StatsFlushDelay            time.Duration `config:"app_stats_flush_delay"`
@@ -21,6 +22,7 @@ func newApp() *App {
 		AuditFlushDelay:            3 * time.Second,
 		AuditResourceKindRegex:     `.*`,
 		DispatcherEventChannelSize: 10000,
+		MetricsEnabled:             false,
 		StatsCleanDelay:            1 * time.Hour,
 		StatsCleanDaysToKeep:       30,
 		StatsFlushDelay:            3 * time.Second,

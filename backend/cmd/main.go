@@ -16,6 +16,7 @@ import (
 	"github.com/eko/authz/backend/internal/http"
 	"github.com/eko/authz/backend/internal/log"
 	"github.com/eko/authz/backend/internal/oauth"
+	"github.com/eko/authz/backend/internal/observability"
 	"github.com/eko/authz/backend/internal/security"
 	"github.com/eko/authz/backend/internal/stats"
 	"go.uber.org/fx"
@@ -38,6 +39,7 @@ func main() {
 		log.FxModule(),
 		entity.FxModule(),
 		oauth.FxModule(),
+		observability.FxModule(),
 		security.FxModule(),
 		stats.FxModule(),
 

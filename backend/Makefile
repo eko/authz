@@ -62,6 +62,7 @@ test-mocks: ## Generate unit test mocks
 	mockgen -source=internal/helper/time/clock.go -destination=internal/helper/time/clock_mock.go -package=time
 	mockgen -source=internal/helper/token/generator.go -destination=internal/helper/token/generator_mock.go -package=token
 	mockgen -source=internal/security/jwt/manager.go -destination=internal/security/jwt/manager_mock.go -package=jwt
+	mockgen -source=internal/observability/metric/observer.go -destination=internal/observability/metric/observer_mock.go -package=metric
 
 test-unit: ## Run unit tests
 	go test -count=1 -race -v ./...

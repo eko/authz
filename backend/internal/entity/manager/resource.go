@@ -86,7 +86,10 @@ func (m *resourceManager) Create(identifier string, kind string, value string, a
 		return nil, fmt.Errorf("unable to create resource: %v", err)
 	}
 
-	if err := m.dispatcher.Dispatch(event.EventTypeResource, resource.ID); err != nil {
+	if err := m.dispatcher.Dispatch(event.EventTypeResource, &event.ItemEvent{
+		Action: event.ItemActionCreate,
+		Data:   resource,
+	}); err != nil {
 		return nil, fmt.Errorf("unable to dispatch event: %v", err)
 	}
 
@@ -136,7 +139,10 @@ func (m *resourceManager) Update(identifier string, kind string, value string, a
 		return nil, fmt.Errorf("unable to update resource: %v", err)
 	}
 
-	if err := m.dispatcher.Dispatch(event.EventTypeResource, resource.ID); err != nil {
+	if err := m.dispatcher.Dispatch(event.EventTypeResource, &event.ItemEvent{
+		Action: event.ItemActionUpdate,
+		Data:   resource,
+	}); err != nil {
 		_ = transaction.Rollback()
 		return nil, fmt.Errorf("unable to dispatch event: %v", err)
 	}

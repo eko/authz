@@ -39,7 +39,7 @@ func NewDispatcher(
 func (n *dispatcher) Dispatch(eventType EventType, data any) error {
 	eventChanSlice, ok := n.subscribers.Load(eventType)
 	if !ok {
-		return ErrNoSubscriberForEventType
+		return nil
 	}
 
 	eventChans, ok := eventChanSlice.([]chan *Event)
