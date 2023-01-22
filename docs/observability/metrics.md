@@ -4,7 +4,7 @@ Authz comes with observability instrumentation and some metrics you can retrieve
 
 ## How to enable
 
-In order to enable metrics in Authz backend, you have to simple enable it using `APP_METRICS_ENABLE=true` environment variable.
+In order to enable metrics in Authz backend, you have to simple enable it using `APP_METRICS_ENABLED=true` environment variable.
 
 Once you will launch the backend, your metrics should be able to be scrapped using `/v1/metrics` endpoint.
 

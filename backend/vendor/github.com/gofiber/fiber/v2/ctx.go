@@ -553,6 +553,7 @@ func (c *Ctx) FormFile(key string) (*multipart.FileHeader, error) {
 }
 
 // FormValue returns the first value by key from a MultipartForm.
+// Search is performed in QueryArgs, PostArgs, MultipartForm and FormFile in this particular order.
 // Defaults to the empty string "" if the form value doesn't exist.
 // If a default value is given, it will return that value if the form value does not exist.
 // Returned value is only valid within the handler. Do not store any references.
@@ -1437,7 +1438,10 @@ func (c *Ctx) renderExtensions(bind interface{}) {
 		// Bind view map
 		if c.viewBindMap != nil {
 			for _, v := range c.viewBindMap.D {
-				bindMap[v.Key] = v.Value
+				// make sure key does not exist already
+				if _, ok := bindMap[v.Key]; !ok {
+					bindMap[v.Key] = v.Value
+				}
 			}
 		}
 
@@ -1744,13 +1748,14 @@ func (c *Ctx) IsProxyTrusted() bool {
 		return true
 	}
 
-	_, trusted := c.app.config.trustedProxiesMap[c.fasthttp.RemoteIP().String()]
-	if trusted {
-		return trusted
+	ip := c.fasthttp.RemoteIP()
+
+	if _, trusted := c.app.config.trustedProxiesMap[ip.String()]; trusted {
+		return true
 	}
 
 	for _, ipNet := range c.app.config.trustedProxyRanges {
-		if ipNet.Contains(c.fasthttp.RemoteIP()) {
+		if ipNet.Contains(ip) {
 			return true
 		}
 	}

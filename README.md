@@ -28,6 +28,8 @@ You can use both Role-Based Acccess Control (RBAC) and Attribute-Based Access Co
 
 🔐  Single Sign-On: Use your enterprise SSO to log into the web UI, using OpenID Connect
 
+🕵️‍♂️  Observability: Retrieve metrics and tracing data into your prefered tools
+
 ## How it works?
 
 Authorization is simple: a `principal` wants to make an `action` on a `resource`. That's it.

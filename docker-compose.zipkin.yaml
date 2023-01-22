@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  zipkin:
+    image: openzipkin/zipkin:2.24.0
+    ports:
+      - 9411:9411
+    volumes:
+      - zipkin-data:/zipkin
+
+volumes:
+  zipkin-data:

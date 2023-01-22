@@ -16,4 +16,6 @@ Here is some Authz topics to help you have a better view on how to use it.
 
 ## Observability
 
-* ### [Metrics](./observability/metrics.md)
+* ### [Metrics (Prometheus)](./observability/metrics.md)
+
+* ### [Tracing (Jaeger, Zipkin or OTLP)](./observability/tracing.md)

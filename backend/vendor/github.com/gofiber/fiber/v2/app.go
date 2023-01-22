@@ -9,6 +9,7 @@ package fiber
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -27,7 +28,7 @@ import (
 )
 
 // Version of current fiber package
-const Version = "2.40.1"
+const Version = "2.41.0"
 
 // Handler defines a function to serve HTTP requests.
 type Handler = func(*Ctx) error
@@ -585,12 +586,11 @@ func New(config ...Config) *App {
 func (app *App) handleTrustedProxy(ipAddress string) {
 	if strings.Contains(ipAddress, "/") {
 		_, ipNet, err := net.ParseCIDR(ipAddress)
-
 		if err != nil {
-			fmt.Printf("[Warning] IP range `%s` could not be parsed. \n", ipAddress)
+			fmt.Printf("[Warning] IP range %q could not be parsed: %v\n", ipAddress, err)
+		} else {
+			app.config.trustedProxyRanges = append(app.config.trustedProxyRanges, ipNet)
 		}
-
-		app.config.trustedProxyRanges = append(app.config.trustedProxyRanges, ipNet)
 	} else {
 		app.config.trustedProxiesMap[ipAddress] = struct{}{}
 	}
@@ -839,12 +839,30 @@ func (app *App) HandlersCount() uint32 {
 }
 
 // Shutdown gracefully shuts down the server without interrupting any active connections.
-// Shutdown works by first closing all open listeners and then waiting indefinitely for all connections to return to idle and then shut down.
+// Shutdown works by first closing all open listeners and then waiting indefinitely for all connections to return to idle before shutting down.
 //
 // Make sure the program doesn't exit and waits instead for Shutdown to return.
 //
 // Shutdown does not close keepalive connections so its recommended to set ReadTimeout to something else than 0.
 func (app *App) Shutdown() error {
+	return app.shutdownWithContext(context.Background())
+}
+
+// ShutdownWithTimeout gracefully shuts down the server without interrupting any active connections. However, if the timeout is exceeded,
+// ShutdownWithTimeout will forcefully close any active connections.
+// ShutdownWithTimeout works by first closing all open listeners and then waiting for all connections to return to idle before shutting down.
+//
+// Make sure the program doesn't exit and waits instead for ShutdownWithTimeout to return.
+//
+// ShutdownWithTimeout does not close keepalive connections so its recommended to set ReadTimeout to something else than 0.
+func (app *App) ShutdownWithTimeout(timeout time.Duration) error {
+	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+	defer cancelFunc()
+	return app.shutdownWithContext(ctx)
+}
+
+// shutdownWithContext shuts down the server including by force if the context's deadline is exceeded.
+func (app *App) shutdownWithContext(ctx context.Context) error {
 	if app.hooks != nil {
 		defer app.hooks.executeOnShutdownHooks()
 	}
@@ -854,7 +872,7 @@ func (app *App) Shutdown() error {
 	if app.server == nil {
 		return fmt.Errorf("shutdown: server is not running")
 	}
-	return app.server.Shutdown()
+	return app.server.ShutdownWithContext(ctx)
 }
 
 // Server returns the underlying fasthttp server
@@ -1032,7 +1050,7 @@ func (app *App) serverErrorHandler(fctx *fasthttp.RequestCtx, err error) {
 	} else if strings.Contains(err.Error(), "timeout") {
 		err = ErrRequestTimeout
 	} else {
-		err = ErrBadRequest
+		err = NewError(StatusBadRequest, err.Error())
 	}
 
 	if catch := app.ErrorHandler(c, err); catch != nil {
