@@ -76,7 +76,7 @@ $ docker run --rm \
     -p 8080:8080 \
     -p 8081:8081 \
     -p 3000:80 \
-    ekofr/authz:v0.5.0-standalone
+    ekofr/authz:v0.6.0-standalone
 ```
 
 Here, we use SQLite in-memory as database.
