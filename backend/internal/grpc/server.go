@@ -11,6 +11,7 @@ import (
 	"github.com/eko/authz/backend/internal/security/jwt"
 	"github.com/eko/authz/backend/pkg/authz"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/fx"
 	"golang.org/x/exp/slog"
 	"google.golang.org/grpc"
@@ -57,10 +58,12 @@ func NewServer(
 
 	grpcServer := grpc.NewServer(
 		grpc.ChainStreamInterceptor(
+			otelgrpc.StreamServerInterceptor(),
 			grpc_auth.StreamServerInterceptor(authenticateFunc),
 			interceptor.AuthorizationStreamServerInterceptor(authorizationFunc),
 		),
 		grpc.ChainUnaryInterceptor(
+			otelgrpc.UnaryServerInterceptor(),
 			interceptor.AuthenticationUnaryServerInterceptor(
 				grpc_auth.UnaryServerInterceptor(authenticateFunc),
 			),

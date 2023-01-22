@@ -7,6 +7,7 @@ import (
 	"github.com/eko/authz/backend/internal/http/handler"
 	"github.com/eko/authz/backend/internal/http/middleware"
 	"github.com/gofiber/adaptor/v2"
+	"github.com/gofiber/contrib/otelfiber"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/swagger"
@@ -34,6 +35,7 @@ func (s *Server) setRoutes() {
 			AllowCredentials: s.cfg.CORSAllowCredentials,
 			MaxAge:           int(s.cfg.CORSCacheMaxAge.Seconds()),
 		}),
+		otelfiber.Middleware(),
 	)
 
 	base := s.app.Group("/v1")

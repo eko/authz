@@ -13,6 +13,13 @@ type App struct {
 	StatsCleanDaysToKeep       int           `config:"app_stats_clean_days_to_keep"`
 	StatsFlushDelay            time.Duration `config:"app_stats_flush_delay"`
 	StatsResourceKindRegex     string        `config:"app_stats_resource_kind_regex"`
+	TraceEnabled               bool          `config:"app_trace_enabled"`
+	TraceExporter              string        `config:"app_trace_exporter"`
+	TraceJaegerURL             string        `config:"app_trace_jaeger_url"`
+	TraceOtlpDialTimeout       time.Duration `config:"app_trace_otlp_dial_timeout"`
+	TraceOtlpEndpoint          string        `config:"app_trace_otlp_endpoint"`
+	TraceZipkinURL             string        `config:"app_trace_zipkin_url"`
+	TraceSampleRatio           float64       `config:"app_trace_sample_ratio"`
 }
 
 func newApp() *App {
@@ -27,5 +34,12 @@ func newApp() *App {
 		StatsCleanDaysToKeep:       30,
 		StatsFlushDelay:            3 * time.Second,
 		StatsResourceKindRegex:     `.*`,
+		TraceEnabled:               false,
+		TraceExporter:              "jaeger",
+		TraceJaegerURL:             "http://localhost:14268/api/traces",
+		TraceOtlpDialTimeout:       3 * time.Second,
+		TraceOtlpEndpoint:          "localhost:30080",
+		TraceZipkinURL:             "http://localhost:9411/api/v2/spans",
+		TraceSampleRatio:           1.0,
 	}
 }

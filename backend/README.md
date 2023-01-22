@@ -31,6 +31,13 @@ Here are the available configuration options available as environment variable:
 | APP_AUDIT_FLUSH_DELAY | `3s` | Delay in which audit logs will be batch into database |
 | APP_AUDIT_RESOURCE_KIND_REGEX | `.*` | Filter which resource kind will be added on audit logs |
 | APP_METRICS_ENABLED | `false` | Enable Prometheus metrics observability (available under `/v1/metrics` URL) |
+| APP_TRACE_ENABLED | `false` | Enable tracing observability using OpenTelemetry |
+| APP_TRACE_EXPORTER | `jaeger` | Exporter you want to use. Could be `jaeger`, `zipkin` or `otlpgrpc` |
+| APP_TRACE_JAEGER_URL | `http://localhost:14268/api/traces` | Jaeger API URL to be used |
+| APP_TRACE_OTLP_DIAL_TIMEOUT | `3s` | OTLP gRPC exporter dial timeout value |
+| APP_TRACE_OTLP_ENDPOINT | `localhost:30080` | OTLP gRPC endpoint value |
+| APP_TRACE_SAMPLE_RATIO | `1.0` | Sampling ratio value defines how many traces should be sent to your exporter |
+| APP_TRACE_ZIPKIN_URL | `http://localhost:9411/api/v2/spans` | Zipkin API URL to be used |
 | APP_STATS_CLEAN_DAYS_TO_KEEP | `30` | Statistics number of days to keep in database |
 | APP_STATS_CLEAN_DELAY | `1h` | Statistics clean delay |
 | APP_STATS_FLUSH_DELAY | `3s` | Delay in which statistics will be batch into database |
