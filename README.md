@@ -56,9 +56,10 @@ You can run a development environment using our [`docker-compose.mysql.yaml`](ht
 
 In order to help you, we have the following available SDKs:
 
-* [Go](https://github.com/eko/authz/tree/master/sdk)
-* [Python](https://github.com/eko/authz-python-sdk)
-* [PHP](https://github.com/eko/authz-php-sdk)
+* [Go](https://github.com/eko/authz/tree/master/sdk) - [pkg.go.dev](https://pkg.go.dev/github.com/eko/authz/sdk)
+* [Python](https://github.com/eko/authz-python-sdk) - [pypi](https://pypi.org/project/authz-sdk/)
+* [PHP](https://github.com/eko/authz-php-sdk) - [packagist](https://packagist.org/packages/eko/authz-sdk)
+* [NodeJS](https://github.com/eko/authz-nodejs-sdk) - [npmjs](https://www.npmjs.com/package/@eko/authz-sdk)
 
 Please check their documentations for detailled usage. They all use `gRPC` for communicating with the Authz backend (server-to-server).
 
