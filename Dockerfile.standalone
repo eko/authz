@@ -19,8 +19,10 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 FROM node:19.4-alpine as frontend-builder
 
 ARG REACT_APP_API_BASE_URI=http://localhost:8080/v1
+ARG REACT_APP_DEMO_ENABLED=false
 
 ENV REACT_APP_API_BASE_URI=$REACT_APP_API_BASE_URI
+ENV REACT_APP_DEMO_ENABLED=$REACT_APP_DEMO_ENABLED
 
 WORKDIR /app
 

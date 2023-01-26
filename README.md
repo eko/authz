@@ -30,6 +30,8 @@ You can use both Role-Based Acccess Control (RBAC) and Attribute-Based Access Co
 
 🕵️‍♂️  Observability: Retrieve metrics and tracing data into your prefered tools
 
+More information on [authz.fr](https://authz.fr)
+
 ## How it works?
 
 Authorization is simple: a `principal` wants to make an `action` on a `resource`. That's it.
