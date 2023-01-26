@@ -4,7 +4,10 @@ Authz is a backend server for managing authorizations using RBAC or ABAC.
 
 ## How it works
 
-![How it works](./howitworks.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="howitworks.dark.png">
+  <img alt="Text changing depending on mode. Light: 'So light!' Dark: 'So dark!'" src="howitworks.png">
+</picture>
 
 Authz backend runs in the middle of your services infrastructure. It only communicates with its database.
 

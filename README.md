@@ -37,8 +37,8 @@ Authorization is simple: a `principal` wants to make an `action` on a `resource`
 Authz allows you to manage all the authorizations you want to manage. All of them, centralized in a single application.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture/howitworks.dark.svg">
-  <img alt="Text changing depending on mode. Light: 'So light!' Dark: 'So dark!'" src="docs/architecture/howitworks.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture/howitworks.dark.png">
+  <img alt="Text changing depending on mode. Light: 'So light!' Dark: 'So dark!'" src="docs/architecture/howitworks.png">
 </picture>
 
 All you need to do is to host the backend server (a Go single binary), the frontend (static files) if you want it and use our SDKs.
