@@ -90,7 +90,7 @@ Alternatively, we also have separated `backend` and `frontend` Docker images ava
 
 ## Documentation
 
-More technical documentations are available under the [docs](./docs/index.md) directory.
+More technical documentations are available at [https://docs.authz.fr](https://docs.authz.fr).
 
 ## Backend
 

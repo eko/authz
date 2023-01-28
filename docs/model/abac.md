@@ -1,29 +1,12 @@
-# Data model
-
-Authz is a backend server for managing authorizations using RBAC or ABAC.
-
-## Model explanation
-
-1. First, you have to declare `principals` (optionnally with some attributes). They can be your users, group of users or event a service account,
-2. Then, your services have to declare `resources` (optionnally with some attributes) as soon as they are created (for instance an article in a CMS),
-3. By using the UI, the HTTP API or event the SDK, you can then declare `roles` and `policies`,
-4. Finally, you can check for a `principal` to make an `action` on a specific `resource`.
-
-## Using RBAC
-
-![Model Diagram](./model.rbac.svg)
-
-You can give `roles` to `principals` in order to give them authorization to do action on resources.
-
-This can be done because a `role` contains a set of `policies`.
-
-## Using ABAC
+# Using Attribute-Based Access Control (ABAC)
 
 ![Model Diagram](./model.abac.svg)
 
 You can give a `principal` authorization to do action on resources depending on resources attributes, without having to give him a `role`.
 
 This can be done by creating a `policy` that contains some `attribute_rules`.
+
+## Attribute rules
 
 Attribute rules can have multiple formats.
 
