@@ -3,8 +3,249 @@ package attribute
 import (
 	"testing"
 
+	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestRule_MatchPrincipal(t *testing.T) {
+	// Given
+	testCases := []struct {
+		name       string
+		attributes model.Attributes
+		rule       *Rule
+		expected   bool
+	}{
+		{
+			name:       "Empty attributes and rules",
+			attributes: model.Attributes{},
+			rule:       &Rule{},
+			expected:   true,
+		},
+		{
+			name: "Attributes matching > rule",
+			attributes: model.Attributes{
+				{Key: "my_attribute", Value: "50"},
+			},
+			rule: &Rule{
+				PrincipalAttribute: "my_attribute",
+				Operator:           RuleOperatorGreater,
+				Value:              "40",
+			},
+			expected: true,
+		},
+		{
+			name: "Attributes not matching >= rule when equal",
+			attributes: model.Attributes{
+				{Key: "my_attribute", Value: "50"},
+			},
+			rule: &Rule{
+				PrincipalAttribute: "my_attribute",
+				Operator:           RuleOperatorGreaterEqual,
+				Value:              "50",
+			},
+			expected: true,
+		},
+		{
+			name: "Attributes not matching >= rule when greater",
+			attributes: model.Attributes{
+				{Key: "my_attribute", Value: "51"},
+			},
+			rule: &Rule{
+				PrincipalAttribute: "my_attribute",
+				Operator:           RuleOperatorGreaterEqual,
+				Value:              "50",
+			},
+			expected: true,
+		},
+		{
+			name: "Attributes not matching > rule",
+			attributes: model.Attributes{
+				{Key: "my_attribute", Value: "50"},
+			},
+			rule: &Rule{
+				PrincipalAttribute: "my_attribute",
+				Operator:           RuleOperatorGreater,
+				Value:              "60",
+			},
+			expected: false,
+		},
+		{
+			name: "Attributes matching < rule",
+			attributes: model.Attributes{
+				{Key: "my_attribute", Value: "50"},
+			},
+			rule: &Rule{
+				PrincipalAttribute: "my_attribute",
+				Operator:           RuleOperatorLower,
+				Value:              "60",
+			},
+			expected: true,
+		},
+		{
+			name: "Attributes matching <= rule when equal",
+			attributes: model.Attributes{
+				{Key: "my_attribute", Value: "50"},
+			},
+			rule: &Rule{
+				PrincipalAttribute: "my_attribute",
+				Operator:           RuleOperatorLowerEqual,
+				Value:              "50",
+			},
+			expected: true,
+		},
+		{
+			name: "Attributes matching <= rule when lower",
+			attributes: model.Attributes{
+				{Key: "my_attribute", Value: "49"},
+			},
+			rule: &Rule{
+				PrincipalAttribute: "my_attribute",
+				Operator:           RuleOperatorLowerEqual,
+				Value:              "50",
+			},
+			expected: true,
+		},
+		{
+			name: "Attributes not matching < rule",
+			attributes: model.Attributes{
+				{Key: "my_attribute", Value: "50"},
+			},
+			rule: &Rule{
+				PrincipalAttribute: "my_attribute",
+				Operator:           RuleOperatorLower,
+				Value:              "40",
+			},
+			expected: false,
+		},
+	}
+
+	// When - Then
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			assert.Equal(t, testCase.expected, testCase.rule.MatchPrincipal(testCase.attributes))
+		})
+	}
+}
+
+func TestRule_MatchResource(t *testing.T) {
+	// Given
+	testCases := []struct {
+		name       string
+		attributes model.Attributes
+		rule       *Rule
+		expected   bool
+	}{
+		{
+			name:       "Empty attributes and rules",
+			attributes: model.Attributes{},
+			rule:       &Rule{},
+			expected:   true,
+		},
+		{
+			name: "Attributes matching > rule",
+			attributes: model.Attributes{
+				{Key: "my_attribute", Value: "50"},
+			},
+			rule: &Rule{
+				ResourceAttribute: "my_attribute",
+				Operator:          RuleOperatorGreater,
+				Value:             "40",
+			},
+			expected: true,
+		},
+		{
+			name: "Attributes not matching >= rule when equal",
+			attributes: model.Attributes{
+				{Key: "my_attribute", Value: "50"},
+			},
+			rule: &Rule{
+				ResourceAttribute: "my_attribute",
+				Operator:          RuleOperatorGreaterEqual,
+				Value:             "50",
+			},
+			expected: true,
+		},
+		{
+			name: "Attributes not matching >= rule when greater",
+			attributes: model.Attributes{
+				{Key: "my_attribute", Value: "51"},
+			},
+			rule: &Rule{
+				ResourceAttribute: "my_attribute",
+				Operator:          RuleOperatorGreaterEqual,
+				Value:             "50",
+			},
+			expected: true,
+		},
+		{
+			name: "Attributes not matching > rule",
+			attributes: model.Attributes{
+				{Key: "my_attribute", Value: "50"},
+			},
+			rule: &Rule{
+				ResourceAttribute: "my_attribute",
+				Operator:          RuleOperatorGreater,
+				Value:             "60",
+			},
+			expected: false,
+		},
+		{
+			name: "Attributes matching < rule",
+			attributes: model.Attributes{
+				{Key: "my_attribute", Value: "50"},
+			},
+			rule: &Rule{
+				ResourceAttribute: "my_attribute",
+				Operator:          RuleOperatorLower,
+				Value:             "60",
+			},
+			expected: true,
+		},
+		{
+			name: "Attributes matching <= rule when equal",
+			attributes: model.Attributes{
+				{Key: "my_attribute", Value: "50"},
+			},
+			rule: &Rule{
+				ResourceAttribute: "my_attribute",
+				Operator:          RuleOperatorLowerEqual,
+				Value:             "50",
+			},
+			expected: true,
+		},
+		{
+			name: "Attributes matching <= rule when lower",
+			attributes: model.Attributes{
+				{Key: "my_attribute", Value: "49"},
+			},
+			rule: &Rule{
+				ResourceAttribute: "my_attribute",
+				Operator:          RuleOperatorLowerEqual,
+				Value:             "50",
+			},
+			expected: true,
+		},
+		{
+			name: "Attributes not matching < rule",
+			attributes: model.Attributes{
+				{Key: "my_attribute", Value: "50"},
+			},
+			rule: &Rule{
+				ResourceAttribute: "my_attribute",
+				Operator:          RuleOperatorLower,
+				Value:             "40",
+			},
+			expected: false,
+		},
+	}
+
+	// When - Then
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			assert.Equal(t, testCase.expected, testCase.rule.MatchResource(testCase.attributes))
+		})
+	}
+}
 
 func TestConvertStringToRuleOperator(t *testing.T) {
 	testCases := []struct {

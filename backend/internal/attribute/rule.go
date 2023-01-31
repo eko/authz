@@ -3,14 +3,17 @@ package attribute
 import (
 	"errors"
 	"regexp"
+	"strconv"
 	"strings"
+
+	"github.com/eko/authz/backend/internal/entity/model"
 )
 
 var (
 	resourceAttributeRegexp  = regexp.MustCompile(`(resource\.)(.+)`)
 	principalAttributeRegexp = regexp.MustCompile(`(principal\.)(.+)`)
 
-	ruleRegexp = regexp.MustCompile(`([resource|principal]?\.?.+)\s?(==|!=)\s?([resource|principal]?\.?.+)`)
+	ruleRegexp = regexp.MustCompile(`([resource|principal]?\.?.+)\s?(==|!=|>|<)\s?([resource|principal]?\.?.+)`)
 
 	// ErrInvalidRuleFormat is returned when a rule format is invalid.
 	ErrInvalidRuleFormat = errors.New("rule is invalid: should have at least one resource.<attribute> or a principal.<attribute>")
@@ -22,6 +25,22 @@ const (
 	// RuleOperatorEqual represents an equal attribute rule.
 	// For example: my.owner_id == 123
 	RuleOperatorEqual RuleOperator = "=="
+
+	// RuleOperatorGreater represents a greater value attribute rule.
+	// For example: my.number > 123
+	RuleOperatorGreater RuleOperator = ">"
+
+	// RuleOperatorGreater represents a greater or equal value attribute rule.
+	// For example: my.number >= 123
+	RuleOperatorGreaterEqual RuleOperator = ">="
+
+	// RuleOperatorLower represents a lower value attribute rule.
+	// For example: my.number < 123
+	RuleOperatorLower RuleOperator = "<"
+
+	// RuleOperatorLowerEqual represents a lower or equal value attribute rule.
+	// For example: my.number <= 123
+	RuleOperatorLowerEqual RuleOperator = "<="
 
 	// RuleOperatorEqual represents a NOT equal attribute rule.
 	// For example: my.owner_id != 123
@@ -38,6 +57,59 @@ type Rule struct {
 	PrincipalAttribute string       `json:"principal_attribute"`
 	Operator           RuleOperator `json:"operator"`
 	Value              string       `json:"Value"`
+}
+
+func (r *Rule) MatchPrincipal(attributes model.Attributes) bool {
+	value := attributes.GetAttribute(r.PrincipalAttribute)
+
+	if r.PrincipalAttribute == "" || value == "" {
+		return true
+	}
+
+	return r.match(value)
+}
+
+func (r *Rule) MatchResource(attributes model.Attributes) bool {
+	value := attributes.GetAttribute(r.ResourceAttribute)
+
+	if r.ResourceAttribute == "" || value == "" {
+		return true
+	}
+
+	return r.match(value)
+}
+
+func (r *Rule) match(value string) bool {
+	switch r.Operator {
+	case RuleOperatorEqual:
+		return value == r.Value
+	case RuleOperatorGreater, RuleOperatorGreaterEqual, RuleOperatorLower, RuleOperatorLowerEqual:
+		intValue, valueErr := strconv.ParseInt(value, 10, 0)
+		ruleIntValue, ruleValueErr := strconv.ParseInt(r.Value, 10, 0)
+
+		if valueErr != nil || ruleValueErr != nil {
+			return false
+		}
+
+		switch r.Operator {
+		case RuleOperatorGreater:
+			return intValue > ruleIntValue
+		case RuleOperatorGreaterEqual:
+			return intValue >= ruleIntValue
+		case RuleOperatorLower:
+			return intValue < ruleIntValue
+		case RuleOperatorLowerEqual:
+			return intValue <= ruleIntValue
+		default:
+			return false
+		}
+
+	case RuleOperatorNotEqual:
+		return value != r.Value
+
+	default:
+		return false
+	}
 }
 
 // ToString converts the rule structure to string.

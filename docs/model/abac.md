@@ -15,6 +15,10 @@ First, you can check for both resource and principal attribute names:
 ```
 resource.<attribute_name> == principal.<attribute_name>
 resource.<attribute_name> != principal.<attribute_name>
+resource.<attribute_name> > principal.<attribute_name>
+resource.<attribute_name> >= principal.<attribute_name>
+resource.<attribute_name> < principal.<attribute_name>
+resource.<attribute_name> <= principal.<attribute_name>
 ```
 
 Or, you can check for a specific value of a resource attribute:
@@ -22,6 +26,10 @@ Or, you can check for a specific value of a resource attribute:
 ```
 resource.<attribute_name> == <a value>
 resource.<attribute_name> != <a value>
+resource.<attribute_name> > <a numeric value>
+resource.<attribute_name> >= <a numeric value>
+resource.<attribute_name> < <a numeric value>
+resource.<attribute_name> <= <a numeric value>
 ```
 
 Or, you can check for a specific value of a principal attribute:
@@ -29,6 +37,10 @@ Or, you can check for a specific value of a principal attribute:
 ```
 principal.<attribute_name> == <a value>
 principal.<attribute_name> != <a value>
+principal.<attribute_name> > <a numeric value>
+principal.<attribute_name> >= <a numeric value>
+principal.<attribute_name> < <a numeric value>
+principal.<attribute_name> <= <a numeric value>
 ```
 
 ## Blog post example
