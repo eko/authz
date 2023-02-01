@@ -288,31 +288,31 @@ func (c *compiler) retrieveResources(resources []*model.Resource, rule *attribut
 			filters["authz_attributes.key_name"] = repository.FieldValue{
 				Operator: "=", Value: rule.ResourceAttribute,
 			}
-
-			switch rule.Operator {
-			case attribute.RuleOperatorEqual:
-				filters["authz_attributes.value"] = repository.FieldValue{
-					Operator: "=", Value: rule.Value,
-				}
-			case attribute.RuleOperatorNotEqual:
-				filters["authz_attributes.value"] = repository.FieldValue{
-					Operator: "<>", Value: rule.Value,
-				}
-			}
 		}
 
 		allResources, _, err := c.resourceManager.GetRepository().Find(
 			repository.WithJoin(
-				"INNER JOIN authz_resources_attributes ON authz_resources.id = authz_resources_attributes.resource_id",
-				"INNER JOIN authz_attributes ON authz_resources_attributes.attribute_id = authz_attributes.id",
+				"LEFT JOIN authz_resources_attributes ON authz_resources.id = authz_resources_attributes.resource_id",
+				"LEFT JOIN authz_attributes ON authz_resources_attributes.attribute_id = authz_attributes.id",
 			),
 			repository.WithFilter(filters),
+			repository.WithPreloads("Attributes"),
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		result = append(result, allResources...)
+		matchingResources := []*model.Resource{}
+
+		for _, resource := range allResources {
+			if !rule.MatchResource(resource.Attributes) {
+				continue
+			}
+
+			matchingResources = append(matchingResources, resource)
+		}
+
+		result = append(result, matchingResources...)
 	}
 
 	return result, nil
@@ -325,31 +325,31 @@ func (c *compiler) retrievePrincipals(rule *attribute.Rule) ([]*model.Principal,
 		filters["authz_attributes.key_name"] = repository.FieldValue{
 			Operator: "=", Value: rule.PrincipalAttribute,
 		}
-
-		switch rule.Operator {
-		case attribute.RuleOperatorEqual:
-			filters["authz_attributes.value"] = repository.FieldValue{
-				Operator: "=", Value: rule.Value,
-			}
-		case attribute.RuleOperatorNotEqual:
-			filters["authz_attributes.value"] = repository.FieldValue{
-				Operator: "<>", Value: rule.Value,
-			}
-		}
 	}
 
 	allPrincipals, _, err := c.principalManager.GetRepository().Find(
 		repository.WithJoin(
-			"INNER JOIN authz_principals_attributes ON authz_principals.id = authz_principals_attributes.principal_id",
-			"INNER JOIN authz_attributes ON authz_principals_attributes.attribute_id = authz_attributes.id",
+			"LEFT JOIN authz_principals_attributes ON authz_principals.id = authz_principals_attributes.principal_id",
+			"LEFT JOIN authz_attributes ON authz_principals_attributes.attribute_id = authz_attributes.id",
 		),
 		repository.WithFilter(filters),
+		repository.WithPreloads("Attributes"),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	return allPrincipals, nil
+	matchingPrincipals := []*model.Principal{}
+
+	for _, principal := range allPrincipals {
+		if !rule.MatchPrincipal(principal.Attributes) {
+			continue
+		}
+
+		matchingPrincipals = append(matchingPrincipals, principal)
+	}
+
+	return matchingPrincipals, nil
 }
 
 func (c *compiler) CompilePrincipal(principal *model.Principal) error {
