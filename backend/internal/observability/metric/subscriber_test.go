@@ -58,7 +58,7 @@ func TestHandleCheckEvents_WhenEnabled(t *testing.T) {
 
 	subscriber := NewSubscriber(cfg, logger, dispatcher, observer)
 
-	eventChan := make(chan *event.Event, 1)
+	eventChan := make(chan *event.Event)
 
 	// When - Then
 	go subscriber.handleCheckEvents(eventChan)
@@ -95,7 +95,7 @@ func TestHandleCheckEvents_WhenNotEnabled(t *testing.T) {
 
 	subscriber := NewSubscriber(cfg, logger, dispatcher, observer)
 
-	eventChan := make(chan *event.Event, 1)
+	eventChan := make(chan *event.Event)
 
 	// When - Then
 	go subscriber.handleCheckEvents(eventChan)
@@ -134,7 +134,7 @@ func TestHandleItemEvents_WhenEnabled(t *testing.T) {
 
 	subscriber := NewSubscriber(cfg, logger, dispatcher, observer)
 
-	eventChan := make(chan *event.Event, 1)
+	eventChan := make(chan *event.Event)
 
 	// When - Then
 	go subscriber.handleItemEvents(eventChan, "resource")
@@ -171,7 +171,7 @@ func TestHandleItemEvents_WhenNotEnabled(t *testing.T) {
 
 	subscriber := NewSubscriber(cfg, logger, dispatcher, observer)
 
-	eventChan := make(chan *event.Event, 1)
+	eventChan := make(chan *event.Event)
 
 	// When - Then
 	go subscriber.handleItemEvents(eventChan, "resource")

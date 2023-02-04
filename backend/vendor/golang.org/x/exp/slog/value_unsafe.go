@@ -18,7 +18,7 @@ import (
 // The zero Value corresponds to nil.
 type Value struct {
 	// num holds the value for Kinds Int64, Uint64, Float64, Bool and Duration,
-	// the string length for StringKind, and nanoseconds since the epoch for TimeKind.
+	// the string length for KindString, and nanoseconds since the epoch for KindTime.
 	num uint64
 	// If any is of type Kind, then the value is in num as described above.
 	// If any is of type *time.Location, then the Kind is Time and time.Time value
@@ -43,21 +43,21 @@ func (v Value) Kind() Kind {
 	case Kind:
 		return x
 	case stringptr:
-		return StringKind
+		return KindString
 	case timeLocation:
-		return TimeKind
+		return KindTime
 	case groupptr:
-		return GroupKind
+		return KindGroup
 	case LogValuer:
-		return LogValuerKind
+		return KindLogValuer
 	case kind: // a kind is just a wrapper for a Kind
-		return AnyKind
+		return KindAny
 	default:
-		return AnyKind
+		return KindAny
 	}
 }
 
-// String returns a new Value for a string.
+// StringValue returns a new Value for a string.
 func StringValue(value string) Value {
 	hdr := (*reflect.StringHeader)(unsafe.Pointer(&value))
 	return Value{num: uint64(hdr.Len), any: stringptr(hdr.Data)}
@@ -92,8 +92,8 @@ func groupValue(as []Attr) Value {
 	return Value{num: uint64(hdr.Len), any: groupptr(hdr.Data)}
 }
 
-// Group returns the Value's value as a []Attr.
-// It panics if the Value's Kind is not GroupKind.
+// group returns the Value's value as a []Attr.
+// It panics if the Value's Kind is not KindGroup.
 func (v Value) group() []Attr {
 	if sp, ok := v.any.(groupptr); ok {
 		return unsafe.Slice((*Attr)(sp), v.num)

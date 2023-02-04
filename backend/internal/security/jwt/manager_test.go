@@ -85,10 +85,7 @@ func TestManager_Parse_WhenSuccess(t *testing.T) {
 		AccessTokenDuration: 1 * lib_time.Hour,
 	}
 
-	date := lib_time.Date(2023, lib_time.January, 1, 0, 0, 0, 0, lib_time.UTC)
-
 	clock := time.NewMockClock(ctrl)
-	clock.EXPECT().Now().Return(date).Times(3)
 
 	manager := NewManager(cfg, clock)
 

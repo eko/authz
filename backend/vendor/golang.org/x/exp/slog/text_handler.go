@@ -5,9 +5,12 @@
 package slog
 
 import (
+	"context"
 	"encoding"
 	"fmt"
 	"io"
+	"reflect"
+	"strconv"
 	"unicode"
 	"unicode/utf8"
 )
@@ -37,11 +40,11 @@ func (opts HandlerOptions) NewTextHandler(w io.Writer) *TextHandler {
 
 // Enabled reports whether the handler handles records at the given level.
 // The handler ignores records whose level is lower.
-func (h *TextHandler) Enabled(level Level) bool {
+func (h *TextHandler) Enabled(_ context.Context, level Level) bool {
 	return h.commonHandler.enabled(level)
 }
 
-// With returns a new TextHandler whose attributes consists
+// WithAttrs returns a new TextHandler whose attributes consists
 // of h's attributes followed by attrs.
 func (h *TextHandler) WithAttrs(attrs []Attr) Handler {
 	return &TextHandler{commonHandler: h.commonHandler.withAttrs(attrs)}
@@ -89,11 +92,11 @@ func (h *TextHandler) Handle(r Record) error {
 
 func appendTextValue(s *handleState, v Value) error {
 	switch v.Kind() {
-	case StringKind:
+	case KindString:
 		s.appendString(v.str())
-	case TimeKind:
+	case KindTime:
 		s.appendTime(v.time())
-	case AnyKind:
+	case KindAny:
 		if tm, ok := v.any.(encoding.TextMarshaler); ok {
 			data, err := tm.MarshalText()
 			if err != nil {
@@ -103,11 +106,31 @@ func appendTextValue(s *handleState, v Value) error {
 			s.appendString(string(data))
 			return nil
 		}
+		if bs, ok := byteSlice(v.any); ok {
+			// As of Go 1.19, this only allocates for strings longer than 32 bytes.
+			s.buf.WriteString(strconv.Quote(string(bs)))
+			return nil
+		}
 		s.appendString(fmt.Sprint(v.Any()))
 	default:
 		*s.buf = v.append(*s.buf)
 	}
 	return nil
+}
+
+// byteSlice returns its argument as a []byte if the argument's
+// underlying type is []byte, along with a second return value of true.
+// Otherwise it returns nil, false.
+func byteSlice(a any) ([]byte, bool) {
+	if bs, ok := a.([]byte); ok {
+		return bs, true
+	}
+	// Like Printf's %s, we allow both the slice type and the byte element type to be named.
+	t := reflect.TypeOf(a)
+	if t.Kind() == reflect.Slice && t.Elem().Kind() == reflect.Uint8 {
+		return reflect.ValueOf(a).Bytes(), true
+	}
+	return nil, false
 }
 
 func needsQuoting(s string) bool {

@@ -3,6 +3,7 @@ package compile
 import (
 	"testing"
 
+	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/eko/authz/backend/internal/event"
 	"github.com/eko/authz/backend/internal/log"
 	"github.com/golang/mock/gomock"
@@ -39,20 +40,22 @@ func TestHandlePolicyEvents(t *testing.T) {
 
 	logger := slog.New(log.NewNopHandler())
 
+	policy := &model.Policy{ID: "identifier-123"}
+
 	compiler := NewMockCompiler(ctrl)
-	compiler.EXPECT().CompilePolicy("identifier-123").Return(nil)
+	compiler.EXPECT().CompilePolicy(policy).Return(nil)
 
 	dispatcher := event.NewMockDispatcher(ctrl)
 
 	subscriber := NewSubscriber(logger, compiler, dispatcher)
 
-	eventChan := make(chan *event.Event, 1)
+	eventChan := make(chan *event.Event)
 
 	// When - Then
-	go subscriber.handlePolicyEvents(make(chan *event.Event))
+	go subscriber.handlePolicyEvents(eventChan)
 
 	eventChan <- &event.Event{
-		Data: "identifier-123",
+		Data: &event.ItemEvent{Data: policy},
 	}
 
 	close(eventChan)
@@ -64,20 +67,22 @@ func TestHandleResourceEvents(t *testing.T) {
 
 	logger := slog.New(log.NewNopHandler())
 
+	resource := &model.Resource{ID: "resource-123"}
+
 	compiler := NewMockCompiler(ctrl)
-	compiler.EXPECT().CompileResource("identifier-123").Return(nil)
+	compiler.EXPECT().CompileResource(resource).Return(nil)
 
 	dispatcher := event.NewMockDispatcher(ctrl)
 
 	subscriber := NewSubscriber(logger, compiler, dispatcher)
 
-	eventChan := make(chan *event.Event, 1)
+	eventChan := make(chan *event.Event)
 
 	// When - Then
-	go subscriber.handleResourceEvents(make(chan *event.Event))
+	go subscriber.handleResourceEvents(eventChan)
 
 	eventChan <- &event.Event{
-		Data: "identifier-123",
+		Data: &event.ItemEvent{Data: resource},
 	}
 
 	close(eventChan)
@@ -89,20 +94,22 @@ func TestHandlePrincipalEvents(t *testing.T) {
 
 	logger := slog.New(log.NewNopHandler())
 
+	principal := &model.Principal{ID: "principal-123"}
+
 	compiler := NewMockCompiler(ctrl)
-	compiler.EXPECT().CompilePrincipal("identifier-123").Return(nil)
+	compiler.EXPECT().CompilePrincipal(principal).Return(nil)
 
 	dispatcher := event.NewMockDispatcher(ctrl)
 
 	subscriber := NewSubscriber(logger, compiler, dispatcher)
 
-	eventChan := make(chan *event.Event, 1)
+	eventChan := make(chan *event.Event)
 
 	// When - Then
-	go subscriber.handlePrincipalEvents(make(chan *event.Event))
+	go subscriber.handlePrincipalEvents(eventChan)
 
 	eventChan <- &event.Event{
-		Data: "identifier-123",
+		Data: &event.ItemEvent{Data: principal},
 	}
 
 	close(eventChan)

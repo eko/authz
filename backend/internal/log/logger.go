@@ -11,10 +11,10 @@ import (
 
 var (
 	levels = map[string]slog.Level{
-		slog.DebugLevel.String(): slog.DebugLevel,
-		slog.InfoLevel.String():  slog.InfoLevel,
-		slog.WarnLevel.String():  slog.WarnLevel,
-		slog.ErrorLevel.String(): slog.ErrorLevel,
+		slog.LevelDebug.String(): slog.LevelDebug,
+		slog.LevelInfo.String():  slog.LevelInfo,
+		slog.LevelWarn.String():  slog.LevelWarn,
+		slog.LevelError.String(): slog.LevelError,
 	}
 )
 
@@ -25,7 +25,7 @@ func New(cfg *configs.Logger) *slog.Logger {
 		log.Fatalf("unable to find log level: %v", cfg.Level)
 	}
 
-	handler := NewLevelHandler(slog.InfoLevel, slog.NewTextHandler(os.Stdout))
+	handler := slog.NewTextHandler(os.Stdout)
 	logger := slog.New(NewLevelHandler(level, handler))
 
 	return logger
