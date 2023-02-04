@@ -13,7 +13,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.41.0
 	github.com/gofiber/swagger v0.1.8
 	github.com/golang-jwt/jwt/v4 v4.4.3
-	github.com/golang/mock v1.4.4
+	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/heetch/confita v0.10.0
