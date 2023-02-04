@@ -257,7 +257,7 @@ github.com/stretchr/testify/assert
 # github.com/swaggo/files v0.0.0-20220728132757-551d4a08d97a
 ## explicit; go 1.15
 github.com/swaggo/files
-# github.com/swaggo/swag v1.8.8
+# github.com/swaggo/swag v1.8.10
 ## explicit; go 1.18
 github.com/swaggo/swag
 # github.com/valyala/bytebufferpool v1.0.0
