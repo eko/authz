@@ -11,7 +11,7 @@
     "@mui/lab": "^5.0.0-alpha.109",
     "@mui/material": "^5.10.15",
     "@mui/styled-engine-sc": "^5.10.14",
-    "@mui/x-data-grid": "^5.17.12",
+    "@mui/x-data-grid": "^5.17.22",
     "@mui/x-date-pickers": "^5.0.9",
     "@nivo/bar": "^0.80.0",
     "@nivo/core": "^0.80.0",
