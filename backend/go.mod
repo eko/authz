@@ -28,7 +28,7 @@ require (
 	go.opentelemetry.io/otel/exporters/zipkin v1.11.2
 	go.opentelemetry.io/otel/sdk v1.11.2
 	go.uber.org/fx v1.18.2
-	golang.org/x/crypto v0.4.0
+	golang.org/x/crypto v0.5.0
 	golang.org/x/exp v0.0.0-20221208152030-732eee02a75a
 	golang.org/x/oauth2 v0.3.0
 	google.golang.org/grpc v1.51.0
