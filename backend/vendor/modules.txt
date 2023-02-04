@@ -103,14 +103,10 @@ github.com/gofiber/adaptor/v2
 # github.com/gofiber/contrib/otelfiber v0.0.0-20230119212140-c5d658dbb5ca
 ## explicit; go 1.18
 github.com/gofiber/contrib/otelfiber
-# github.com/gofiber/fiber/v2 v2.41.0
-## explicit; go 1.19
+# github.com/gofiber/fiber/v2 v2.42.0
+## explicit; go 1.20
 github.com/gofiber/fiber/v2
-github.com/gofiber/fiber/v2/internal/dictpool
-github.com/gofiber/fiber/v2/internal/fwd
-github.com/gofiber/fiber/v2/internal/msgp
 github.com/gofiber/fiber/v2/internal/schema
-github.com/gofiber/fiber/v2/internal/uuid
 github.com/gofiber/fiber/v2/middleware/cors
 github.com/gofiber/fiber/v2/middleware/filesystem
 github.com/gofiber/fiber/v2/utils
@@ -221,6 +217,9 @@ github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/openzipkin/zipkin-go v0.4.1
 ## explicit; go 1.18
 github.com/openzipkin/zipkin-go/model
+# github.com/philhofer/fwd v1.1.1
+## explicit
+github.com/philhofer/fwd
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
@@ -248,6 +247,12 @@ github.com/remyoudompheng/bigfft
 # github.com/rivo/uniseg v0.4.3
 ## explicit; go 1.18
 github.com/rivo/uniseg
+# github.com/savsgio/dictpool v0.0.0-20221023140959-7bf2e61cea94
+## explicit; go 1.13
+github.com/savsgio/dictpool
+# github.com/savsgio/gotils v0.0.0-20220530130905-52f3993e8d6d
+## explicit; go 1.13
+github.com/savsgio/gotils/strconv
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
@@ -260,6 +265,9 @@ github.com/swaggo/files
 # github.com/swaggo/swag v1.8.8
 ## explicit; go 1.18
 github.com/swaggo/swag
+# github.com/tinylib/msgp v1.1.6
+## explicit; go 1.14
+github.com/tinylib/msgp/msgp
 # github.com/valyala/bytebufferpool v1.0.0
 ## explicit
 github.com/valyala/bytebufferpool
