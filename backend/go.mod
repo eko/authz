@@ -6,7 +6,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.5.0
 	github.com/cucumber/godog v0.12.5
 	github.com/glebarez/sqlite v1.6.0
-	github.com/go-oauth2/oauth2/v4 v4.5.1
+	github.com/go-oauth2/oauth2/v4 v4.5.2
 	github.com/go-playground/validator/v10 v10.11.1
 	github.com/gofiber/adaptor/v2 v2.1.30
 	github.com/gofiber/contrib/otelfiber v0.0.0-20230119212140-c5d658dbb5ca
