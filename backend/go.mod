@@ -28,7 +28,7 @@ require (
 	go.opentelemetry.io/otel/exporters/zipkin v1.11.2
 	go.opentelemetry.io/otel/sdk v1.11.2
 	go.uber.org/fx v1.18.2
-	golang.org/x/crypto v0.4.0
+	golang.org/x/crypto v0.6.0
 	golang.org/x/exp v0.0.0-20221208152030-732eee02a75a
 	golang.org/x/oauth2 v0.3.0
 	google.golang.org/grpc v1.51.0
@@ -103,9 +103,9 @@ require (
 	go.uber.org/dig v1.15.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/net v0.5.0 // indirect
-	golang.org/x/sys v0.4.0 // indirect
-	golang.org/x/text v0.6.0 // indirect
+	golang.org/x/net v0.6.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/tools v0.5.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20221010155953-15ba04fc1c0e // indirect
