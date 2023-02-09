@@ -6,7 +6,7 @@
     "@emotion/react": "^11.10.5",
     "@emotion/styled": "^11.10.5",
     "@fontsource/roboto": "^4.5.8",
-    "@hookform/resolvers": "^2.9.10",
+    "@hookform/resolvers": "^2.9.11",
     "@mui/icons-material": "^5.10.15",
     "@mui/lab": "^5.0.0-alpha.118",
     "@mui/material": "^5.11.7",
