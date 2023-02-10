@@ -1,6 +1,10 @@
 package log
 
-import "golang.org/x/exp/slog"
+import (
+	"context"
+
+	"golang.org/x/exp/slog"
+)
 
 type nopHandler struct{}
 
@@ -9,7 +13,7 @@ func NewNopHandler() *nopHandler {
 	return &nopHandler{}
 }
 
-func (h *nopHandler) Enabled(level slog.Level) bool {
+func (h *nopHandler) Enabled(_ context.Context, level slog.Level) bool {
 	return true
 }
 

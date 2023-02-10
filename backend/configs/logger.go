@@ -8,6 +8,6 @@ type Logger struct {
 
 func newLogger() *Logger {
 	return &Logger{
-		Level: slog.InfoLevel.String(),
+		Level: slog.LevelInfo.String(),
 	}
 }

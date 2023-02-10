@@ -5,6 +5,7 @@
 package slog
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strconv"
@@ -27,9 +28,11 @@ import (
 type Handler interface {
 	// Enabled reports whether the handler handles records at the given level.
 	// The handler ignores records whose level is lower.
-	// Enabled is called early, before any arguments are processed,
+	// It is called early, before any arguments are processed,
 	// to save effort if the log event should be discarded.
-	Enabled(Level) bool
+	// The Logger's context is passed so Enabled can use its values
+	// to make a decision. The context may be nil.
+	Enabled(context.Context, Level) bool
 
 	// Handle handles the Record.
 	// It will only be called if Enabled returns true.
@@ -76,8 +79,8 @@ func newDefaultHandler(output func(int, string) error) *defaultHandler {
 	}
 }
 
-func (*defaultHandler) Enabled(l Level) bool {
-	return l >= InfoLevel
+func (*defaultHandler) Enabled(_ context.Context, l Level) bool {
+	return l >= LevelInfo
 }
 
 // Collect the level, attributes and message in a string and
@@ -85,14 +88,16 @@ func (*defaultHandler) Enabled(l Level) bool {
 // Let the log.Logger handle time and file/line.
 func (h *defaultHandler) Handle(r Record) error {
 	buf := buffer.New()
-	defer buf.Free()
 	buf.WriteString(r.Level.String())
 	buf.WriteByte(' ')
 	buf.WriteString(r.Message)
-	state := handleState{h: h.ch, buf: buf, sep: " "}
+	state := h.ch.newHandleState(buf, true, " ", nil)
+	defer state.free()
 	state.appendNonBuiltIns(r)
-	// 4 = log.Output depth + handlerWriter.Write + defaultHandler.Handle
-	return h.output(4, buf.String())
+
+	// 5 = log.Output depth + handlerWriter.Write + defaultHandler.Handle
+	//
+	return h.output(5, buf.String())
 }
 
 func (h *defaultHandler) WithAttrs(as []Attr) Handler {
@@ -114,23 +119,37 @@ type HandlerOptions struct {
 
 	// Level reports the minimum record level that will be logged.
 	// The handler discards records with lower levels.
-	// If Level is nil, the handler assumes InfoLevel.
+	// If Level is nil, the handler assumes LevelInfo.
 	// The handler calls Level.Level for each record processed;
 	// to adjust the minimum level dynamically, use a LevelVar.
 	Level Leveler
 
-	// ReplaceAttr is called to rewrite each attribute before it is logged.
+	// ReplaceAttr is called to rewrite each non-group attribute before it is logged.
+	// The attribute's value has been resolved (see [Value.Resolve]).
 	// If ReplaceAttr returns an Attr with Key == "", the attribute is discarded.
 	//
 	// The built-in attributes with keys "time", "level", "source", and "msg"
-	// are passed to this function first, except that time and level are omitted
-	// if zero, and source is omitted if AddSourceLine is false.
+	// are passed to this function, except that time is omitted
+	// if zero, and source is omitted if AddSource is false.
+	//
+	// The first argument is a list of currently open groups that contain the
+	// Attr. It must not be retained or modified. ReplaceAttr is never called
+	// for Group attributes, only their contents. For example, the attribute
+	// list
+	//
+	//     Int("a", 1), Group("g", Int("b", 2)), Int("c", 3)
+	//
+	// results in consecutive calls to ReplaceAttr with the following arguments:
+	//
+	//     nil, Int("a", 1)
+	//     []string{"g"}, Int("b", 2)
+	//     nil, Int("c", 3)
 	//
 	// ReplaceAttr can be used to change the default keys of the built-in
 	// attributes, convert types (for example, to replace a `time.Time` with the
 	// integer seconds since the Unix epoch), sanitize personal information, or
 	// remove attributes from the output.
-	ReplaceAttr func(a Attr) Attr
+	ReplaceAttr func(groups []string, a Attr) Attr
 }
 
 // Keys for "built-in" attributes.
@@ -176,10 +195,10 @@ func (h *commonHandler) clone() *commonHandler {
 	}
 }
 
-// Enabled reports whether l is greater than or equal to the
+// enabled reports whether l is greater than or equal to the
 // minimum level.
 func (h *commonHandler) enabled(l Level) bool {
-	minLevel := InfoLevel
+	minLevel := LevelInfo
 	if h.opts.Level != nil {
 		minLevel = h.opts.Level.Level()
 	}
@@ -192,12 +211,8 @@ func (h *commonHandler) withAttrs(as []Attr) *commonHandler {
 	prefix := buffer.New()
 	defer prefix.Free()
 	prefix.WriteString(h.groupPrefix)
-	state := handleState{
-		h:      h2,
-		buf:    (*buffer.Buffer)(&h2.preformattedAttrs),
-		sep:    "",
-		prefix: prefix,
-	}
+	state := h2.newHandleState((*buffer.Buffer)(&h2.preformattedAttrs), false, "", prefix)
+	defer state.free()
 	if len(h2.preformattedAttrs) > 0 {
 		state.sep = h.attrSep()
 	}
@@ -220,13 +235,15 @@ func (h *commonHandler) withGroup(name string) *commonHandler {
 }
 
 func (h *commonHandler) handle(r Record) error {
-	rep := h.opts.ReplaceAttr
-	state := handleState{h: h, buf: buffer.New(), sep: ""}
-	defer state.buf.Free()
+	state := h.newHandleState(buffer.New(), true, "", nil)
+	defer state.free()
 	if h.json {
 		state.buf.WriteByte('{')
 	}
 	// Built-in attributes. They are not in a group.
+	stateGroups := state.groups
+	state.groups = nil // So ReplaceAttrs sees no groups instead of the pre groups.
+	rep := h.opts.ReplaceAttr
 	// time
 	if !r.Time.IsZero() {
 		key := TimeKey
@@ -249,17 +266,17 @@ func (h *commonHandler) handle(r Record) error {
 	}
 	// source
 	if h.opts.AddSource {
-		file, line := r.SourceLine()
-		if file != "" {
+		frame := r.frame()
+		if frame.File != "" {
 			key := SourceKey
 			if rep == nil {
 				state.appendKey(key)
-				state.appendSource(file, line)
+				state.appendSource(frame.File, frame.Line)
 			} else {
 				buf := buffer.New()
-				buf.WriteString(file) // TODO: escape?
+				buf.WriteString(frame.File) // TODO: escape?
 				buf.WriteByte(':')
-				buf.WritePosInt(line)
+				buf.WritePosInt(frame.Line)
 				s := buf.String()
 				buf.Free()
 				state.appendAttr(String(key, s))
@@ -274,6 +291,7 @@ func (h *commonHandler) handle(r Record) error {
 	} else {
 		state.appendAttr(String(key, msg))
 	}
+	state.groups = stateGroups // Restore groups passed to ReplaceAttrs.
 	state.appendNonBuiltIns(r)
 	state.buf.WriteByte('\n')
 
@@ -321,10 +339,42 @@ func (h *commonHandler) attrSep() string {
 // The initial value of sep determines whether to emit a separator
 // before the next key, after which it stays true.
 type handleState struct {
-	h      *commonHandler
-	buf    *buffer.Buffer
-	sep    string         // separator to write before next key
-	prefix *buffer.Buffer // for text: key prefix
+	h       *commonHandler
+	buf     *buffer.Buffer
+	freeBuf bool           // should buf be freed?
+	sep     string         // separator to write before next key
+	prefix  *buffer.Buffer // for text: key prefix
+	groups  *[]string      // pool-allocated slice of active groups, for ReplaceAttr
+}
+
+var groupPool = sync.Pool{New: func() any {
+	s := make([]string, 0, 10)
+	return &s
+}}
+
+func (h *commonHandler) newHandleState(buf *buffer.Buffer, freeBuf bool, sep string, prefix *buffer.Buffer) handleState {
+	s := handleState{
+		h:       h,
+		buf:     buf,
+		freeBuf: freeBuf,
+		sep:     sep,
+		prefix:  prefix,
+	}
+	if h.opts.ReplaceAttr != nil {
+		s.groups = groupPool.Get().(*[]string)
+		*s.groups = append(*s.groups, h.groups[:h.nOpenGroups]...)
+	}
+	return s
+}
+
+func (s *handleState) free() {
+	if s.freeBuf {
+		s.buf.Free()
+	}
+	if gs := s.groups; gs != nil {
+		*gs = (*gs)[:0]
+		groupPool.Put(gs)
+	}
 }
 
 func (s *handleState) openGroups() {
@@ -347,6 +397,11 @@ func (s *handleState) openGroup(name string) {
 		s.prefix.WriteString(name)
 		s.prefix.WriteByte(keyComponentSep)
 	}
+	// Collect group names for ReplaceAttr.
+	if s.groups != nil {
+		*s.groups = append(*s.groups, name)
+	}
+
 }
 
 // closeGroup ends the group with the given name.
@@ -354,9 +409,12 @@ func (s *handleState) closeGroup(name string) {
 	if s.h.json {
 		s.buf.WriteByte('}')
 	} else {
-		(*s.prefix) = (*s.prefix)[:len(*s.prefix)-len(name)-1 /* forkeyComponentSep */]
+		(*s.prefix) = (*s.prefix)[:len(*s.prefix)-len(name)-1 /* for keyComponentSep */]
 	}
 	s.sep = s.h.attrSep()
+	if s.groups != nil {
+		*s.groups = (*s.groups)[:len(*s.groups)-1]
+	}
 }
 
 // appendAttr appends the Attr's key and value using app.
@@ -365,14 +423,24 @@ func (s *handleState) closeGroup(name string) {
 // It sets sep to true if it actually did the append (if the key was non-empty
 // after replacement).
 func (s *handleState) appendAttr(a Attr) {
-	if rep := s.h.opts.ReplaceAttr; rep != nil {
-		a = rep(a)
-	}
 	if a.Key == "" {
 		return
 	}
-	v := a.Value.Resolve()
-	if v.Kind() == GroupKind {
+	v := a.Value
+	if rep := s.h.opts.ReplaceAttr; rep != nil && v.Kind() != KindGroup {
+		var gs []string
+		if s.groups != nil {
+			gs = *s.groups
+		}
+		a = rep(gs, Attr{a.Key, v})
+		if a.Key == "" {
+			return
+		}
+		// Although all attributes in the Record are already resolved,
+		// This one came from the user, so it may not have been.
+		v = a.Value.Resolve()
+	}
+	if v.Kind() == KindGroup {
 		s.openGroup(a.Key)
 		for _, aa := range v.Group() {
 			s.appendAttr(aa)

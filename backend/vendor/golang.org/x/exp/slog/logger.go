@@ -22,7 +22,7 @@ func Default() *Logger { return defaultLogger.Load().(*Logger) }
 
 // SetDefault makes l the default Logger.
 // After this call, output from the log package's default Logger
-// (as with [log.Print], etc.) will be logged at InfoLevel using l's Handler.
+// (as with [log.Print], etc.) will be logged at LevelInfo using l's Handler.
 func SetDefault(l *Logger) {
 	defaultLogger.Store(l)
 	// If the default's handler is a defaultHandler, then don't use a handleWriter,
@@ -45,16 +45,20 @@ type handlerWriter struct {
 }
 
 func (w *handlerWriter) Write(buf []byte) (int, error) {
-	var depth int
-	if w.flags&(log.Lshortfile|log.Llongfile) != 0 {
-		depth = 2
+	if !w.h.Enabled(nil, LevelInfo) {
+		return 0, nil
 	}
+	var pc uintptr
+	if w.flags&(log.Lshortfile|log.Llongfile) != 0 {
+		pc = callerPC(5)
+	}
+
 	// Remove final newline.
 	origLen := len(buf) // Report that the entire buf was written.
 	if len(buf) > 0 && buf[len(buf)-1] == '\n' {
 		buf = buf[:len(buf)-1]
 	}
-	r := NewRecord(time.Now(), InfoLevel, string(buf), depth, nil)
+	r := NewRecord(time.Now(), LevelInfo, string(buf), pc, nil)
 	return origLen, w.h.Handle(r)
 }
 
@@ -69,16 +73,21 @@ type Logger struct {
 	ctx     context.Context
 }
 
+func (l *Logger) clone() *Logger {
+	c := *l
+	return &c
+}
+
 // Handler returns l's Handler.
 func (l *Logger) Handler() Handler { return l.handler }
 
-// Context returns l's context.
+// Context returns l's context, which may be nil.
 func (l *Logger) Context() context.Context { return l.ctx }
 
 // With returns a new Logger that includes the given arguments, converted to
-// Attrs as in [Logger.Log]. The Attrs will be added to each output from the
-// Logger.
-//
+// Attrs as in [Logger.Log] and resolved.
+// The Attrs will be added to each output from the Logger.
+// The new Logger shares the old Logger's context.
 // The new Logger's handler is the result of calling WithAttrs on the receiver's
 // handler.
 func (l *Logger) With(args ...any) *Logger {
@@ -90,28 +99,40 @@ func (l *Logger) With(args ...any) *Logger {
 		attr, args = argsToAttr(args)
 		attrs = append(attrs, attr)
 	}
-	return New(l.handler.WithAttrs(attrs))
+	c := l.clone()
+	c.handler = l.handler.WithAttrs(attrs)
+	return c
 }
 
 // WithGroup returns a new Logger that starts a group. The keys of all
 // attributes added to the Logger will be qualified by the given name.
+// The new Logger shares the old Logger's context.
 //
 // The new Logger's handler is the result of calling WithGroup on the receiver's
 // handler.
 func (l *Logger) WithGroup(name string) *Logger {
-	return New(l.handler.WithGroup(name))
+	c := l.clone()
+	c.handler = l.handler.WithGroup(name)
+	return c
+
 }
 
 // WithContext returns a new Logger with the same handler
 // as the receiver and the given context.
+// It uses the same handler as the original.
 func (l *Logger) WithContext(ctx context.Context) *Logger {
-	l2 := *l
-	l2.ctx = ctx
-	return &l2
+	c := l.clone()
+	c.ctx = ctx
+	return c
 }
 
-// New creates a new Logger with the given Handler.
-func New(h Handler) *Logger { return &Logger{handler: h} }
+// New creates a new Logger with the given non-nil Handler and a nil context.
+func New(h Handler) *Logger {
+	if h == nil {
+		panic("nil Handler")
+	}
+	return &Logger{handler: h}
+}
 
 // With calls Logger.With on the default logger.
 func With(args ...any) *Logger {
@@ -120,7 +141,7 @@ func With(args ...any) *Logger {
 
 // Enabled reports whether l emits log records at the given level.
 func (l *Logger) Enabled(level Level) bool {
-	return l.Handler().Enabled(level)
+	return l.Handler().Enabled(l.ctx, level)
 }
 
 // Log emits a log record with the current time and the given level and message.
@@ -134,97 +155,72 @@ func (l *Logger) Enabled(level Level) bool {
 //     into an Attr.
 //   - Otherwise, the argument is treated as a value with key "!BADKEY".
 func (l *Logger) Log(level Level, msg string, args ...any) {
-	l.LogDepth(0, level, msg, args...)
+	l.LogDepth(1, level, msg, args...)
 }
 
-// LogDepth is like [Logger.Log], but accepts a call depth to adjust the
-// file and line number in the log record. 0 refers to the caller
-// of LogDepth; 1 refers to the caller's caller; and so on.
-func (l *Logger) LogDepth(calldepth int, level Level, msg string, args ...any) {
-	if !l.Enabled(level) {
-		return
+func (l *Logger) logPC(err error, pc uintptr, level Level, msg string, args ...any) {
+	r := NewRecord(time.Now(), level, msg, pc, l.ctx)
+	if err != nil {
+		r.front[0] = Any(ErrorKey, err)
+		r.nFront++
 	}
-	r := l.makeRecord(msg, level, calldepth)
 	r.setAttrsFromArgs(args)
 	_ = l.Handler().Handle(r)
 }
 
-func (l *Logger) makeRecord(msg string, level Level, depth int) Record {
-	return NewRecord(time.Now(), level, msg, depth+5, l.ctx)
-}
-
 // LogAttrs is a more efficient version of [Logger.Log] that accepts only Attrs.
 func (l *Logger) LogAttrs(level Level, msg string, attrs ...Attr) {
-	l.LogAttrsDepth(0, level, msg, attrs...)
+	l.LogAttrsDepth(1, level, msg, attrs...)
 }
 
-// LogAttrsDepth is like [Logger.LogAttrs], but accepts a call depth argument
-// which it interprets like [Logger.LogDepth].
-func (l *Logger) LogAttrsDepth(calldepth int, level Level, msg string, attrs ...Attr) {
-	if !l.Enabled(level) {
-		return
-	}
-	r := l.makeRecord(msg, level, calldepth)
-	r.AddAttrs(attrs...)
-	_ = l.Handler().Handle(r)
-}
-
-// Debug logs at DebugLevel.
+// Debug logs at LevelDebug.
 func (l *Logger) Debug(msg string, args ...any) {
-	l.LogDepth(0, DebugLevel, msg, args...)
+	l.LogDepth(1, LevelDebug, msg, args...)
 }
 
-// Info logs at InfoLevel.
+// Info logs at LevelInfo.
 func (l *Logger) Info(msg string, args ...any) {
-	l.LogDepth(0, InfoLevel, msg, args...)
+	l.LogDepth(1, LevelInfo, msg, args...)
 }
 
-// Warn logs at WarnLevel.
+// Warn logs at LevelWarn.
 func (l *Logger) Warn(msg string, args ...any) {
-	l.LogDepth(0, WarnLevel, msg, args...)
+	l.LogDepth(1, LevelWarn, msg, args...)
 }
 
-// Error logs at ErrorLevel.
+// Error logs at LevelError.
 // If err is non-nil, Error appends Any(ErrorKey, err)
 // to the list of attributes.
 func (l *Logger) Error(msg string, err error, args ...any) {
-	if err != nil {
-		// TODO: avoid the copy.
-		args = append(args[:len(args):len(args)], Any(ErrorKey, err))
-	}
-	l.LogDepth(0, ErrorLevel, msg, args...)
+	l.logDepthErr(err, 1, LevelError, msg, args...)
 }
 
 // Debug calls Logger.Debug on the default logger.
 func Debug(msg string, args ...any) {
-	Default().LogDepth(0, DebugLevel, msg, args...)
+	Default().LogDepth(1, LevelDebug, msg, args...)
 }
 
 // Info calls Logger.Info on the default logger.
 func Info(msg string, args ...any) {
-	Default().LogDepth(0, InfoLevel, msg, args...)
+	Default().LogDepth(1, LevelInfo, msg, args...)
 }
 
 // Warn calls Logger.Warn on the default logger.
 func Warn(msg string, args ...any) {
-	Default().LogDepth(0, WarnLevel, msg, args...)
+	Default().LogDepth(1, LevelWarn, msg, args...)
 }
 
 // Error calls Logger.Error on the default logger.
 func Error(msg string, err error, args ...any) {
-	if err != nil {
-		// TODO: avoid the copy.
-		args = append(args[:len(args):len(args)], Any(ErrorKey, err))
-	}
-	Default().LogDepth(0, ErrorLevel, msg, args...)
+	Default().logDepthErr(err, 1, LevelError, msg, args...)
 }
 
 // Log calls Logger.Log on the default logger.
 func Log(level Level, msg string, args ...any) {
-	Default().LogDepth(0, level, msg, args...)
+	Default().LogDepth(1, level, msg, args...)
 }
 
 // LogAttrs calls Logger.LogAttrs on the default logger.
 func LogAttrs(level Level, msg string, attrs ...Attr) {
-	Default().LogAttrsDepth(0, level, msg, attrs...)
+	Default().LogAttrsDepth(1, level, msg, attrs...)
 }
