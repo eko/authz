@@ -19,7 +19,7 @@ $ docker run --rm \
     -p 8080:8080 \
     -p 8081:8081 \
     -p 3000:80 \
-    ekofr/authz:v0.7.0-standalone
+    ekofr/authz:v0.8.0-standalone
 ```
 
 Here, we are forwarding the 3 following ports:
@@ -44,7 +44,7 @@ $ docker run --rm \
     -e database_name=:memory: \
     -p 8080:8080 \
     -p 8081:8081 \
-    ekofr/authz:v0.7.0-backend
+    ekofr/authz:v0.8.0-backend
 ```
 
 and the frontend:
@@ -52,7 +52,7 @@ and the frontend:
 ```bash
 $ docker run --rm \
     -p 3000:80 \
-    ekofr/authz:v0.7.0-frontend
+    ekofr/authz:v0.8.0-frontend
 ```
 
 ## Build from sources
