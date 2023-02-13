@@ -99,7 +99,7 @@ func (s *suite) runStep(ctx context.Context, pickle *Scenario, step *Step, prevS
 		rctx, err = s.runAfterStepHooks(ctx, step, sr.Status, err)
 
 		// Trigger after scenario on failing or last step to attach possible hook error to step.
-		if sr.Status != StepSkipped && ((err == nil && isLast) || err != nil) {
+		if isLast || (sr.Status != StepSkipped && sr.Status != StepUndefined && err != nil) {
 			rctx, err = s.runAfterScenarioHooks(rctx, pickle, err)
 		}
 
@@ -346,10 +346,12 @@ func (s *suite) maybeSubSteps(ctx context.Context, result interface{}) (context.
 		return ctx, fmt.Errorf("unexpected error, should have been []string: %T - %+v", result, result)
 	}
 
+	var err error
+
 	for _, text := range steps {
 		if def := s.matchStepText(text); def == nil {
 			return ctx, ErrUndefined
-		} else if ctx, err := s.maybeSubSteps(def.Run(ctx)); err != nil {
+		} else if ctx, err = s.maybeSubSteps(def.Run(ctx)); err != nil {
 			return ctx, fmt.Errorf("%s: %+v", text, err)
 		}
 	}
