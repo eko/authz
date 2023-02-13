@@ -64,4 +64,17 @@ type Options struct {
 
 	// TestingT runs scenarios as subtests.
 	TestingT *testing.T
+
+	// FeatureContents allows passing in each feature manually
+	// where the contents of each feature is stored as a byte slice
+	// in a map entry
+	FeatureContents []Feature
+
+	// ShowHelp enables suite to show CLI flags usage help and exit.
+	ShowHelp bool
+}
+
+type Feature struct {
+	Name     string
+	Contents []byte
 }

@@ -2,6 +2,7 @@ package godog
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"go/build"
 	"io"
@@ -213,7 +214,7 @@ func runWithOptions(suiteName string, runner runner, opt Options) int {
 		return exitOptionError
 	}
 
-	if len(opt.Paths) == 0 {
+	if len(opt.Paths) == 0 && len(opt.FeatureContents) == 0 {
 		inf, err := os.Stat("features")
 		if err == nil && inf.IsDir() {
 			opt.Paths = []string{"features"}
@@ -226,10 +227,22 @@ func runWithOptions(suiteName string, runner runner, opt Options) int {
 
 	runner.fmt = multiFmt.FormatterFunc(suiteName, output)
 
-	var err error
-	if runner.features, err = parser.ParseFeatures(opt.Tags, opt.Paths); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return exitOptionError
+	if len(opt.FeatureContents) > 0 {
+		features, err := parser.ParseFromBytes(opt.Tags, opt.FeatureContents)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return exitOptionError
+		}
+		runner.features = append(runner.features, features...)
+	}
+
+	if len(opt.Paths) > 0 {
+		features, err := parser.ParseFeatures(opt.Tags, opt.Paths)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return exitOptionError
+		}
+		runner.features = append(runner.features, features...)
 	}
 
 	runner.storage = storage.NewStorage()
@@ -297,10 +310,11 @@ type TestSuite struct {
 // all configuration options from flags.
 //
 // The exit codes may vary from:
-//  0 - success
-//  1 - failed
-//  2 - command line usage error
-//  128 - or higher, os signal related error exit codes
+//
+//	0 - success
+//	1 - failed
+//	2 - command line usage error
+//	128 - or higher, os signal related error exit codes
 //
 // If there are flag related errors they will be directed to os.Stderr
 func (ts TestSuite) Run() int {
@@ -311,6 +325,12 @@ func (ts TestSuite) Run() int {
 			return exitOptionError
 		}
 	}
+	if ts.Options.ShowHelp {
+		flag.CommandLine.Usage()
+
+		return 0
+	}
+
 	r := runner{testSuiteInitializer: ts.TestSuiteInitializer, scenarioInitializer: ts.ScenarioInitializer}
 	return runWithOptions(ts.Name, r, *ts.Options)
 }
