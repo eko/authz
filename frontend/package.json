@@ -17,7 +17,7 @@
     "@nivo/core": "^0.80.0",
     "@nivo/pie": "^0.80.0",
     "@testing-library/jest-dom": "^5.16.5",
-    "@testing-library/react": "^13.4.0",
+    "@testing-library/react": "^14.0.0",
     "@testing-library/user-event": "^14.4.3",
     "@types/jest": "^29.4.0",
     "@types/js-cookie": "^3.0.2",
