@@ -96,7 +96,7 @@ github.com/go-sql-driver/mysql
 # github.com/gofiber/adaptor/v2 v2.1.32
 ## explicit; go 1.16
 github.com/gofiber/adaptor/v2
-# github.com/gofiber/contrib/otelfiber v0.0.0-20230209220352-3aae4df40ccc
+# github.com/gofiber/contrib/otelfiber v1.0.2
 ## explicit; go 1.18
 github.com/gofiber/contrib/otelfiber
 # github.com/gofiber/fiber/v2 v2.42.0
