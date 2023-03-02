@@ -46,18 +46,20 @@ export default function DataTable<T>({
 }: DataTableProps<T>) {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const [size, setSize] = useState(defaultSize);
   const [sort, setSort] = useState<SortRequest>();
   const [filter, setFilter] = useState<FilterRequest>();
   const [total, setTotal] = useState(0);
   const [rows, setRows] = useState<T[]>([]);
   const [forcedSortModel, setForcedSortModel] = useState<GridSortModel>([]);
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: defaultSize,
+  });
 
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
-      const response = await fetcher(page+1, size, filter, sort);
+      const response = await fetcher(paginationModel.page+1, paginationModel.pageSize, filter, sort);
 
       if (isAPIError(response)) {
         toast.error(`Impossible de charger les données : ${response.message}`);
@@ -71,7 +73,7 @@ export default function DataTable<T>({
 
     fetch();
   // eslint-disable-next-line
-  }, [size, page, sort, filter]);
+  }, [paginationModel, sort, filter]);
 
   useEffect(() => {
     if (forcedSort === undefined) {
@@ -83,8 +85,6 @@ export default function DataTable<T>({
       {field: forcedSort?.field, sort: forcedSort?.order},
     ]);
   }, [forcedSort]);
-
-  const handleOnPageChange = (page: number) => setPage(page);
 
   const handleOnSortModelChange = useCallback((sortModel: GridSortModel) => {
     setForcedSortModel(sortModel);
@@ -111,8 +111,8 @@ export default function DataTable<T>({
     }
 
     setFilter({
-      field: currentFilter.columnField,
-      operator: currentFilter.operatorValue as FilterOperator,
+      field: currentFilter.field,
+      operator: currentFilter.operator as FilterOperator,
       value: currentFilter.value,
     });
   }, []);
@@ -143,15 +143,12 @@ export default function DataTable<T>({
             hideFooterSelectedRowCount
             loading={loading}
             onFilterModelChange={handleOnFilterModelChange}
-            onPageChange={handleOnPageChange}
-            onPageSizeChange={(newPageSize: number) => setSize(newPageSize)}
+            paginationModel={paginationModel}
+            onPaginationModelChange={setPaginationModel}
             onSortModelChange={handleOnSortModelChange}
-            page={page}
-            pageSize={size}
             paginationMode='server'
             rowCount={total}
             rows={rows}
-            rowsPerPageOptions={[5,10,20,30,50,100]}
             sortModel={forcedSortModel}
             sortingMode='server'
             sx={sx}

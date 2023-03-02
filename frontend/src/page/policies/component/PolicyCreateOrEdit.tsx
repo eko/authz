@@ -1,5 +1,6 @@
 import { useContext, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import moment from "moment";
 import LoadingButton from '@mui/lab/LoadingButton';
 import { Button, Divider, Paper, TextField, Tooltip, Typography } from '@mui/material';
 import Grid from '@mui/material/Grid';
@@ -10,7 +11,6 @@ import { AuthContext } from 'context/auth';
 import { Policy } from 'service/model/model';
 import { isAPIError } from 'service/error/model';
 import { useToast } from 'context/toast';
-import { DateTimePicker } from '@mui/x-date-pickers';
 import { getPolicy } from 'service/model/policy';
 import { getResources } from 'service/model/resource';
 import { getActions } from 'service/model/action';
@@ -125,35 +125,24 @@ export default function PolicyCreateOrEdit() {
 
               {id ? (
                 <>
-                  <DateTimePicker
-                    disabled
-                    label="Creation date"
-                    value={policy?.created_at}
-                    onChange={(newValue) => {}}
-                    renderInput={(params) => (
-                      <Tooltip title='This field is locked' placement='right'>
-                        <TextField {...params} error={false} style={{
-                          marginBottom: 16,
-                          marginRight: 14,
-                        }} />
-                      </Tooltip>
-                    )}
-                  />
+                  <Tooltip title='This field is locked' placement='right'>
+                    <TextField
+                      disabled
+                      label="Creation date"
+                      value={moment(policy?.created_at).format('LLL')}
+                      InputLabelProps={{ shrink: true }}
+                      sx={{ mr: 2, mb: 2, width: '200px' }}
+                    />
+                  </Tooltip>
 
                   {haveUpdatedAt ? (
                     <Tooltip title='This field is locked' placement='right'>
-                      <DateTimePicker
+                      <TextField
                         disabled
                         label="Update date"
-                        value={policy?.updated_at}
-                        onChange={(newValue) => {}}
-                        renderInput={(params) => (
-                          <Tooltip title='This field is locked' placement='right'>
-                            <TextField {...params} error={false} style={{
-                              marginBottom: 16,
-                            }} />
-                          </Tooltip>
-                        )}
+                        value={moment(policy?.updated_at).format('LLL')}
+                        InputLabelProps={{ shrink: true }}
+                        sx={{ width: '200px' }}
                       />
                     </Tooltip>
                   ) : null}

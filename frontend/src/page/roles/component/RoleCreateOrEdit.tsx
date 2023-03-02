@@ -1,5 +1,6 @@
 import { useContext, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import moment from "moment";
 import LoadingButton from '@mui/lab/LoadingButton';
 import { Button, Divider, Paper, TextField, Tooltip, Typography } from '@mui/material';
 import Grid from '@mui/material/Grid';
@@ -11,7 +12,6 @@ import { getRole } from 'service/model/role';
 import { Role } from 'service/model/model';
 import { isAPIError } from 'service/error/model';
 import { useToast } from 'context/toast';
-import { DateTimePicker } from '@mui/x-date-pickers';
 import { getPolicies } from 'service/model/policy';
 
 export default function RoleCreateOrEdit() {
@@ -102,38 +102,27 @@ export default function RoleCreateOrEdit() {
 
               {id ? (
                 <>
-                  <DateTimePicker
-                    disabled
-                    label="Creation date"
-                    value={role?.created_at}
-                    onChange={(newValue) => {}}
-                    renderInput={(params) => (
-                      <Tooltip title='This field is locked' placement='right'>
-                        <TextField {...params} error={false} style={{
-                          marginBottom: 16,
-                          marginRight: 14,
-                        }} />
-                      </Tooltip>
-                    )}
-                  />
+                  <Tooltip title='This field is locked' placement='right'>
+                    <TextField
+                      disabled
+                      label="Creation date"
+                      value={moment(role?.created_at).format('LLL')}
+                      InputLabelProps={{ shrink: true }}
+                      sx={{ mr: 2, mb: 2, width: '200px' }}
+                    />
+                  </Tooltip>
 
                   {haveUpdatedAt ? (
                     <Tooltip title='This field is locked' placement='right'>
-                      <DateTimePicker
+                      <TextField
                         disabled
                         label="Update date"
-                        value={role?.updated_at}
-                        onChange={(newValue) => {}}
-                        renderInput={(params) => (
-                          <Tooltip title='This field is locked' placement='right'>
-                            <TextField {...params} error={false} style={{
-                              marginBottom: 16,
-                            }} />
-                          </Tooltip>
-                        )}
+                        value={moment(role?.updated_at).format('LLL')}
+                        InputLabelProps={{ shrink: true }}
+                        sx={{ width: '200px' }}
                       />
                     </Tooltip>
-                  ) : null}
+                ) : null}
                 </>
               ) : null}
             </Grid>

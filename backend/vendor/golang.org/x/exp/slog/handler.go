@@ -25,25 +25,43 @@ import (
 // Any of the Handler's methods may be called concurrently with itself
 // or with other methods. It is the responsibility of the Handler to
 // manage this concurrency.
+//
+// Users of the slog package should not invoke Handler methods directly.
+// They should use the methods of [Logger] instead.
 type Handler interface {
 	// Enabled reports whether the handler handles records at the given level.
 	// The handler ignores records whose level is lower.
 	// It is called early, before any arguments are processed,
 	// to save effort if the log event should be discarded.
-	// The Logger's context is passed so Enabled can use its values
-	// to make a decision. The context may be nil.
+	// If called from a Logger method, the first argument is the context
+	// passed to that method, or context.Background() if nil was passed
+	// or the method does not take a context.
+	// The context is passed so Enabled can use its values
+	// to make a decision.
 	Enabled(context.Context, Level) bool
 
 	// Handle handles the Record.
-	// It will only be called if Enabled returns true.
+	// It will only be called Enabled returns true.
+	// The Context argument is as for Enabled.
+	// It is present solely to provide Handlers access to the context's values.
+	// Canceling the context should not affect record processing.
+	// (Among other things, log messages may be necessary to debug a
+	// cancellation-related problem.)
+	//
 	// Handle methods that produce output should observe the following rules:
 	//   - If r.Time is the zero time, ignore the time.
-	//   - If an Attr's key is the empty string, ignore the Attr.
-	Handle(r Record) error
+	//   - If r.PC is zero, ignore it.
+	//   - If an Attr's key is the empty string and the value is not a group,
+	//     ignore the Attr.
+	//   - If a group's key is empty, inline the group's Attrs.
+	//   - If a group has no Attrs (even if it has a non-empty key),
+	//     ignore it.
+	Handle(context.Context, Record) error
 
 	// WithAttrs returns a new Handler whose attributes consist of
 	// both the receiver's attributes and the arguments.
 	// The Handler owns the slice: it may retain, modify or discard it.
+	// [Logger.With] will resolve the Attrs.
 	WithAttrs(attrs []Attr) Handler
 
 	// WithGroup returns a new Handler with the given group appended to
@@ -63,6 +81,8 @@ type Handler interface {
 	// should behave like
 	//
 	//     logger.LogAttrs(level, msg, slog.Group("s", slog.Int("a", 1), slog.Int("b", 2)))
+	//
+	// If the name is empty, WithGroup returns the receiver.
 	WithGroup(name string) Handler
 }
 
@@ -86,7 +106,7 @@ func (*defaultHandler) Enabled(_ context.Context, l Level) bool {
 // Collect the level, attributes and message in a string and
 // write it with the default log.Logger.
 // Let the log.Logger handle time and file/line.
-func (h *defaultHandler) Handle(r Record) error {
+func (h *defaultHandler) Handle(ctx context.Context, r Record) error {
 	buf := buffer.New()
 	buf.WriteString(r.Level.String())
 	buf.WriteByte(' ')
@@ -95,9 +115,8 @@ func (h *defaultHandler) Handle(r Record) error {
 	defer state.free()
 	state.appendNonBuiltIns(r)
 
-	// 5 = log.Output depth + handlerWriter.Write + defaultHandler.Handle
-	//
-	return h.output(5, buf.String())
+	// skip [h.output, defaultHandler.Handle, handlerWriter.Write, log.Output]
+	return h.output(4, buf.String())
 }
 
 func (h *defaultHandler) WithAttrs(as []Attr) Handler {
@@ -166,9 +185,6 @@ const (
 	// SourceKey is the key used by the built-in handlers for the source file
 	// and line of the log call. The associated value is a string.
 	SourceKey = "source"
-	// ErrorKey is the key used for errors by Logger.Error.
-	// The associated value is an [error].
-	ErrorKey = "err"
 )
 
 type commonHandler struct {
@@ -229,6 +245,9 @@ func (h *commonHandler) withAttrs(as []Attr) *commonHandler {
 }
 
 func (h *commonHandler) withGroup(name string) *commonHandler {
+	if name == "" {
+		return h
+	}
 	h2 := h.clone()
 	h2.groups = append(h2.groups, name)
 	return h2
@@ -418,15 +437,14 @@ func (s *handleState) closeGroup(name string) {
 }
 
 // appendAttr appends the Attr's key and value using app.
-// If sep is true, it also prepends a separator.
 // It handles replacement and checking for an empty key.
-// It sets sep to true if it actually did the append (if the key was non-empty
 // after replacement).
 func (s *handleState) appendAttr(a Attr) {
-	if a.Key == "" {
+	v := a.Value
+	// Elide a non-group with an empty key.
+	if a.Key == "" && v.Kind() != KindGroup {
 		return
 	}
-	v := a.Value
 	if rep := s.h.opts.ReplaceAttr; rep != nil && v.Kind() != KindGroup {
 		var gs []string
 		if s.groups != nil {
@@ -441,11 +459,20 @@ func (s *handleState) appendAttr(a Attr) {
 		v = a.Value.Resolve()
 	}
 	if v.Kind() == KindGroup {
-		s.openGroup(a.Key)
-		for _, aa := range v.Group() {
-			s.appendAttr(aa)
+		attrs := v.Group()
+		// Output only non-empty groups.
+		if len(attrs) > 0 {
+			// Inline a group with an empty key.
+			if a.Key != "" {
+				s.openGroup(a.Key)
+			}
+			for _, aa := range attrs {
+				s.appendAttr(aa)
+			}
+			if a.Key != "" {
+				s.closeGroup(a.Key)
+			}
 		}
-		s.closeGroup(a.Key)
 	} else {
 		s.appendKey(a.Key)
 		s.appendValue(v)
