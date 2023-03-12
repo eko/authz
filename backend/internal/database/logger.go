@@ -43,7 +43,7 @@ func (l Logger) Warn(ctx context.Context, msg string, args ...any) {
 // Error allows to print a new error message.
 func (l Logger) Error(ctx context.Context, msg string, args ...any) {
 	l.logger.Info(msg)
-	l.call().Error(msg, nil, args...)
+	l.call().Error(msg, args...)
 }
 
 // Trace allows to print a new trace message.

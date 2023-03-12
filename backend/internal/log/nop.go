@@ -17,7 +17,7 @@ func (h *nopHandler) Enabled(_ context.Context, level slog.Level) bool {
 	return true
 }
 
-func (h *nopHandler) Handle(r slog.Record) error {
+func (h *nopHandler) Handle(_ context.Context, r slog.Record) error {
 	return nil
 }
 

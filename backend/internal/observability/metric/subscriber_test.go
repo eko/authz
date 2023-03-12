@@ -61,22 +61,24 @@ func TestHandleCheckEvents_WhenEnabled(t *testing.T) {
 	eventChan := make(chan *event.Event)
 
 	// When - Then
-	go subscriber.handleCheckEvents(eventChan)
+	go func() {
+		eventChan <- &event.Event{
+			Timestamp: 123456,
+			Data:      &event.CheckEvent{Principal: "user1", ResourceKind: "post", ResourceValue: "1", Action: "edit", IsAllowed: true},
+		}
+		eventChan <- &event.Event{
+			Timestamp: 123456,
+			Data:      &event.CheckEvent{Principal: "user1", ResourceKind: "post", ResourceValue: "2", Action: "edit", IsAllowed: false},
+		}
+		eventChan <- &event.Event{
+			Timestamp: 123457,
+			Data:      &event.CheckEvent{Principal: "user1", ResourceKind: "post", ResourceValue: "3", Action: "delete", IsAllowed: true},
+		}
 
-	eventChan <- &event.Event{
-		Timestamp: 123456,
-		Data:      &event.CheckEvent{Principal: "user1", ResourceKind: "post", ResourceValue: "1", Action: "edit", IsAllowed: true},
-	}
-	eventChan <- &event.Event{
-		Timestamp: 123456,
-		Data:      &event.CheckEvent{Principal: "user1", ResourceKind: "post", ResourceValue: "2", Action: "edit", IsAllowed: false},
-	}
-	eventChan <- &event.Event{
-		Timestamp: 123457,
-		Data:      &event.CheckEvent{Principal: "user1", ResourceKind: "post", ResourceValue: "3", Action: "delete", IsAllowed: true},
-	}
+		close(eventChan)
+	}()
 
-	close(eventChan)
+	subscriber.handleCheckEvents(eventChan)
 }
 
 func TestHandleCheckEvents_WhenNotEnabled(t *testing.T) {
@@ -98,22 +100,24 @@ func TestHandleCheckEvents_WhenNotEnabled(t *testing.T) {
 	eventChan := make(chan *event.Event)
 
 	// When - Then
-	go subscriber.handleCheckEvents(eventChan)
+	go func() {
+		eventChan <- &event.Event{
+			Timestamp: 123456,
+			Data:      &event.CheckEvent{Principal: "user1", ResourceKind: "post", ResourceValue: "1", Action: "edit", IsAllowed: true},
+		}
+		eventChan <- &event.Event{
+			Timestamp: 123456,
+			Data:      &event.CheckEvent{Principal: "user1", ResourceKind: "post", ResourceValue: "2", Action: "edit", IsAllowed: false},
+		}
+		eventChan <- &event.Event{
+			Timestamp: 123457,
+			Data:      &event.CheckEvent{Principal: "user1", ResourceKind: "post", ResourceValue: "3", Action: "delete", IsAllowed: true},
+		}
 
-	eventChan <- &event.Event{
-		Timestamp: 123456,
-		Data:      &event.CheckEvent{Principal: "user1", ResourceKind: "post", ResourceValue: "1", Action: "edit", IsAllowed: true},
-	}
-	eventChan <- &event.Event{
-		Timestamp: 123456,
-		Data:      &event.CheckEvent{Principal: "user1", ResourceKind: "post", ResourceValue: "2", Action: "edit", IsAllowed: false},
-	}
-	eventChan <- &event.Event{
-		Timestamp: 123457,
-		Data:      &event.CheckEvent{Principal: "user1", ResourceKind: "post", ResourceValue: "3", Action: "delete", IsAllowed: true},
-	}
+		close(eventChan)
+	}()
 
-	close(eventChan)
+	subscriber.handleCheckEvents(eventChan)
 }
 
 func TestHandleItemEvents_WhenEnabled(t *testing.T) {
@@ -137,22 +141,24 @@ func TestHandleItemEvents_WhenEnabled(t *testing.T) {
 	eventChan := make(chan *event.Event)
 
 	// When - Then
-	go subscriber.handleItemEvents(eventChan, "resource")
+	go func() {
+		eventChan <- &event.Event{
+			Timestamp: 123456,
+			Data:      &event.ItemEvent{Action: event.ItemActionCreate, Data: &model.Resource{ID: "4"}},
+		}
+		eventChan <- &event.Event{
+			Timestamp: 123456,
+			Data:      &event.ItemEvent{Action: event.ItemActionUpdate, Data: &model.Resource{ID: "4"}},
+		}
+		eventChan <- &event.Event{
+			Timestamp: 123456,
+			Data:      &event.ItemEvent{Action: event.ItemActionCreate, Data: &model.Resource{ID: "5"}},
+		}
 
-	eventChan <- &event.Event{
-		Timestamp: 123456,
-		Data:      &event.ItemEvent{Action: event.ItemActionCreate, Data: &model.Resource{ID: "4"}},
-	}
-	eventChan <- &event.Event{
-		Timestamp: 123456,
-		Data:      &event.ItemEvent{Action: event.ItemActionUpdate, Data: &model.Resource{ID: "4"}},
-	}
-	eventChan <- &event.Event{
-		Timestamp: 123456,
-		Data:      &event.ItemEvent{Action: event.ItemActionCreate, Data: &model.Resource{ID: "5"}},
-	}
+		close(eventChan)
+	}()
 
-	close(eventChan)
+	subscriber.handleItemEvents(eventChan, "resource")
 }
 
 func TestHandleItemEvents_WhenNotEnabled(t *testing.T) {
@@ -174,20 +180,22 @@ func TestHandleItemEvents_WhenNotEnabled(t *testing.T) {
 	eventChan := make(chan *event.Event)
 
 	// When - Then
-	go subscriber.handleItemEvents(eventChan, "resource")
+	go func() {
+		eventChan <- &event.Event{
+			Timestamp: 123456,
+			Data:      &event.ItemEvent{Action: event.ItemActionCreate, Data: &model.Resource{ID: "4"}},
+		}
+		eventChan <- &event.Event{
+			Timestamp: 123456,
+			Data:      &event.ItemEvent{Action: event.ItemActionUpdate, Data: &model.Resource{ID: "4"}},
+		}
+		eventChan <- &event.Event{
+			Timestamp: 123456,
+			Data:      &event.ItemEvent{Action: event.ItemActionCreate, Data: &model.Resource{ID: "5"}},
+		}
 
-	eventChan <- &event.Event{
-		Timestamp: 123456,
-		Data:      &event.ItemEvent{Action: event.ItemActionCreate, Data: &model.Resource{ID: "4"}},
-	}
-	eventChan <- &event.Event{
-		Timestamp: 123456,
-		Data:      &event.ItemEvent{Action: event.ItemActionUpdate, Data: &model.Resource{ID: "4"}},
-	}
-	eventChan <- &event.Event{
-		Timestamp: 123456,
-		Data:      &event.ItemEvent{Action: event.ItemActionCreate, Data: &model.Resource{ID: "5"}},
-	}
+		close(eventChan)
+	}()
 
-	close(eventChan)
+	subscriber.handleItemEvents(eventChan, "resource")
 }
