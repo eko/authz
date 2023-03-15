@@ -9,7 +9,7 @@
     "@hookform/resolvers": "^2.9.11",
     "@mui/icons-material": "^5.11.11",
     "@mui/lab": "^5.0.0-alpha.122",
-    "@mui/material": "^5.11.12",
+    "@mui/material": "^5.11.13",
     "@mui/styled-engine-sc": "^5.11.11",
     "@mui/x-data-grid": "^6.0.1",
     "@mui/x-date-pickers": "^6.0.1",
