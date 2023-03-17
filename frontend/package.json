@@ -12,7 +12,7 @@
     "@mui/material": "^5.11.12",
     "@mui/styled-engine-sc": "^5.11.11",
     "@mui/x-data-grid": "^6.0.1",
-    "@mui/x-date-pickers": "^6.0.1",
+    "@mui/x-date-pickers": "^6.0.2",
     "@nivo/bar": "^0.80.0",
     "@nivo/core": "^0.80.0",
     "@nivo/pie": "^0.80.0",
