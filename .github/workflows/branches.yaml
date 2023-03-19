@@ -87,7 +87,7 @@ jobs:
       - name: Run tests
         run: |
           cd frontend
-          npm install
+          npm install --force
           npm run test
 
   sdk-lint:

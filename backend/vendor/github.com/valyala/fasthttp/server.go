@@ -20,8 +20,7 @@ import (
 var errNoCertOrKeyProvided = errors.New("cert or key has not provided")
 
 var (
-	// ErrAlreadyServing is returned when calling Serve on a Server
-	// that is already serving connections.
+	// Deprecated: ErrAlreadyServing is never returned from Serve. See issue #633.
 	ErrAlreadyServing = errors.New("Server is already serving connections")
 )
 
@@ -130,7 +129,7 @@ func ListenAndServeTLSEmbed(addr string, certData, keyData []byte, handler Reque
 // RequestHandler must process incoming requests.
 //
 // RequestHandler must call ctx.TimeoutError() before returning
-// if it keeps references to ctx and/or its' members after the return.
+// if it keeps references to ctx and/or its members after the return.
 // Consider wrapping RequestHandler into TimeoutHandler if response time
 // must be limited.
 type RequestHandler func(ctx *RequestCtx)
@@ -148,7 +147,7 @@ type ServeHandler func(c net.Conn) error
 //
 // It is safe to call Server methods from concurrently running goroutines.
 type Server struct {
-	noCopy noCopy //nolint:unused,structcheck
+	noCopy noCopy
 
 	// Handler for processing incoming requests.
 	//
@@ -377,12 +376,12 @@ type Server struct {
 	// which will close it when needed.
 	KeepHijackedConns bool
 
-	// CloseOnShutdown when true adds a `Connection: close` header when when the server is shutting down.
+	// CloseOnShutdown when true adds a `Connection: close` header when the server is shutting down.
 	CloseOnShutdown bool
 
 	// StreamRequestBody enables request body streaming,
 	// and calls the handler sooner when given body is
-	// larger then the current limit.
+	// larger than the current limit.
 	StreamRequestBody bool
 
 	// ConnState specifies an optional callback function that is
@@ -567,7 +566,7 @@ func CompressHandlerBrotliLevel(h RequestHandler, brotliLevel, otherLevel int) R
 // It is forbidden copying RequestCtx instances.
 //
 // RequestHandler should avoid holding references to incoming RequestCtx and/or
-// its' members after the return.
+// its members after the return.
 // If holding RequestCtx references after the return is unavoidable
 // (for instance, ctx is passed to a separate goroutine and ctx lifetime cannot
 // be controlled), then the RequestHandler MUST call ctx.TimeoutError()
@@ -577,7 +576,7 @@ func CompressHandlerBrotliLevel(h RequestHandler, brotliLevel, otherLevel int) R
 // running goroutines. The only exception is TimeoutError*, which may be called
 // while other goroutines accessing RequestCtx.
 type RequestCtx struct {
-	noCopy noCopy //nolint:unused,structcheck
+	noCopy noCopy
 
 	// Incoming request.
 	//
@@ -1003,7 +1002,7 @@ func (ctx *RequestCtx) PostArgs() *Args {
 	return ctx.Request.PostArgs()
 }
 
-// MultipartForm returns requests's multipart form.
+// MultipartForm returns request's multipart form.
 //
 // Returns ErrNoMultipartForm if request's content-type
 // isn't 'multipart/form-data'.
@@ -1234,7 +1233,7 @@ func (ctx *RequestCtx) RemoteAddr() net.Addr {
 
 // SetRemoteAddr sets remote address to the given value.
 //
-// Set nil value to resore default behaviour for using
+// Set nil value to restore default behaviour for using
 // connection remote address.
 func (ctx *RequestCtx) SetRemoteAddr(remoteAddr net.Addr) {
 	ctx.remoteAddr = remoteAddr
@@ -1480,7 +1479,7 @@ func (ctx *RequestCtx) SetBodyStream(bodyStream io.Reader, bodySize int) {
 // SetBodyStreamWriter registers the given stream writer for populating
 // response body.
 //
-// Access to RequestCtx and/or its' members is forbidden from sw.
+// Access to RequestCtx and/or its members is forbidden from sw.
 //
 // This function may be used in the following cases:
 //
@@ -1864,7 +1863,7 @@ func (s *Server) Serve(ln net.Listener) error {
 // When Shutdown is called, Serve, ListenAndServe, and ListenAndServeTLS immediately return nil.
 // Make sure the program doesn't exit and waits instead for Shutdown to return.
 //
-// Shutdown does not close keepalive connections so its recommended to set ReadTimeout and IdleTimeout to something else than 0.
+// Shutdown does not close keepalive connections so it's recommended to set ReadTimeout and IdleTimeout to something else than 0.
 func (s *Server) Shutdown() error {
 	return s.ShutdownWithContext(context.Background())
 }
@@ -1875,7 +1874,7 @@ func (s *Server) Shutdown() error {
 // When ShutdownWithContext is called, Serve, ListenAndServe, and ListenAndServeTLS immediately return nil.
 // Make sure the program doesn't exit and waits instead for Shutdown to return.
 //
-// ShutdownWithContext does not close keepalive connections so its recommended to set ReadTimeout and IdleTimeout to something else than 0.
+// ShutdownWithContext does not close keepalive connections so it's recommended to set ReadTimeout and IdleTimeout to something else than 0.
 func (s *Server) ShutdownWithContext(ctx context.Context) (err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1950,12 +1949,12 @@ func acceptConn(s *Server, ln net.Listener, lastPerIPErrorTime *time.Time) (net.
 
 		if tc, ok := c.(*net.TCPConn); ok && s.TCPKeepalive {
 			if err := tc.SetKeepAlive(s.TCPKeepalive); err != nil {
-				tc.Close() //nolint:errcheck
+				_ = tc.Close()
 				return nil, err
 			}
 			if s.TCPKeepalivePeriod > 0 {
 				if err := tc.SetKeepAlivePeriod(s.TCPKeepalivePeriod); err != nil {
-					tc.Close() //nolint:errcheck
+					_ = tc.Close()
 					return nil, err
 				}
 			}
@@ -2226,7 +2225,7 @@ func (s *Server) serveConn(c net.Conn) (err error) {
 
 			// Reading Headers.
 			//
-			// If we have pipline response in the outgoing buffer,
+			// If we have pipeline response in the outgoing buffer,
 			// we only want to try and read the next headers once.
 			// If we have to wait for the next request we flush the
 			// outgoing buffer first so it doesn't have to wait.

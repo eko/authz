@@ -24,7 +24,7 @@ const (
 // ResponseHeader instance MUST NOT be used from concurrently running
 // goroutines.
 type ResponseHeader struct {
-	noCopy noCopy //nolint:unused,structcheck
+	noCopy noCopy
 
 	disableNormalizing   bool
 	noHTTP11             bool
@@ -59,7 +59,7 @@ type ResponseHeader struct {
 // RequestHeader instance MUST NOT be used from concurrently running
 // goroutines.
 type RequestHeader struct {
-	noCopy noCopy //nolint:unused,structcheck
+	noCopy noCopy
 
 	disableNormalizing   bool
 	noHTTP11             bool
@@ -109,7 +109,7 @@ func (h *ResponseHeader) SetContentRange(startPos, endPos, contentLength int) {
 	h.setNonSpecial(strContentRange, h.bufKV.value)
 }
 
-// SetByteRanges sets 'Range: bytes=startPos-endPos' header.
+// SetByteRange sets 'Range: bytes=startPos-endPos' header.
 //
 //   - If startPos is negative, then 'bytes=-startPos' value is set.
 //   - If endPos is negative, then 'bytes=startPos-' value is set.
@@ -1495,7 +1495,7 @@ func (h *ResponseHeader) SetCanonical(key, value []byte) {
 
 // SetCookie sets the given response cookie.
 //
-// It is save re-using the cookie after the function returns.
+// It is safe re-using the cookie after the function returns.
 func (h *ResponseHeader) SetCookie(cookie *Cookie) {
 	h.cookies = setArgBytes(h.cookies, cookie.Key(), cookie.Cookie(), argsHasValue)
 }
@@ -3083,7 +3083,7 @@ func (s *headerScanner) next() bool {
 	n++
 	for len(s.b) > n && s.b[n] == ' ' {
 		n++
-		// the newline index is a relative index, and lines below trimed `s.b` by `n`,
+		// the newline index is a relative index, and lines below trimmed `s.b` by `n`,
 		// so the relative newline index also shifted forward. it's safe to decrease
 		// to a minus value, it means it's invalid, and will find the newline again.
 		s.nextNewLine--
