@@ -1,5 +1,3 @@
-// go:build !windows || !race
-
 package fasthttp
 
 import (
@@ -179,7 +177,7 @@ var defaultClient Client
 //
 // The fields of a Client should not be changed while it is in use.
 type Client struct {
-	noCopy noCopy //nolint:unused,structcheck
+	noCopy noCopy
 
 	// Client name. Used in User-Agent request header.
 	//
@@ -374,6 +372,7 @@ func (c *Client) Post(dst []byte, url string, postArgs *Args) (statusCode int, b
 //
 // ErrTimeout is returned if the response wasn't returned during
 // the given timeout.
+// Immediately returns ErrTimeout if timeout value is negative.
 //
 // ErrNoFreeConns is returned if all Client.MaxConnsPerHost connections
 // to the requested host are busy.
@@ -387,6 +386,9 @@ func (c *Client) Post(dst []byte, url string, postArgs *Args) (statusCode int, b
 // try setting a ReadTimeout.
 func (c *Client) DoTimeout(req *Request, resp *Response, timeout time.Duration) error {
 	req.timeout = timeout
+	if req.timeout < 0 {
+		return ErrTimeout
+	}
 	return c.Do(req, resp)
 }
 
@@ -407,6 +409,7 @@ func (c *Client) DoTimeout(req *Request, resp *Response, timeout time.Duration) 
 //
 // ErrTimeout is returned if the response wasn't returned until
 // the given deadline.
+// Immediately returns ErrTimeout if the deadline has already been reached.
 //
 // ErrNoFreeConns is returned if all Client.MaxConnsPerHost connections
 // to the requested host are busy.
@@ -415,6 +418,9 @@ func (c *Client) DoTimeout(req *Request, resp *Response, timeout time.Duration) 
 // and AcquireResponse in performance-critical code.
 func (c *Client) DoDeadline(req *Request, resp *Response, deadline time.Time) error {
 	req.timeout = time.Until(deadline)
+	if req.timeout < 0 {
+		return ErrTimeout
+	}
 	return c.Do(req, resp)
 }
 
@@ -470,9 +476,9 @@ func (c *Client) Do(req *Request, resp *Response) error {
 	host := uri.Host()
 
 	isTLS := false
-	if uri.isHttps() {
+	if uri.isHTTPS() {
 		isTLS = true
-	} else if !uri.isHttp() {
+	} else if !uri.isHTTP() {
 		return fmt.Errorf("unsupported protocol %q. http and https are supported", uri.Scheme())
 	}
 
@@ -521,6 +527,7 @@ func (c *Client) Do(req *Request, resp *Response) error {
 
 		if c.ConfigureClient != nil {
 			if err := c.ConfigureClient(hc); err != nil {
+				c.mLock.Unlock()
 				return err
 			}
 		}
@@ -642,7 +649,7 @@ const (
 //
 // It is safe calling HostClient methods from concurrently running goroutines.
 type HostClient struct {
-	noCopy noCopy //nolint:unused,structcheck
+	noCopy noCopy
 
 	// Comma-separated list of upstream HTTP server host addresses,
 	// which are passed to Dial in a round-robin manner.
@@ -687,7 +694,7 @@ type HostClient struct {
 	// listed in Addr.
 	//
 	// You can change this value while the HostClient is being used
-	// using HostClient.SetMaxConns(value)
+	// with HostClient.SetMaxConns(value)
 	//
 	// DefaultMaxConnsPerHost is used if not set.
 	MaxConns int
@@ -811,7 +818,7 @@ type HostClient struct {
 	pendingRequests int32
 
 	// pendingClientRequests counts the number of requests that a Client is currently running using this HostClient.
-	// It will be incremented ealier than pendingRequests and will be used by Client to see if the HostClient is still in use.
+	// It will be incremented earlier than pendingRequests and will be used by Client to see if the HostClient is still in use.
 	pendingClientRequests int32
 
 	connsCleanerRun bool
@@ -1139,6 +1146,7 @@ func ReleaseResponse(resp *Response) {
 //
 // ErrTimeout is returned if the response wasn't returned during
 // the given timeout.
+// Immediately returns ErrTimeout if timeout value is negative.
 //
 // ErrNoFreeConns is returned if all HostClient.MaxConns connections
 // to the host are busy.
@@ -1152,6 +1160,9 @@ func ReleaseResponse(resp *Response) {
 // try setting a ReadTimeout.
 func (c *HostClient) DoTimeout(req *Request, resp *Response, timeout time.Duration) error {
 	req.timeout = timeout
+	if req.timeout < 0 {
+		return ErrTimeout
+	}
 	return c.Do(req, resp)
 }
 
@@ -1167,6 +1178,7 @@ func (c *HostClient) DoTimeout(req *Request, resp *Response, timeout time.Durati
 //
 // ErrTimeout is returned if the response wasn't returned until
 // the given deadline.
+// Immediately returns ErrTimeout if the deadline has already been reached.
 //
 // ErrNoFreeConns is returned if all HostClient.MaxConns connections
 // to the host are busy.
@@ -1175,6 +1187,9 @@ func (c *HostClient) DoTimeout(req *Request, resp *Response, timeout time.Durati
 // and AcquireResponse in performance-critical code.
 func (c *HostClient) DoDeadline(req *Request, resp *Response, deadline time.Time) error {
 	req.timeout = time.Until(deadline)
+	if req.timeout < 0 {
+		return ErrTimeout
+	}
 	return c.Do(req, resp)
 }
 
@@ -1308,7 +1323,7 @@ func (c *HostClient) doNonNilReqResp(req *Request, resp *Response) (bool, error)
 	req.secureErrorLogMessage = c.SecureErrorLogMessage
 	req.Header.secureErrorLogMessage = c.SecureErrorLogMessage
 
-	if c.IsTLS != req.URI().isHttps() {
+	if c.IsTLS != req.URI().isHTTPS() {
 		return false, ErrHostClientRedirectToDifferentScheme
 	}
 
@@ -1519,6 +1534,7 @@ func (c *HostClient) acquireConn(reqTimeout time.Duration, connectionClose bool)
 			c.conns[n-1] = nil
 			c.conns = c.conns[:n-1]
 		default:
+			c.connsLock.Unlock()
 			return nil, ErrConnPoolStrategyNotImpl
 		}
 	}
@@ -2003,11 +2019,11 @@ func AddMissingPort(addr string, isTLS bool) string {
 		return addr
 	}
 
-	isIp6 := addr[0] == '['
-	if isIp6 {
+	isIP6 := addr[0] == '['
+	if isIP6 {
 		// if the IPv6 has opening bracket but closing bracket is the last char then it doesn't have a port
-		isIp6WithoutPort := addr[addrLen-1] == ']'
-		if !isIp6WithoutPort {
+		isIP6WithoutPort := addr[addrLen-1] == ']'
+		if !isIP6WithoutPort {
 			return addr
 		}
 	} else { // IPv4
@@ -2139,7 +2155,7 @@ func (q *wantConnQueue) peekFront() *wantConn {
 	return nil
 }
 
-// cleanFront pops any wantConns that are no longer waiting from the head of the
+// clearFront pops any wantConns that are no longer waiting from the head of the
 // queue, reporting whether any were popped.
 func (q *wantConnQueue) clearFront() (cleaned bool) {
 	for {
@@ -2165,7 +2181,7 @@ func (q *wantConnQueue) clearFront() (cleaned bool) {
 // It is safe calling PipelineClient methods from concurrently running
 // goroutines.
 type PipelineClient struct {
-	noCopy noCopy //nolint:unused,structcheck
+	noCopy noCopy
 
 	// Address of the host to connect to.
 	Addr string
@@ -2279,7 +2295,7 @@ type PipelineClient struct {
 }
 
 type pipelineConnClient struct {
-	noCopy noCopy //nolint:unused,structcheck
+	noCopy noCopy
 
 	Addr                          string
 	Name                          string

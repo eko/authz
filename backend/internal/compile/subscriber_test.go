@@ -52,13 +52,15 @@ func TestHandlePolicyEvents(t *testing.T) {
 	eventChan := make(chan *event.Event)
 
 	// When - Then
-	go subscriber.handlePolicyEvents(eventChan)
+	go func() {
+		eventChan <- &event.Event{
+			Data: &event.ItemEvent{Data: policy},
+		}
 
-	eventChan <- &event.Event{
-		Data: &event.ItemEvent{Data: policy},
-	}
+		close(eventChan)
+	}()
 
-	close(eventChan)
+	subscriber.handlePolicyEvents(eventChan)
 }
 
 func TestHandleResourceEvents(t *testing.T) {
@@ -79,13 +81,15 @@ func TestHandleResourceEvents(t *testing.T) {
 	eventChan := make(chan *event.Event)
 
 	// When - Then
-	go subscriber.handleResourceEvents(eventChan)
+	go func() {
+		eventChan <- &event.Event{
+			Data: &event.ItemEvent{Data: resource},
+		}
 
-	eventChan <- &event.Event{
-		Data: &event.ItemEvent{Data: resource},
-	}
+		close(eventChan)
+	}()
 
-	close(eventChan)
+	subscriber.handleResourceEvents(eventChan)
 }
 
 func TestHandlePrincipalEvents(t *testing.T) {
@@ -106,11 +110,13 @@ func TestHandlePrincipalEvents(t *testing.T) {
 	eventChan := make(chan *event.Event)
 
 	// When - Then
-	go subscriber.handlePrincipalEvents(eventChan)
+	go func() {
+		eventChan <- &event.Event{
+			Data: &event.ItemEvent{Data: principal},
+		}
 
-	eventChan <- &event.Event{
-		Data: &event.ItemEvent{Data: principal},
-	}
+		close(eventChan)
+	}()
 
-	close(eventChan)
+	subscriber.handlePrincipalEvents(eventChan)
 }
