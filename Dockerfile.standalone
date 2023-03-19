@@ -32,7 +32,7 @@ COPY ./frontend/package.json .
 COPY ./frontend/package-lock.json .
 COPY ./frontend/tsconfig.json .
 
-RUN npm install && \
+RUN npm install --force && \
     npm run build
 
 FROM nginxinc/nginx-unprivileged:1.23.3-alpine

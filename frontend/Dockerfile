@@ -8,7 +8,7 @@ COPY ./package.json .
 COPY ./package-lock.json .
 COPY ./tsconfig.json .
 
-RUN npm install && \
+RUN npm install --force && \
     npm run build
 
 FROM nginxinc/nginx-unprivileged:1.23-alpine
