@@ -258,7 +258,7 @@ github.com/stretchr/testify/assert
 # github.com/swaggo/files v1.0.0
 ## explicit; go 1.15
 github.com/swaggo/files
-# github.com/swaggo/swag v1.8.10
+# github.com/swaggo/swag v1.8.11
 ## explicit; go 1.18
 github.com/swaggo/swag
 # github.com/tinylib/msgp v1.1.8
