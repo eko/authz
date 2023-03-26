@@ -1126,6 +1126,48 @@ func (c *Ctx) QueryInt(key string, defaultValue ...int) int {
 	return value
 }
 
+// QueryBool returns bool value of key string parameter in the url.
+// Default to empty or invalid key is true.
+//
+//	Get /?name=alex&want_pizza=false&id=
+//	QueryBool("want_pizza") == false
+//	QueryBool("want_pizza", true) == false
+//	QueryBool("alex") == true
+//	QueryBool("alex", false) == false
+//	QueryBool("id") == true
+//	QueryBool("id", false) == false
+func (c *Ctx) QueryBool(key string, defaultValue ...bool) bool {
+	value, err := strconv.ParseBool(c.app.getString(c.fasthttp.QueryArgs().Peek(key)))
+	if err != nil {
+		if len(defaultValue) > 0 {
+			return defaultValue[0]
+		}
+		return true
+	}
+	return value
+}
+
+// QueryFloat returns float64 value of key string parameter in the url.
+// Default to empty or invalid key is 0.
+//
+//	GET /?name=alex&amount=32.23&id=
+//	QueryFloat("amount") = 32.23
+//	QueryFloat("amount", 3) = 32.23
+//	QueryFloat("name", 1) = 1
+//	QueryFloat("name") = 0
+//	QueryFloat("id", 3) = 3
+func (c *Ctx) QueryFloat(key string, defaultValue ...float64) float64 {
+	// use strconv.ParseFloat to convert the param to a float or return zero and an error.
+	value, err := strconv.ParseFloat(c.app.getString(c.fasthttp.QueryArgs().Peek(key)), 64)
+	if err != nil {
+		if len(defaultValue) > 0 {
+			return defaultValue[0]
+		}
+		return 0
+	}
+	return value
+}
+
 // QueryParser binds the query string to a struct.
 func (c *Ctx) QueryParser(out interface{}) error {
 	data := make(map[string][]string)
