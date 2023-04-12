@@ -44,7 +44,7 @@ github.com/dustin/go-humanize
 # github.com/glebarez/go-sqlite v1.21.1
 ## explicit; go 1.17
 github.com/glebarez/go-sqlite
-# github.com/glebarez/sqlite v1.7.0
+# github.com/glebarez/sqlite v1.8.0
 ## explicit; go 1.18
 github.com/glebarez/sqlite
 # github.com/go-jose/go-jose/v3 v3.0.0
