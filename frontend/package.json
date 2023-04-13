@@ -37,7 +37,7 @@
     "typescript": "^5.0.3",
     "universal-cookie": "^4.0.4",
     "web-vitals": "^3.3.1",
-    "yup": "^1.0.2"
+    "yup": "^1.1.0"
   },
   "scripts": {
     "start": "react-scripts start",
