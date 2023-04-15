@@ -50,7 +50,7 @@ func (t *policy) ToProto() *authz.Policy {
 		Id:             t.entity.ID,
 		Actions:        NewActions(t.entity.Actions).ToStringSlice(),
 		Resources:      NewResources(t.entity.Resources).ToStringSlice(),
-		AttributeRules: t.entity.AttributeRules.Data,
+		AttributeRules: t.entity.AttributeRules.Data(),
 	}
 }
 
