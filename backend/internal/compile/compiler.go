@@ -69,7 +69,7 @@ func (c *compiler) CompilePolicy(policy *model.Policy) error {
 	}
 
 	// In case policy has attribute rules, just compile them.
-	if len(policy.AttributeRules.Data) > 0 {
+	if len(policy.AttributeRules.Data()) > 0 {
 		return c.compilePolicyAttributes(policy)
 	}
 
@@ -117,7 +117,7 @@ func (c *compiler) CompilePolicy(policy *model.Policy) error {
 func (c *compiler) compilePolicyAttributes(policy *model.Policy) error {
 	version := c.clock.Now().Unix()
 
-	for _, attributeRuleStr := range policy.AttributeRules.Data {
+	for _, attributeRuleStr := range policy.AttributeRules.Data() {
 		attributeRule, err := attribute.ConvertStringToRuleOperator(attributeRuleStr)
 		if err != nil {
 			return fmt.Errorf("cannot convert attribute rule string to object: %v", err)
@@ -368,7 +368,7 @@ func (c *compiler) CompilePrincipal(principal *model.Principal) error {
 	}
 
 	for _, policy := range policies {
-		for _, attributeRuleStr := range policy.AttributeRules.Data {
+		for _, attributeRuleStr := range policy.AttributeRules.Data() {
 			attributeRule, err := attribute.ConvertStringToRuleOperator(attributeRuleStr)
 			if err != nil {
 				return fmt.Errorf("cannot convert attribute rule string to object: %v", err)
@@ -408,7 +408,7 @@ func (c *compiler) CompileResource(resource *model.Resource) error {
 	}
 
 	for _, policy := range policies {
-		for _, attributeRuleStr := range policy.AttributeRules.Data {
+		for _, attributeRuleStr := range policy.AttributeRules.Data() {
 			attributeRule, err := attribute.ConvertStringToRuleOperator(attributeRuleStr)
 			if err != nil {
 				return fmt.Errorf("cannot convert attribute rule string to object: %v", err)

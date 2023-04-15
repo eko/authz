@@ -29,9 +29,9 @@ func TestNewPolicy_ToProto(t *testing.T) {
 				ID: "action-1",
 			},
 		},
-		AttributeRules: datatypes.JSONType[[]string]{
-			Data: []string{"rule1", "rule2"},
-		},
+		AttributeRules: datatypes.NewJSONType(
+			[]string{"rule1", "rule2"},
+		),
 	}
 
 	// When
@@ -69,9 +69,9 @@ func TestNewPolicys_ToProto(t *testing.T) {
 				ID: "action-1",
 			},
 		},
-		AttributeRules: datatypes.JSONType[[]string]{
-			Data: []string{"rule1", "rule2"},
-		},
+		AttributeRules: datatypes.NewJSONType(
+			[]string{"rule1", "rule2"},
+		),
 	}
 
 	attribute2 := &model.Policy{
@@ -92,9 +92,9 @@ func TestNewPolicys_ToProto(t *testing.T) {
 				ID: "action-2",
 			},
 		},
-		AttributeRules: datatypes.JSONType[[]string]{
-			Data: []string{"rule1", "rule2"},
-		},
+		AttributeRules: datatypes.NewJSONType(
+			[]string{"rule1", "rule2"},
+		),
 	}
 
 	// When

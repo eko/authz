@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=1 go build -mod vendor -ldflags "-s -w" -o authz ./cmd/
 
-FROM node:19.8-alpine as frontend-builder
+FROM node:19.9-alpine as frontend-builder
 
 ARG REACT_APP_API_BASE_URI=http://localhost:8080/v1
 ARG REACT_APP_DEMO_ENABLED=false
@@ -35,7 +35,7 @@ COPY ./frontend/tsconfig.json .
 RUN npm install --force && \
     npm run build
 
-FROM nginxinc/nginx-unprivileged:1.23.3-alpine
+FROM nginxinc/nginx-unprivileged:1.23-alpine
 
 ARG GRPC_SERVER_ADDR=:8081
 ARG HTTP_SERVER_ADDR=:8080

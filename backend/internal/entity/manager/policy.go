@@ -184,7 +184,7 @@ func (m *policyManager) attachToPolicy(
 	policy.ID = identifier
 	policy.Resources = resourceObjects
 	policy.Actions = actionObjects
-	policy.AttributeRules = datatypes.JSONType[[]string]{Data: attributeRules}
+	policy.AttributeRules = datatypes.NewJSONType(attributeRules)
 
 	return nil
 }

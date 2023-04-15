@@ -5,19 +5,19 @@ go 1.20
 require (
 	github.com/coreos/go-oidc/v3 v3.5.0
 	github.com/cucumber/godog v0.12.6
-	github.com/glebarez/sqlite v1.7.0
+	github.com/glebarez/sqlite v1.8.0
 	github.com/go-oauth2/oauth2/v4 v4.5.2
 	github.com/go-playground/validator/v10 v10.12.0
 	github.com/gofiber/adaptor/v2 v2.2.0
 	github.com/gofiber/contrib/otelfiber v1.0.4
-	github.com/gofiber/fiber/v2 v2.43.0
+	github.com/gofiber/fiber/v2 v2.44.0
 	github.com/gofiber/swagger v0.1.10
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/heetch/confita v0.10.0
-	github.com/prometheus/client_golang v1.14.0
+	github.com/prometheus/client_golang v1.15.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.2
 	github.com/swaggo/swag v1.8.12
@@ -28,15 +28,15 @@ require (
 	go.opentelemetry.io/otel/exporters/zipkin v1.14.0
 	go.opentelemetry.io/otel/sdk v1.14.0
 	go.uber.org/fx v1.19.2
-	golang.org/x/crypto v0.7.0
+	golang.org/x/crypto v0.8.0
 	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
-	golang.org/x/oauth2 v0.6.0
+	golang.org/x/oauth2 v0.7.0
 	google.golang.org/grpc v1.54.0
 	google.golang.org/protobuf v1.30.0
-	gorm.io/datatypes v1.1.1
-	gorm.io/driver/mysql v1.4.7
+	gorm.io/datatypes v1.2.0
+	gorm.io/driver/mysql v1.5.0
 	gorm.io/driver/postgres v1.5.0
-	gorm.io/gorm v1.24.7-0.20230306060331-85eaf9eeda11
+	gorm.io/gorm v1.25.0
 )
 
 require (
@@ -105,12 +105,12 @@ require (
 	go.uber.org/dig v1.16.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/net v0.8.0 // indirect
+	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect
-	golang.org/x/text v0.8.0 // indirect
-	golang.org/x/tools v0.7.0 // indirect
+	golang.org/x/text v0.9.0 // indirect
+	golang.org/x/tools v0.8.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20230403163135-c38d8f061ccd // indirect
+	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/sqlite v1.4.4 // indirect
 	modernc.org/libc v1.22.3 // indirect
