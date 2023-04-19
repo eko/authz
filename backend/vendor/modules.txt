@@ -106,7 +106,7 @@ github.com/gofiber/fiber/v2/internal/schema
 github.com/gofiber/fiber/v2/middleware/cors
 github.com/gofiber/fiber/v2/middleware/filesystem
 github.com/gofiber/fiber/v2/utils
-# github.com/gofiber/swagger v0.1.10
+# github.com/gofiber/swagger v0.1.11
 ## explicit; go 1.16
 github.com/gofiber/swagger
 # github.com/gofrs/uuid v4.2.0+incompatible

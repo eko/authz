@@ -174,11 +174,10 @@ github.com/gofiber/adaptor/v2 v2.2.0 h1:MGz/LW8l+avBER56v87dzcH+mqi+90CX00k8Lv8Q
 github.com/gofiber/adaptor/v2 v2.2.0/go.mod h1:A51dt83PyWNUZp/9Op4FBI2qxDUceg15hWtf8Vk9ZOU=
 github.com/gofiber/contrib/otelfiber v1.0.4 h1:iDNn/b461oQ5EEFfeFxv953H+QTx9Z6fZ0I5LUnhGtM=
 github.com/gofiber/contrib/otelfiber v1.0.4/go.mod h1:Lmszfk7tAUbB3c+z6GWCoTDRXDadR8mSI8Bmk+011I4=
-github.com/gofiber/fiber/v2 v2.43.0/go.mod h1:mpS1ZNE5jU+u+BA4FbM+KKnUzJ4wzTK+FT2tG3tU+6I=
 github.com/gofiber/fiber/v2 v2.44.0 h1:Z90bEvPcJM5GFJnu1py0E1ojoerkyew3iiNJ78MQCM8=
 github.com/gofiber/fiber/v2 v2.44.0/go.mod h1:VTMtb/au8g01iqvHyaCzftuM/xmZgKOZCtFzz6CdV9w=
-github.com/gofiber/swagger v0.1.10 h1:A56mdmITjCjz5jLPctDvGri1kNaKk432ws/RiRXE020=
-github.com/gofiber/swagger v0.1.10/go.mod h1:v9qIa0NBsWLwwHkTWwgyvbphsZ0bcbW4zwYtGb7dmY4=
+github.com/gofiber/swagger v0.1.11 h1:fY4zdtcU45wzWrMe3NUkShfLyWR5FBcRaDJdByxJrfU=
+github.com/gofiber/swagger v0.1.11/go.mod h1:o8IcaqISe1w5uykdTLRPe6AntWFNwoZDS87ww1LxJro=
 github.com/gofrs/uuid v4.0.0+incompatible/go.mod h1:b2aQJv3Z4Fp6yNu3cdSllBxTCLRxnplIgP/c0N/04lM=
 github.com/gofrs/uuid v4.2.0+incompatible h1:yyYWMnhkhrKwwr8gAOcOCYxOOscHgDS9yZgBrnJfGa0=
 github.com/gofrs/uuid v4.2.0+incompatible/go.mod h1:b2aQJv3Z4Fp6yNu3cdSllBxTCLRxnplIgP/c0N/04lM=
@@ -375,7 +374,6 @@ github.com/mattn/go-colorable v0.1.13/go.mod h1:7S9/ev0klgBDR4GtXTXX8a3vIGJpMovk
 github.com/mattn/go-isatty v0.0.3/go.mod h1:M+lRXTBqGeGNdLjl/ufCoiOlB5xdOkqRJdNxMWT7Zi4=
 github.com/mattn/go-isatty v0.0.12/go.mod h1:cbi8OIDigv2wuxKPP5vlRcQ1OAZbq2CE4Kysco4FUpU=
 github.com/mattn/go-isatty v0.0.16/go.mod h1:kYGgaQfpe5nmfYZH+SKPsOc2e4SrIfOl2e/yFXSvRLM=
-github.com/mattn/go-isatty v0.0.17/go.mod h1:kYGgaQfpe5nmfYZH+SKPsOc2e4SrIfOl2e/yFXSvRLM=
 github.com/mattn/go-isatty v0.0.18 h1:DOKFKCQ7FNG2L1rbrmstDN4QVRdS89Nkh85u68Uwp98=
 github.com/mattn/go-isatty v0.0.18/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
 github.com/mattn/go-runewidth v0.0.14 h1:+xnbZSEeDbOIg5/mE6JF0w6n9duR1l3/WmbinWVwUuU=

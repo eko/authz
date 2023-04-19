@@ -11,7 +11,7 @@ require (
 	github.com/gofiber/adaptor/v2 v2.2.0
 	github.com/gofiber/contrib/otelfiber v1.0.4
 	github.com/gofiber/fiber/v2 v2.44.0
-	github.com/gofiber/swagger v0.1.10
+	github.com/gofiber/swagger v0.1.11
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
