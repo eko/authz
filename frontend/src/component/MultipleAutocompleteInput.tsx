@@ -191,7 +191,7 @@ export default function MultipleAutocompleteInput({
           ))}
         </List>
       ) : (
-        <p style={{ margin: '10px 0 0 2px' }}>Aucun élément sélectionné.</p>
+        <p style={{ margin: '10px 0 0 2px' }}>No item selected.</p>
       )}
     </div>
   );
