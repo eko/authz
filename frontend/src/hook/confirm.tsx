@@ -41,7 +41,7 @@ const useConfirm = () => {
         </DialogContent>
         <DialogActions>
           <Button variant='contained' onClick={handleConfirm}>OK</Button>
-          <Button onClick={handleCancel}>Annuler</Button>
+          <Button onClick={handleCancel}>Cancel</Button>
         </DialogActions>
       </Dialog>
     );
