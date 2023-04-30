@@ -125,7 +125,7 @@ export default function ResourceCreateOrEdit() {
             startIcon={<SaveIcon />}
             sx={{ marginTop: 2 }}
           >
-            Enregistrer
+            Submit
           </LoadingButton>
 
           <Button
@@ -134,7 +134,7 @@ export default function ResourceCreateOrEdit() {
             onClick={() => navigate('/resources')}
             sx={{ marginLeft: 2, marginTop: 2 }}
           >
-            Retour
+            Cancel
           </Button>
         </Grid>
       </form>

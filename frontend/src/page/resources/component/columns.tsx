@@ -103,7 +103,7 @@ export const ListColumns = ({
             Edit
           </Button>
           
-          <Tooltip title='Supprimer' placement='right'>
+          <Tooltip title='Delete' placement='right'>
             <Button
               variant='text'
               size='small'

@@ -106,7 +106,7 @@ export default function ClientCreateOrEdit() {
             startIcon={<SaveIcon />}
             sx={{ marginTop: 2 }}
           >
-            Enregistrer
+            Submit
           </LoadingButton>
 
           <Button
@@ -115,7 +115,7 @@ export default function ClientCreateOrEdit() {
             onClick={() => navigate('/clients')}
             sx={{ marginLeft: 2, marginTop: 2 }}
           >
-            Retour
+            Cancel
           </Button>
         </Grid>
       </form>

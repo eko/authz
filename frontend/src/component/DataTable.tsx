@@ -62,7 +62,7 @@ export default function DataTable<T>({
       const response = await fetcher(paginationModel.page+1, paginationModel.pageSize, filter, sort);
 
       if (isAPIError(response)) {
-        toast.error(`Impossible de charger les données : ${response.message}`);
+        toast.error(`Unable to load data : ${response.message}`);
       } else {
         setTotal(response.total);
         setRows(response.data);

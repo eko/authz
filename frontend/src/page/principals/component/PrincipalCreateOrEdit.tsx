@@ -153,7 +153,7 @@ export default function PrincipalCreateOrEdit() {
             startIcon={<SaveIcon />}
             sx={{ marginTop: 2 }}
           >
-            Enregistrer
+            Submit
           </LoadingButton>
 
           <Button
@@ -162,7 +162,7 @@ export default function PrincipalCreateOrEdit() {
             onClick={() => navigate('/principals')}
             sx={{ marginLeft: 2, marginTop: 2 }}
           >
-            Retour
+            Cancel
           </Button>
         </Grid>
       </form>
