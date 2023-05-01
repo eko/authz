@@ -7,7 +7,7 @@ require (
 	github.com/cucumber/godog v0.12.6
 	github.com/glebarez/sqlite v1.8.0
 	github.com/go-oauth2/oauth2/v4 v4.5.2
-	github.com/go-playground/validator/v10 v10.12.0
+	github.com/go-playground/validator/v10 v10.13.0
 	github.com/gofiber/adaptor/v2 v2.2.0
 	github.com/gofiber/contrib/otelfiber v1.0.4
 	github.com/gofiber/fiber/v2 v2.44.0
