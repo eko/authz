@@ -1,4 +1,4 @@
-# github.com/eko/authz/backend v0.8.2 => ../backend
+# github.com/eko/authz/backend v0.8.3 => ../backend
 ## explicit; go 1.20
 github.com/eko/authz/backend/pkg/authz
 # github.com/golang/protobuf v1.5.3
