@@ -8,9 +8,15 @@ import (
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/http/handler/model"
+	"github.com/eko/authz/backend/internal/http/middleware"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
+)
+
+var (
+	// ErrCannotDeleteOwnAccount is returned when a user tries to delete their own account.
+	ErrCannotDeleteOwnAccount = errors.New("a user cannot delete their own account")
 )
 
 type UserCreateRequest struct {
@@ -142,7 +148,14 @@ func UserDelete(
 	userManager manager.User,
 ) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		ctx := c.UserContext()
+		userID := ctx.Value(middleware.UserIdentifierKey).(string)
+
 		identifier := c.Params("identifier")
+
+		if userID == identifier {
+			return returnError(c, http.StatusBadRequest, ErrCannotDeleteOwnAccount)
+		}
 
 		if err := userManager.Delete(identifier); err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
