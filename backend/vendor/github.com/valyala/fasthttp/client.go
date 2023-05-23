@@ -297,6 +297,9 @@ type Client struct {
 	// Connection pool strategy. Can be either LIFO or FIFO (default).
 	ConnPoolStrategy ConnPoolStrategyType
 
+	// StreamResponseBody enables response body streaming
+	StreamResponseBody bool
+
 	// ConfigureClient configures the fasthttp.HostClient.
 	ConfigureClient func(hc *HostClient) error
 
@@ -521,6 +524,7 @@ func (c *Client) Do(req *Request, resp *Response) error {
 			MaxConnWaitTimeout:            c.MaxConnWaitTimeout,
 			RetryIf:                       c.RetryIf,
 			ConnPoolStrategy:              c.ConnPoolStrategy,
+			StreamResponseBody:            c.StreamResponseBody,
 			clientReaderPool:              &c.readerPool,
 			clientWriterPool:              &c.writerPool,
 		}
@@ -794,6 +798,9 @@ type HostClient struct {
 
 	// Connection pool strategy. Can be either LIFO or FIFO (default).
 	ConnPoolStrategy ConnPoolStrategyType
+
+	// StreamResponseBody enables response body streaming
+	StreamResponseBody bool
 
 	lastUseTime uint32
 
@@ -1294,26 +1301,23 @@ func isIdempotent(req *Request) bool {
 }
 
 func (c *HostClient) do(req *Request, resp *Response) (bool, error) {
-	nilResp := false
 	if resp == nil {
-		nilResp = true
 		resp = AcquireResponse()
+		defer ReleaseResponse(resp)
 	}
 
 	ok, err := c.doNonNilReqResp(req, resp)
-
-	if nilResp {
-		ReleaseResponse(resp)
-	}
 
 	return ok, err
 }
 
 func (c *HostClient) doNonNilReqResp(req *Request, resp *Response) (bool, error) {
 	if req == nil {
+		// for debugging purposes
 		panic("BUG: req cannot be nil")
 	}
 	if resp == nil {
+		// for debugging purposes
 		panic("BUG: resp cannot be nil")
 	}
 
@@ -1334,8 +1338,10 @@ func (c *HostClient) doNonNilReqResp(req *Request, resp *Response) (bool, error)
 
 	// backing up SkipBody in case it was set explicitly
 	customSkipBody := resp.SkipBody
+	customStreamBody := resp.StreamBody || c.StreamResponseBody
 	resp.Reset()
 	resp.SkipBody = customSkipBody
+	resp.StreamBody = customStreamBody
 
 	req.URI().DisablePathNormalizing = c.DisablePathNormalizing
 
@@ -1445,12 +1451,28 @@ func (c *HostClient) doNonNilReqResp(req *Request, resp *Response) (bool, error)
 		return retry, err
 	}
 
-	if resetConnection || req.ConnectionClose() || resp.ConnectionClose() || isConnRST {
+	closeConn := resetConnection || req.ConnectionClose() || resp.ConnectionClose() || isConnRST
+	if customStreamBody && resp.bodyStream != nil {
+		rbs := resp.bodyStream
+		resp.bodyStream = newCloseReader(rbs, func() error {
+			if r, ok := rbs.(*requestStream); ok {
+				releaseRequestStream(r)
+			}
+			if closeConn {
+				c.closeConn(cc)
+			} else {
+				c.releaseConn(cc)
+			}
+			return nil
+		})
+		return false, nil
+	}
+
+	if closeConn {
 		c.closeConn(cc)
 	} else {
 		c.releaseConn(cc)
 	}
-
 	return false, nil
 }
 
@@ -1591,7 +1613,7 @@ func (c *HostClient) acquireConn(reqTimeout time.Duration, connectionClose bool)
 		go c.connsCleaner()
 	}
 
-	conn, err := c.dialHostHard()
+	conn, err := c.dialHostHard(reqTimeout)
 	if err != nil {
 		c.decConnsCount()
 		return nil, err
@@ -1612,7 +1634,7 @@ func (c *HostClient) queueForIdle(w *wantConn) {
 }
 
 func (c *HostClient) dialConnFor(w *wantConn) {
-	conn, err := c.dialHostHard()
+	conn, err := c.dialHostHard(0)
 	if err != nil {
 		w.tryDeliver(nil, err)
 		c.decConnsCount()
@@ -1620,8 +1642,7 @@ func (c *HostClient) dialConnFor(w *wantConn) {
 	}
 
 	cc := acquireClientConn(conn)
-	delivered := w.tryDeliver(cc, nil)
-	if !delivered {
+	if !w.tryDeliver(cc, nil) {
 		// not delivered, return idle connection
 		c.releaseConn(cc)
 	}
@@ -1900,7 +1921,8 @@ func (c *HostClient) nextAddr() string {
 	return addr
 }
 
-func (c *HostClient) dialHostHard() (conn net.Conn, err error) {
+func (c *HostClient) dialHostHard(dialTimeout time.Duration) (conn net.Conn, err error) {
+	// use dialTimeout to control the timeout of each dial. It does not work if dialTimeout is 0 or dial has been set.
 	// attempt to dial all the available hosts before giving up.
 
 	c.addrsLock.Lock()
@@ -1912,6 +1934,13 @@ func (c *HostClient) dialHostHard() (conn net.Conn, err error) {
 		n = 1
 	}
 
+	dial := c.Dial
+	if dialTimeout != 0 && dial == nil {
+		dial = func(addr string) (net.Conn, error) {
+			return DialTimeout(addr, dialTimeout)
+		}
+	}
+
 	timeout := c.ReadTimeout + c.WriteTimeout
 	if timeout <= 0 {
 		timeout = DefaultDialTimeout
@@ -1920,7 +1949,7 @@ func (c *HostClient) dialHostHard() (conn net.Conn, err error) {
 	for n > 0 {
 		addr := c.nextAddr()
 		tlsConfig := c.cachedTLSConfig(addr)
-		conn, err = dialAddr(addr, c.Dial, c.DialDualStack, c.IsTLS, tlsConfig, c.WriteTimeout)
+		conn, err = dialAddr(addr, dial, c.DialDualStack, c.IsTLS, tlsConfig, c.WriteTimeout)
 		if err == nil {
 			return conn, nil
 		}
@@ -1994,7 +2023,7 @@ func dialAddr(addr string, dial DialFunc, dialDualStack, isTLS bool, tlsConfig *
 		return nil, err
 	}
 	if conn == nil {
-		panic("BUG: DialFunc returned (nil, nil)")
+		return nil, errors.New("dialling unsuccessful. Please report this bug!")
 	}
 
 	// We assume that any conn that has the Handshake() method is a TLS conn already.

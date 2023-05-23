@@ -99,14 +99,14 @@ github.com/gofiber/adaptor/v2
 # github.com/gofiber/contrib/otelfiber v1.0.4
 ## explicit; go 1.18
 github.com/gofiber/contrib/otelfiber
-# github.com/gofiber/fiber/v2 v2.44.0
+# github.com/gofiber/fiber/v2 v2.46.0
 ## explicit; go 1.20
 github.com/gofiber/fiber/v2
 github.com/gofiber/fiber/v2/internal/schema
 github.com/gofiber/fiber/v2/middleware/cors
 github.com/gofiber/fiber/v2/middleware/filesystem
 github.com/gofiber/fiber/v2/utils
-# github.com/gofiber/swagger v0.1.10
+# github.com/gofiber/swagger v0.1.12
 ## explicit; go 1.16
 github.com/gofiber/swagger
 # github.com/gofrs/uuid v4.2.0+incompatible
@@ -258,7 +258,7 @@ github.com/stretchr/testify/assert
 # github.com/swaggo/files/v2 v2.0.0
 ## explicit; go 1.16
 github.com/swaggo/files/v2
-# github.com/swaggo/swag v1.8.12
+# github.com/swaggo/swag v1.16.1
 ## explicit; go 1.18
 github.com/swaggo/swag
 # github.com/tinylib/msgp v1.1.8
@@ -267,7 +267,7 @@ github.com/tinylib/msgp/msgp
 # github.com/valyala/bytebufferpool v1.0.0
 ## explicit
 github.com/valyala/bytebufferpool
-# github.com/valyala/fasthttp v1.45.0
+# github.com/valyala/fasthttp v1.47.0
 ## explicit; go 1.20
 github.com/valyala/fasthttp
 github.com/valyala/fasthttp/fasthttpadaptor
@@ -399,7 +399,7 @@ golang.org/x/net/trace
 ## explicit; go 1.17
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
-# golang.org/x/sys v0.7.0
+# golang.org/x/sys v0.8.0
 ## explicit; go 1.17
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs

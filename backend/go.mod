@@ -10,8 +10,8 @@ require (
 	github.com/go-playground/validator/v10 v10.12.0
 	github.com/gofiber/adaptor/v2 v2.2.0
 	github.com/gofiber/contrib/otelfiber v1.0.4
-	github.com/gofiber/fiber/v2 v2.44.0
-	github.com/gofiber/swagger v0.1.10
+	github.com/gofiber/fiber/v2 v2.46.0
+	github.com/gofiber/swagger v0.1.12
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
@@ -20,7 +20,7 @@ require (
 	github.com/prometheus/client_golang v1.15.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.2
-	github.com/swaggo/swag v1.8.12
+	github.com/swaggo/swag v1.16.1
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.40.0
 	go.opentelemetry.io/otel v1.14.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.14.0
@@ -93,7 +93,7 @@ require (
 	github.com/swaggo/files/v2 v2.0.0 // indirect
 	github.com/tinylib/msgp v1.1.8 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.45.0 // indirect
+	github.com/valyala/fasthttp v1.47.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	go.opentelemetry.io/contrib v1.15.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.14.0 // indirect
@@ -106,7 +106,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/net v0.9.0 // indirect
-	golang.org/x/sys v0.7.0 // indirect
+	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/tools v0.8.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
