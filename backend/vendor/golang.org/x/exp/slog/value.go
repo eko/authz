@@ -7,14 +7,34 @@ package slog
 import (
 	"fmt"
 	"math"
+	"runtime"
 	"strconv"
+	"strings"
 	"time"
+	"unsafe"
 
 	"golang.org/x/exp/slices"
 )
 
-// Definitions for Value.
-// The Value type itself can be found in value_{safe,unsafe}.go.
+// A Value can represent any Go value, but unlike type any,
+// it can represent most small values without an allocation.
+// The zero Value corresponds to nil.
+type Value struct {
+	_ [0]func() // disallow ==
+	// num holds the value for Kinds Int64, Uint64, Float64, Bool and Duration,
+	// the string length for KindString, and nanoseconds since the epoch for KindTime.
+	num uint64
+	// If any is of type Kind, then the value is in num as described above.
+	// If any is of type *time.Location, then the Kind is Time and time.Time value
+	// can be constructed from the Unix nanos in num and the location (monotonic time
+	// is not preserved).
+	// If any is of type stringptr, then the Kind is String and the string value
+	// consists of the length in num and the pointer in any.
+	// Otherwise, the Kind is Any and any is the value.
+	// (This implies that Attrs cannot store values of type Kind, *time.Location
+	// or stringptr.)
+	any any
+}
 
 // Kind is the kind of a Value.
 type Kind int
@@ -58,6 +78,26 @@ func (k Kind) String() string {
 // Unexported version of Kind, just so we can store Kinds in Values.
 // (No user-provided value has this type.)
 type kind Kind
+
+// Kind returns v's Kind.
+func (v Value) Kind() Kind {
+	switch x := v.any.(type) {
+	case Kind:
+		return x
+	case stringptr:
+		return KindString
+	case timeLocation:
+		return KindTime
+	case groupptr:
+		return KindGroup
+	case LogValuer:
+		return KindLogValuer
+	case kind: // a kind is just a wrapper for a Kind
+		return KindAny
+	default:
+		return KindAny
+	}
+}
 
 //////////////// Constructors
 
@@ -110,12 +150,6 @@ func TimeValue(v time.Time) Value {
 // DurationValue returns a Value for a time.Duration.
 func DurationValue(v time.Duration) Value {
 	return Value{num: uint64(v.Nanoseconds()), any: KindDuration}
-}
-
-// GroupValue returns a new Value for a list of Attrs.
-// The caller must not subsequently mutate the argument slice.
-func GroupValue(as ...Attr) Value {
-	return groupValue(as)
 }
 
 // AnyValue returns a Value for the supplied value.
@@ -193,7 +227,7 @@ func (v Value) Any() any {
 	case KindLogValuer:
 		return v.any
 	case KindGroup:
-		return v.uncheckedGroup()
+		return v.group()
 	case KindInt64:
 		return int64(v.num)
 	case KindUint64:
@@ -298,12 +332,19 @@ func (v Value) LogValuer() LogValuer {
 // Group returns v's value as a []Attr.
 // It panics if v's Kind is not KindGroup.
 func (v Value) Group() []Attr {
-	return v.group()
+	if sp, ok := v.any.(groupptr); ok {
+		return unsafe.Slice((*Attr)(sp), v.num)
+	}
+	panic("Group: bad kind")
+}
+
+func (v Value) group() []Attr {
+	return unsafe.Slice((*Attr)(v.any.(groupptr)), v.num)
 }
 
 //////////////// Other
 
-// Equal reports whether v and w have equal keys and values.
+// Equal reports whether v and w represent the same Go value.
 func (v Value) Equal(w Value) bool {
 	k1 := v.Kind()
 	k2 := w.Kind()
@@ -322,7 +363,7 @@ func (v Value) Equal(w Value) bool {
 	case KindAny, KindLogValuer:
 		return v.any == w.any // may panic if non-comparable
 	case KindGroup:
-		return slices.EqualFunc(v.uncheckedGroup(), w.uncheckedGroup(), Attr.Equal)
+		return slices.EqualFunc(v.group(), w.group(), Attr.Equal)
 	default:
 		panic(fmt.Sprintf("bad kind: %s", k1))
 	}
@@ -346,8 +387,10 @@ func (v Value) append(dst []byte) []byte {
 		return append(dst, v.duration().String()...)
 	case KindTime:
 		return append(dst, v.time().String()...)
-	case KindAny, KindGroup, KindLogValuer:
-		return append(dst, fmt.Sprint(v.any)...)
+	case KindGroup:
+		return fmt.Append(dst, v.group())
+	case KindAny, KindLogValuer:
+		return fmt.Append(dst, v.any)
 	default:
 		panic(fmt.Sprintf("bad kind: %s", v.Kind()))
 	}
@@ -365,20 +408,19 @@ const maxLogValues = 100
 
 // Resolve repeatedly calls LogValue on v while it implements LogValuer,
 // and returns the result.
-// If v resolves to a group, the group's attributes' values are also resolved.
+// If v resolves to a group, the group's attributes' values are not recursively
+// resolved.
 // If the number of LogValue calls exceeds a threshold, a Value containing an
 // error is returned.
 // Resolve's return value is guaranteed not to be of Kind KindLogValuer.
-func (v Value) Resolve() Value {
-	v = v.resolve()
-	if v.Kind() == KindGroup {
-		resolveAttrs(v.Group())
-	}
-	return v
-}
-
-func (v Value) resolve() Value {
+func (v Value) Resolve() (rv Value) {
 	orig := v
+	defer func() {
+		if r := recover(); r != nil {
+			rv = AnyValue(fmt.Errorf("LogValue panicked\n%s", stack(3, 5)))
+		}
+	}()
+
 	for i := 0; i < maxLogValues; i++ {
 		if v.Kind() != KindLogValuer {
 			return v
@@ -389,10 +431,26 @@ func (v Value) resolve() Value {
 	return AnyValue(err)
 }
 
-// resolveAttrs replaces the values of the given Attrs with their
-// resolutions.
-func resolveAttrs(as []Attr) {
-	for i, a := range as {
-		as[i].Value = a.Value.Resolve()
+func stack(skip, nFrames int) string {
+	pcs := make([]uintptr, nFrames+1)
+	n := runtime.Callers(skip+1, pcs)
+	if n == 0 {
+		return "(no stack)"
 	}
+	frames := runtime.CallersFrames(pcs[:n])
+	var b strings.Builder
+	i := 0
+	for {
+		frame, more := frames.Next()
+		fmt.Fprintf(&b, "called from %s (%s:%d)\n", frame.Function, frame.File, frame.Line)
+		if !more {
+			break
+		}
+		i++
+		if i >= nFrames {
+			fmt.Fprintf(&b, "(rest of stack elided)\n")
+			break
+		}
+	}
+	return b.String()
 }

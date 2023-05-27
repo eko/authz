@@ -64,15 +64,6 @@ func NewRecord(t time.Time, level Level, msg string, pc uintptr) Record {
 	}
 }
 
-// frame returns the runtime.Frame of the log event.
-// If the Record was created without the necessary information,
-// or if the location is unavailable, it returns a zero Frame.
-func (r Record) frame() runtime.Frame {
-	fs := runtime.CallersFrames([]uintptr{r.PC})
-	f, _ := fs.Next()
-	return f
-}
-
 // Clone returns a copy of the record with no shared state.
 // The original record and the clone can both be modified
 // without interfering with each other.
@@ -87,27 +78,29 @@ func (r Record) NumAttrs() int {
 }
 
 // Attrs calls f on each Attr in the Record.
-// The Attrs are already resolved.
-func (r Record) Attrs(f func(Attr)) {
+// Iteration stops if f returns false.
+func (r Record) Attrs(f func(Attr) bool) {
 	for i := 0; i < r.nFront; i++ {
-		f(r.front[i])
+		if !f(r.front[i]) {
+			return
+		}
 	}
 	for _, a := range r.back {
-		f(a)
+		if !f(a) {
+			return
+		}
 	}
 }
 
 // AddAttrs appends the given Attrs to the Record's list of Attrs.
-// It resolves the Attrs before doing so.
 func (r *Record) AddAttrs(attrs ...Attr) {
-	resolveAttrs(attrs)
 	n := copy(r.front[r.nFront:], attrs)
 	r.nFront += n
 	// Check if a copy was modified by slicing past the end
 	// and seeing if the Attr there is non-zero.
 	if cap(r.back) > len(r.back) {
 		end := r.back[:len(r.back)+1][len(r.back)]
-		if end != (Attr{}) {
+		if !end.isEmpty() {
 			panic("copies of a slog.Record were both modified")
 		}
 	}
@@ -116,7 +109,6 @@ func (r *Record) AddAttrs(attrs ...Attr) {
 
 // Add converts the args to Attrs as described in [Logger.Log],
 // then appends the Attrs to the Record's list of Attrs.
-// It resolves the Attrs before doing so.
 func (r *Record) Add(args ...any) {
 	var a Attr
 	for len(args) > 0 {
@@ -150,7 +142,7 @@ const badKey = "!BADKEY"
 
 // argsToAttr turns a prefix of the nonempty args slice into an Attr
 // and returns the unconsumed portion of the slice.
-// If args[0] is an Attr, it returns it, resolved.
+// If args[0] is an Attr, it returns it.
 // If args[0] is a string, it treats the first two elements as
 // a key-value pair.
 // Otherwise, it treats args[0] as a value with a missing key.
@@ -160,15 +152,56 @@ func argsToAttr(args []any) (Attr, []any) {
 		if len(args) == 1 {
 			return String(badKey, x), nil
 		}
-		a := Any(x, args[1])
-		a.Value = a.Value.Resolve()
-		return a, args[2:]
+		return Any(x, args[1]), args[2:]
 
 	case Attr:
-		x.Value = x.Value.Resolve()
 		return x, args[1:]
 
 	default:
 		return Any(badKey, x), args[1:]
+	}
+}
+
+// Source describes the location of a line of source code.
+type Source struct {
+	// Function is the package path-qualified function name containing the
+	// source line. If non-empty, this string uniquely identifies a single
+	// function in the program. This may be the empty string if not known.
+	Function string `json:"function"`
+	// File and Line are the file name and line number (1-based) of the source
+	// line. These may be the empty string and zero, respectively, if not known.
+	File string `json:"file"`
+	Line int    `json:"line"`
+}
+
+// attrs returns the non-zero fields of s as a slice of attrs.
+// It is similar to a LogValue method, but we don't want Source
+// to implement LogValuer because it would be resolved before
+// the ReplaceAttr function was called.
+func (s *Source) group() Value {
+	var as []Attr
+	if s.Function != "" {
+		as = append(as, String("function", s.Function))
+	}
+	if s.File != "" {
+		as = append(as, String("file", s.File))
+	}
+	if s.Line != 0 {
+		as = append(as, Int("line", s.Line))
+	}
+	return GroupValue(as...)
+}
+
+// source returns a Source for the log event.
+// If the Record was created without the necessary information,
+// or if the location is unavailable, it returns a non-nil *Source
+// with zero fields.
+func (r Record) source() *Source {
+	fs := runtime.CallersFrames([]uintptr{r.PC})
+	f, _ := fs.Next()
+	return &Source{
+		Function: f.Function,
+		File:     f.File,
+		Line:     f.Line,
 	}
 }

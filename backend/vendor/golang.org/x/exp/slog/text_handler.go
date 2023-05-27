@@ -22,18 +22,17 @@ type TextHandler struct {
 }
 
 // NewTextHandler creates a TextHandler that writes to w,
-// using the default options.
-func NewTextHandler(w io.Writer) *TextHandler {
-	return (HandlerOptions{}).NewTextHandler(w)
-}
-
-// NewTextHandler creates a TextHandler with the given options that writes to w.
-func (opts HandlerOptions) NewTextHandler(w io.Writer) *TextHandler {
+// using the given options.
+// If opts is nil, the default options are used.
+func NewTextHandler(w io.Writer, opts *HandlerOptions) *TextHandler {
+	if opts == nil {
+		opts = &HandlerOptions{}
+	}
 	return &TextHandler{
 		&commonHandler{
 			json: false,
 			w:    w,
-			opts: opts,
+			opts: *opts,
 		},
 	}
 }
@@ -68,7 +67,7 @@ func (h *TextHandler) WithGroup(name string) Handler {
 // If the AddSource option is set and source information is available,
 // the key is "source" and the value is output as FILE:LINE.
 //
-// The message's key "msg".
+// The message's key is "msg".
 //
 // To modify these or other attributes, or remove them from the output, use
 // [HandlerOptions.ReplaceAttr].
@@ -80,9 +79,13 @@ func (h *TextHandler) WithGroup(name string) Handler {
 // characters, non-printing characters, '"' or '='.
 //
 // Keys inside groups consist of components (keys or group names) separated by
-// dots. No further escaping is performed. If it is necessary to reconstruct the
-// group structure of a key even in the presence of dots inside components, use
-// [HandlerOptions.ReplaceAttr] to escape the keys.
+// dots. No further escaping is performed.
+// Thus there is no way to determine from the key "a.b.c" whether there
+// are two groups "a" and "b" and a key "c", or a single group "a.b" and a key "c",
+// or single group "a" and a key "b.c".
+// If it is necessary to reconstruct the group structure of a key
+// even in the presence of dots inside components, use
+// [HandlerOptions.ReplaceAttr] to encode that information in the key.
 //
 // Each call to Handle results in a single serialized call to
 // io.Writer.Write.
@@ -134,10 +137,15 @@ func byteSlice(a any) ([]byte, bool) {
 }
 
 func needsQuoting(s string) bool {
+	if len(s) == 0 {
+		return true
+	}
 	for i := 0; i < len(s); {
 		b := s[i]
 		if b < utf8.RuneSelf {
-			if needsQuotingSet[b] {
+			// Quote anything except a backslash that would need quoting in a
+			// JSON string, as well as space and '='
+			if b != '\\' && (b == ' ' || b == '=' || !safeSet[b]) {
 				return true
 			}
 			i++
@@ -150,18 +158,4 @@ func needsQuoting(s string) bool {
 		i += size
 	}
 	return false
-}
-
-var needsQuotingSet = [utf8.RuneSelf]bool{
-	'"': true,
-	'=': true,
-}
-
-func init() {
-	for i := 0; i < utf8.RuneSelf; i++ {
-		r := rune(i)
-		if unicode.IsSpace(r) || !unicode.IsPrint(r) {
-			needsQuotingSet[i] = true
-		}
-	}
 }

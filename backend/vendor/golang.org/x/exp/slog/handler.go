@@ -41,7 +41,7 @@ type Handler interface {
 	Enabled(context.Context, Level) bool
 
 	// Handle handles the Record.
-	// It will only be called Enabled returns true.
+	// It will only be called when Enabled returns true.
 	// The Context argument is as for Enabled.
 	// It is present solely to provide Handlers access to the context's values.
 	// Canceling the context should not affect record processing.
@@ -51,8 +51,9 @@ type Handler interface {
 	// Handle methods that produce output should observe the following rules:
 	//   - If r.Time is the zero time, ignore the time.
 	//   - If r.PC is zero, ignore it.
-	//   - If an Attr's key is the empty string and the value is not a group,
-	//     ignore the Attr.
+	//   - Attr's values should be resolved.
+	//   - If an Attr's key and value are both the zero value, ignore the Attr.
+	//     This can be tested with attr.Equal(Attr{}).
 	//   - If a group's key is empty, inline the group's Attrs.
 	//   - If a group has no Attrs (even if it has a non-empty key),
 	//     ignore it.
@@ -61,7 +62,6 @@ type Handler interface {
 	// WithAttrs returns a new Handler whose attributes consist of
 	// both the receiver's attributes and the arguments.
 	// The Handler owns the slice: it may retain, modify or discard it.
-	// [Logger.With] will resolve the Attrs.
 	WithAttrs(attrs []Attr) Handler
 
 	// WithGroup returns a new Handler with the given group appended to
@@ -130,10 +130,8 @@ func (h *defaultHandler) WithGroup(name string) Handler {
 // HandlerOptions are options for a TextHandler or JSONHandler.
 // A zero HandlerOptions consists entirely of default values.
 type HandlerOptions struct {
-	// When AddSource is true, the handler adds a ("source", "file:line")
-	// attribute to the output indicating the source code position of the log
-	// statement. AddSource is false by default to skip the cost of computing
-	// this information.
+	// AddSource causes the handler to compute the source code position
+	// of the log statement and add a SourceKey attribute to the output.
 	AddSource bool
 
 	// Level reports the minimum record level that will be logged.
@@ -285,22 +283,7 @@ func (h *commonHandler) handle(r Record) error {
 	}
 	// source
 	if h.opts.AddSource {
-		frame := r.frame()
-		if frame.File != "" {
-			key := SourceKey
-			if rep == nil {
-				state.appendKey(key)
-				state.appendSource(frame.File, frame.Line)
-			} else {
-				buf := buffer.New()
-				buf.WriteString(frame.File) // TODO: escape?
-				buf.WriteByte(':')
-				buf.WritePosInt(frame.Line)
-				s := buf.String()
-				buf.Free()
-				state.appendAttr(String(key, s))
-			}
-		}
+		state.appendAttr(Any(SourceKey, r.source()))
 	}
 	key = MessageKey
 	msg := r.Message
@@ -333,8 +316,9 @@ func (s *handleState) appendNonBuiltIns(r Record) {
 	defer s.prefix.Free()
 	s.prefix.WriteString(s.h.groupPrefix)
 	s.openGroups()
-	r.Attrs(func(a Attr) {
+	r.Attrs(func(a Attr) bool {
 		s.appendAttr(a)
+		return true
 	})
 	if s.h.json {
 		// Close all open groups.
@@ -420,7 +404,6 @@ func (s *handleState) openGroup(name string) {
 	if s.groups != nil {
 		*s.groups = append(*s.groups, name)
 	}
-
 }
 
 // closeGroup ends the group with the given name.
@@ -440,26 +423,32 @@ func (s *handleState) closeGroup(name string) {
 // It handles replacement and checking for an empty key.
 // after replacement).
 func (s *handleState) appendAttr(a Attr) {
-	v := a.Value
-	// Elide a non-group with an empty key.
-	if a.Key == "" && v.Kind() != KindGroup {
-		return
-	}
-	if rep := s.h.opts.ReplaceAttr; rep != nil && v.Kind() != KindGroup {
+	if rep := s.h.opts.ReplaceAttr; rep != nil && a.Value.Kind() != KindGroup {
 		var gs []string
 		if s.groups != nil {
 			gs = *s.groups
 		}
-		a = rep(gs, Attr{a.Key, v})
-		if a.Key == "" {
-			return
-		}
-		// Although all attributes in the Record are already resolved,
-		// This one came from the user, so it may not have been.
-		v = a.Value.Resolve()
+		// Resolve before calling ReplaceAttr, so the user doesn't have to.
+		a.Value = a.Value.Resolve()
+		a = rep(gs, a)
 	}
-	if v.Kind() == KindGroup {
-		attrs := v.Group()
+	a.Value = a.Value.Resolve()
+	// Elide empty Attrs.
+	if a.isEmpty() {
+		return
+	}
+	// Special case: Source.
+	if v := a.Value; v.Kind() == KindAny {
+		if src, ok := v.Any().(*Source); ok {
+			if s.h.json {
+				a.Value = src.group()
+			} else {
+				a.Value = StringValue(fmt.Sprintf("%s:%d", src.File, src.Line))
+			}
+		}
+	}
+	if a.Value.Kind() == KindGroup {
+		attrs := a.Value.Group()
 		// Output only non-empty groups.
 		if len(attrs) > 0 {
 			// Inline a group with an empty key.
@@ -475,7 +464,7 @@ func (s *handleState) appendAttr(a Attr) {
 		}
 	} else {
 		s.appendKey(a.Key)
-		s.appendValue(v)
+		s.appendValue(a.Value)
 	}
 }
 
@@ -497,26 +486,6 @@ func (s *handleState) appendKey(key string) {
 		s.buf.WriteByte('=')
 	}
 	s.sep = s.h.attrSep()
-}
-
-func (s *handleState) appendSource(file string, line int) {
-	if s.h.json {
-		s.buf.WriteByte('"')
-		*s.buf = appendEscapedJSONString(*s.buf, file)
-		s.buf.WriteByte(':')
-		s.buf.WritePosInt(line)
-		s.buf.WriteByte('"')
-	} else {
-		// text
-		if needsQuoting(file) {
-			s.appendString(file + ":" + strconv.Itoa(line))
-		} else {
-			// common case: no quoting needed.
-			s.appendString(file)
-			s.buf.WriteByte(':')
-			s.buf.WritePosInt(line)
-		}
-	}
 }
 
 func (s *handleState) appendString(str string) {
