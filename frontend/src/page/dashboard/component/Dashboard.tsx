@@ -29,6 +29,7 @@ type BarDataItem = {
 
 type PieDataItem = {
   id: string
+  label: string
   value: number
   color: string
 }
@@ -85,8 +86,8 @@ export default function Dashboard() {
     const totalDenied = stats.reduce((acc, cur) => acc + cur.checks_denied_number, 0);
 
     setAllowedVsDeniedData([
-      { id: 'Allowed', value: totalAllowed, color: 'hsl(244, 70%, 50%)' },
-      { id: 'Denied', value: totalDenied, color: 'hsl(130, 70%, 50%)' },
+      { id: 'Allowed', label: 'Allowed', value: totalAllowed, color: 'hsl(244, 70%, 50%)' },
+      { id: 'Denied', label: 'Denied' , value: totalDenied, color: 'hsl(130, 70%, 50%)' },
     ]);
   }, [stats]);
 

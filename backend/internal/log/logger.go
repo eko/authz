@@ -25,7 +25,8 @@ func New(cfg *configs.Logger) *slog.Logger {
 		log.Fatalf("unable to find log level: %v", cfg.Level)
 	}
 
-	handler := slog.NewTextHandler(os.Stdout)
+	handler := slog.NewTextHandler(os.Stdout, nil)
+
 	logger := slog.New(NewLevelHandler(level, handler))
 
 	return logger
