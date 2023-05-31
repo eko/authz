@@ -19,7 +19,7 @@ require (
 	github.com/heetch/confita v0.10.0
 	github.com/prometheus/client_golang v1.15.1
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.8.4
 	github.com/swaggo/swag v1.16.1
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.42.0
 	go.opentelemetry.io/otel v1.16.0
