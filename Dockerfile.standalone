@@ -35,7 +35,7 @@ COPY ./frontend/tsconfig.json .
 RUN npm install --force && \
     npm run build
 
-FROM nginxinc/nginx-unprivileged:1.23-alpine
+FROM nginxinc/nginx-unprivileged:1.25-alpine
 
 ARG GRPC_SERVER_ADDR=:8081
 ARG HTTP_SERVER_ADDR=:8080
