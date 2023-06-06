@@ -102,7 +102,7 @@ github.com/go-sql-driver/mysql
 # github.com/gofiber/adaptor/v2 v2.2.1
 ## explicit; go 1.17
 github.com/gofiber/adaptor/v2
-# github.com/gofiber/contrib/otelfiber v1.0.7
+# github.com/gofiber/contrib/otelfiber v1.0.8
 ## explicit; go 1.18
 github.com/gofiber/contrib/otelfiber
 # github.com/gofiber/fiber/v2 v2.46.0
@@ -258,7 +258,7 @@ github.com/savsgio/gotils/strconv
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/stretchr/testify v1.8.3
+# github.com/stretchr/testify v1.8.4
 ## explicit; go 1.20
 github.com/stretchr/testify/assert
 # github.com/swaggo/files/v2 v2.0.0
