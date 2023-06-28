@@ -126,8 +126,8 @@ github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/me
 github.com/go-test/deep v1.0.2-0.20181118220953-042da051cf31/go.mod h1:wGDj63lr65AM2AQyKZd/NYHGb0R+1RLqB8NKt3aSFNA=
 github.com/gofiber/adaptor/v2 v2.2.1 h1:givE7iViQWlsTR4Jh7tB4iXzrlKBgiraB/yTdHs9Lv4=
 github.com/gofiber/adaptor/v2 v2.2.1/go.mod h1:AhR16dEqs25W2FY/l8gSj1b51Azg5dtPDmm+pruNOrc=
-github.com/gofiber/contrib/otelfiber v1.0.8 h1:smeBII/QDvQZ4VcyX/fHIFVWRpmhSq0iHxxyuNvtKdg=
-github.com/gofiber/contrib/otelfiber v1.0.8/go.mod h1:hOReDyEZBXf6LJ3LA/zI/N3jjs7cjCeJHv9nFXx5m/o=
+github.com/gofiber/contrib/otelfiber v1.0.9 h1:etWCnTDsc7MEolPCL7Iz92dXy09mh7dKoKDDpsfxXOk=
+github.com/gofiber/contrib/otelfiber v1.0.9/go.mod h1:TdXS8xyhYwGONIjge+k9db3DuVoAWyQkVw/0RcoYtHU=
 github.com/gofiber/fiber/v2 v2.46.0/go.mod h1:DNl0/c37WLe0g92U6lx1VMQuxGUQY5V7EIaVoEsUffc=
 github.com/gofiber/fiber/v2 v2.47.0 h1:EN5lHVCc+Pyqh5OEsk8fzRiifgwpbrP0rulQ4iNf3fs=
 github.com/gofiber/fiber/v2 v2.47.0/go.mod h1:mbFMVN1lQuzziTkkakgtKKdjfsXSw9BKR5lmcNksUoU=
