@@ -31,7 +31,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.45.0",
-    "react-router-dom": "^6.14.0",
+    "react-router-dom": "^6.14.1",
     "react-scripts": "5.0.1",
     "styled-components": "^6.0.0-rc.6",
     "typescript": "^5.1.3",
