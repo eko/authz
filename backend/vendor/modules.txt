@@ -47,10 +47,10 @@ github.com/gabriel-vasile/mimetype
 github.com/gabriel-vasile/mimetype/internal/charset
 github.com/gabriel-vasile/mimetype/internal/json
 github.com/gabriel-vasile/mimetype/internal/magic
-# github.com/glebarez/go-sqlite v1.21.1
+# github.com/glebarez/go-sqlite v1.21.2
 ## explicit; go 1.17
 github.com/glebarez/go-sqlite
-# github.com/glebarez/sqlite v1.8.0
+# github.com/glebarez/sqlite v1.9.0
 ## explicit; go 1.18
 github.com/glebarez/sqlite
 # github.com/go-jose/go-jose/v3 v3.0.0
@@ -560,7 +560,7 @@ gorm.io/driver/mysql
 gorm.io/driver/postgres
 # gorm.io/driver/sqlite v1.4.4
 ## explicit; go 1.14
-# gorm.io/gorm v1.25.1
+# gorm.io/gorm v1.25.2
 ## explicit; go 1.16
 gorm.io/gorm
 gorm.io/gorm/callbacks
