@@ -9,7 +9,7 @@ require (
 	github.com/go-oauth2/oauth2/v4 v4.5.2
 	github.com/go-playground/validator/v10 v10.14.1
 	github.com/gofiber/adaptor/v2 v2.2.1
-	github.com/gofiber/contrib/otelfiber v1.0.9
+	github.com/gofiber/contrib/otelfiber v1.0.10
 	github.com/gofiber/fiber/v2 v2.48.0
 	github.com/gofiber/swagger v0.1.12
 	github.com/golang-jwt/jwt/v4 v4.5.0
