@@ -1,4 +1,4 @@
-FROM node:20.2-alpine as builder
+FROM node:20.4-alpine3.17 as builder
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ COPY ./tsconfig.json .
 RUN npm install --force && \
     npm run build
 
-FROM nginxinc/nginx-unprivileged:1.23-alpine
+FROM nginxinc/nginx-unprivileged:1.25-alpine
 
 COPY --from=builder /app/build /usr/share/nginx/html
 COPY ./.docker/vhost.conf /etc/nginx/conf.d/default.conf
