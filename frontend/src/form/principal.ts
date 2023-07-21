@@ -13,7 +13,7 @@ import { ItemType } from 'component/MultipleAutocompleteInput';
 export type PrincipalFormData = {
     id: string
     roles: ItemType[]
-    attributes?: PrincipalAttribute[]
+    attributes: PrincipalAttribute[] | undefined
 }
 
 export type OnSubmitHandler = (token: string) => FormEventHandler;
@@ -33,7 +33,8 @@ type PrincipalForm = {
 
 const schema = object({
     id: string().required('You have to specify a name.'),
-    roles: array().of(mixed<ItemType>()),
+    roles: array().of(mixed<ItemType>().defined()).required(),
+    attributes: array().of(mixed<PrincipalAttribute>().defined()),
 }).required();
 
 export default function usePrincipalForm(

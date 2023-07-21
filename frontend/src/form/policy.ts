@@ -36,11 +36,11 @@ type PolicyForm = {
 const schema = object({
     id: string().required('You have to specify a name.'),
     resources: array()
-        .of(mixed<ItemType>())
+        .of(mixed<ItemType>().defined())
         .min(1, 'You have to pick at least one policy.')
         .required('This field is required.'),
     actions: array()
-        .of(mixed<ItemType>())
+        .of(mixed<ItemType>().defined())
         .min(1, 'You have to pick at least one action.')
         .required('This field is required.'),
 }).required();

@@ -32,7 +32,7 @@ type RoleForm = {
 const schema = object({
     id: string().required('You have to specify a name.'),
     policies: array()
-        .of(mixed<ItemType>())
+        .of(mixed<ItemType>().defined())
         .min(1, 'You have to pick at least one policy.')
         .required('This field is required.'),
 }).required();
