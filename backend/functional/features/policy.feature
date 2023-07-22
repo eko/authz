@@ -47,6 +47,27 @@ Feature: policy
       }
       """
 
+  Scenario: Create a new policy on wildcard value (when resource does not exists)
+    Given I authenticate with username "admin" and password "changeme"
+    When I send "POST" request to "/v1/policies" with payload:
+      """
+      {
+        "id": "my-post-123-policy",
+        "resources": [
+            "post.*"
+        ],
+        "actions": ["create"]
+      }
+      """
+    Then the response code should be 500
+    And the response should match json:
+      """
+      {
+        "error": true,
+        "message": "unable to retrieve any resource of kind \"post\""
+      }
+      """
+
   Scenario: Update a policy
     Given I authenticate with username "admin" and password "changeme"
     And I send "POST" request to "/v1/resources" with payload:
