@@ -82,6 +82,7 @@ func WithSkipPagination() QueryOption {
 type Base[T model.Models] interface {
 	Create(object ...*T) error
 	DB() *gorm.DB
+	CountByFields(fieldValues map[string]FieldValue, options ...QueryOption) (int64, error)
 	Delete(object *T) error
 	DeleteByFields(fieldValues map[string]FieldValue) error
 	Find(options ...QueryOption) ([]*T, int64, error)
@@ -165,6 +166,28 @@ func (r *base[T]) Get(identifier string, options ...QueryOption) (*T, error) {
 	}
 
 	return result, nil
+}
+
+// Count allows to count values of the current type from the specified field and value.
+func (r *base[T]) CountByFields(fieldValues map[string]FieldValue, options ...QueryOption) (int64, error) {
+	var total int64
+	result := new(T)
+
+	db := r.applyOptions(options)
+
+	for field, value := range fieldValues {
+		if value.Raw != nil {
+			db = db.Where(value.Raw)
+		} else {
+			db = db.Where(fmt.Sprintf("%s %s ?", field, value.Operator), value.Value)
+		}
+	}
+
+	if err := db.Model(&result).Count(&total).Error; err != nil {
+		return 0, err
+	}
+
+	return total, nil
 }
 
 // GetByFields allows to retrieve a value of the current type from the database

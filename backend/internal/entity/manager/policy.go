@@ -154,6 +154,19 @@ func (m *policyManager) attachToPolicy(
 		kind, value := ResourceSplit(resource)
 
 		if errors.Is(err, gorm.ErrRecordNotFound) && value == WildcardValue {
+			resourcePrefix := resource + ResourceSeparator
+
+			resourcePrefixCounter, err := m.resourceManager.GetRepository().CountByFields(map[string]repository.FieldValue{
+				"kind": {Operator: "=", Value: kind},
+			})
+			if err != nil {
+				return fmt.Errorf("unable to count resource prefixed by %q: %v", resourcePrefix, err)
+			}
+
+			if resourcePrefixCounter == 0 {
+				return fmt.Errorf("unable to retrieve any resource of kind %q", kind)
+			}
+
 			resourceObject, err = m.resourceManager.Create(resource, kind, value, map[string]any{})
 			if err != nil {
 				return fmt.Errorf("unable to create wildcard resource %v: %v", resource, err)
