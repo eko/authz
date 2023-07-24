@@ -45,7 +45,7 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 16
-      - uses: isbang/compose-action@v1.4.1
+      - uses: isbang/compose-action@v1.5.0
         with:
           compose-file: "./docker-compose.postgres.yaml"
 
