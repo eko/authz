@@ -10,7 +10,7 @@ import (
 	"github.com/eko/authz/backend/internal/grpc/interceptor"
 	"github.com/eko/authz/backend/internal/security/jwt"
 	"github.com/eko/authz/backend/pkg/authz"
-	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
+	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/fx"
 	"golang.org/x/exp/slog"
