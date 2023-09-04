@@ -1,5 +1,3 @@
-# cloud.google.com/go/compute/metadata v0.2.3
-## explicit; go 1.19
 # github.com/KyleBanks/depth v1.2.1
 ## explicit
 github.com/KyleBanks/depth
@@ -107,7 +105,7 @@ github.com/gofiber/adaptor/v2
 # github.com/gofiber/contrib/otelfiber v1.0.10
 ## explicit; go 1.18
 github.com/gofiber/contrib/otelfiber
-# github.com/gofiber/fiber/v2 v2.48.0
+# github.com/gofiber/fiber/v2 v2.49.1
 ## explicit; go 1.20
 github.com/gofiber/fiber/v2
 github.com/gofiber/fiber/v2/internal/schema
@@ -264,7 +262,7 @@ github.com/swaggo/swag
 # github.com/valyala/bytebufferpool v1.0.0
 ## explicit
 github.com/valyala/bytebufferpool
-# github.com/valyala/fasthttp v1.48.0
+# github.com/valyala/fasthttp v1.49.0
 ## explicit; go 1.20
 github.com/valyala/fasthttp
 github.com/valyala/fasthttp/fasthttpadaptor

@@ -10,7 +10,7 @@ require (
 	github.com/go-playground/validator/v10 v10.15.1
 	github.com/gofiber/adaptor/v2 v2.2.1
 	github.com/gofiber/contrib/otelfiber v1.0.10
-	github.com/gofiber/fiber/v2 v2.48.0
+	github.com/gofiber/fiber/v2 v2.49.1
 	github.com/gofiber/swagger v0.1.12
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang/mock v1.6.0
@@ -40,7 +40,6 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -91,7 +90,7 @@ require (
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/swaggo/files/v2 v2.0.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.48.0 // indirect
+	github.com/valyala/fasthttp v1.49.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	go.opentelemetry.io/contrib v1.17.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.16.0 // indirect
