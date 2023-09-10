@@ -74,10 +74,10 @@ type ParseFlag int
 const (
 	// ParseNone parse nothing
 	ParseNone ParseFlag = 0x00
-	// ParseOperations parse operations
-	ParseOperations = 0x01
 	// ParseModels parse models
-	ParseModels = 0x02
+	ParseModels = 0x01
+	// ParseOperations parse operations
+	ParseOperations = 0x02
 	// ParseAll parse operations and models
 	ParseAll = ParseOperations | ParseModels
 )
@@ -126,8 +126,8 @@ type Parser struct {
 	// ParseVendor parse vendor folder
 	ParseVendor bool
 
-	// ParseDependencies whether swag should be parse outside dependency folder
-	ParseDependency bool
+	// ParseDependencies whether swag should be parse outside dependency folder: 0 none, 1 models, 2 operations, 3 all
+	ParseDependency ParseFlag
 
 	// ParseInternal whether swag should parse internal packages
 	ParseInternal bool
@@ -152,6 +152,10 @@ type Parser struct {
 
 	// excludes excludes dirs and files in SearchDir
 	excludes map[string]struct{}
+
+	// packagePrefix is a list of package path prefixes, packages that do not
+	// match any one of them will be excluded when searching.
+	packagePrefix []string
 
 	// tells parser to include only specific extension
 	parseExtension string
@@ -237,11 +241,11 @@ func New(options ...func(*Parser)) *Parser {
 }
 
 // SetParseDependency sets whether to parse the dependent packages.
-func SetParseDependency(parseDependency bool) func(*Parser) {
+func SetParseDependency(parseDependency int) func(*Parser) {
 	return func(p *Parser) {
-		p.ParseDependency = parseDependency
+		p.ParseDependency = ParseFlag(parseDependency)
 		if p.packages != nil {
-			p.packages.parseDependency = parseDependency
+			p.packages.parseDependency = p.ParseDependency
 		}
 	}
 }
@@ -268,6 +272,20 @@ func SetExcludedDirsAndFiles(excludes string) func(*Parser) {
 			if f != "" {
 				f = filepath.Clean(f)
 				p.excludes[f] = struct{}{}
+			}
+		}
+	}
+}
+
+// SetPackagePrefix sets a list of package path prefixes from a comma-separated
+// string, packages that do not match any one of them will be excluded when
+// searching.
+func SetPackagePrefix(packagePrefix string) func(*Parser) {
+	return func(p *Parser) {
+		for _, f := range strings.Split(packagePrefix, ",") {
+			f = strings.TrimSpace(f)
+			if f != "" {
+				p.packagePrefix = append(p.packagePrefix, f)
 			}
 		}
 	}
@@ -343,6 +361,20 @@ func (parser *Parser) ParseAPI(searchDir string, mainAPIFile string, parseDepth 
 	return parser.ParseAPIMultiSearchDir([]string{searchDir}, mainAPIFile, parseDepth)
 }
 
+// skipPackageByPrefix returns true the given pkgpath does not match
+// any user-defined package path prefixes.
+func (parser *Parser) skipPackageByPrefix(pkgpath string) bool {
+	if len(parser.packagePrefix) == 0 {
+		return false
+	}
+	for _, prefix := range parser.packagePrefix {
+		if strings.HasPrefix(pkgpath, prefix) {
+			return false
+		}
+	}
+	return true
+}
+
 // ParseAPIMultiSearchDir is like ParseAPI but for multiple search dirs.
 func (parser *Parser) ParseAPIMultiSearchDir(searchDirs []string, mainAPIFile string, parseDepth int) error {
 	for _, searchDir := range searchDirs {
@@ -365,7 +397,7 @@ func (parser *Parser) ParseAPIMultiSearchDir(searchDirs []string, mainAPIFile st
 	}
 
 	// Use 'go list' command instead of depth.Resolve()
-	if parser.ParseDependency {
+	if parser.ParseDependency > 0 {
 		if parser.parseGoList {
 			pkgs, err := listPackages(context.Background(), filepath.Dir(absMainAPIFilePath), nil, "-deps")
 			if err != nil {
@@ -374,7 +406,7 @@ func (parser *Parser) ParseAPIMultiSearchDir(searchDirs []string, mainAPIFile st
 
 			length := len(pkgs)
 			for i := 0; i < length; i++ {
-				err := parser.getAllGoFileInfoFromDepsByList(pkgs[i])
+				err := parser.getAllGoFileInfoFromDepsByList(pkgs[i], parser.ParseDependency)
 				if err != nil {
 					return err
 				}
@@ -394,7 +426,7 @@ func (parser *Parser) ParseAPIMultiSearchDir(searchDirs []string, mainAPIFile st
 				return fmt.Errorf("pkg %s cannot find all dependencies, %s", pkgName, err)
 			}
 			for i := 0; i < len(t.Root.Deps); i++ {
-				err := parser.getAllGoFileInfoFromDeps(&t.Root.Deps[i])
+				err := parser.getAllGoFileInfoFromDeps(&t.Root.Deps[i], parser.ParseDependency)
 				if err != nil {
 					return err
 				}
@@ -568,6 +600,9 @@ func parseGeneralAPIInfo(parser *Parser, comments []string) error {
 			}
 
 			parser.swagger.SecurityDefinitions[value] = scheme
+
+		case securityAttr:
+			parser.swagger.Security = append(parser.swagger.Security, parseSecurity(value))
 
 		case "@query.collection.format":
 			parser.collectionFormatInQuery = TransToValidCollectionFormat(value)
@@ -768,6 +803,34 @@ func parseSecAttributes(context string, lines []string, index *int) (*spec.Secur
 	return scheme, nil
 }
 
+func parseSecurity(commentLine string) map[string][]string {
+	securityMap := make(map[string][]string)
+
+	for _, securityOption := range strings.Split(commentLine, "||") {
+		securityOption = strings.TrimSpace(securityOption)
+
+		left, right := strings.Index(securityOption, "["), strings.Index(securityOption, "]")
+
+		if !(left == -1 && right == -1) {
+			scopes := securityOption[left+1 : right]
+
+			var options []string
+
+			for _, scope := range strings.Split(scopes, ",") {
+				options = append(options, strings.TrimSpace(scope))
+			}
+
+			securityKey := securityOption[0:left]
+			securityMap[securityKey] = append(securityMap[securityKey], options...)
+		} else {
+			securityKey := strings.TrimSpace(securityOption)
+			securityMap[securityKey] = []string{}
+		}
+	}
+
+	return securityMap
+}
+
 func initIfEmpty(license *spec.License) *spec.License {
 	if license == nil {
 		return new(spec.License)
@@ -867,18 +930,29 @@ func getTagsFromComment(comment string) (tags []string) {
 }
 
 func (parser *Parser) matchTags(comments []*ast.Comment) (match bool) {
-	if len(parser.tags) != 0 {
-		for _, comment := range comments {
-			for _, tag := range getTagsFromComment(comment.Text) {
-				if _, has := parser.tags["!"+tag]; has {
-					return false
-				}
-				if _, has := parser.tags[tag]; has {
-					match = true // keep iterating as it may contain a tag that is excluded
-				}
+	if len(parser.tags) == 0 {
+		return true
+	}
+
+	match = false
+	for _, comment := range comments {
+		for _, tag := range getTagsFromComment(comment.Text) {
+			if _, has := parser.tags["!"+tag]; has {
+				return false
+			}
+			if _, has := parser.tags[tag]; has {
+				match = true // keep iterating as it may contain a tag that is excluded
 			}
 		}
-		return
+	}
+
+	if !match {
+		// If all tags are negation then we should return true
+		for key := range parser.tags {
+			if key[0] != '!' {
+				return false
+			}
+		}
 	}
 	return true
 }
@@ -975,7 +1049,21 @@ func processRouterOperation(parser *Parser, operation *Operation) error {
 			parser.debug.Printf("warning: %s\n", err)
 		}
 
-		*op = &operation.Operation
+		if len(operation.RouterProperties) > 1 {
+			newOp := *operation
+			var validParams []spec.Parameter
+			for _, param := range newOp.Operation.OperationProps.Parameters {
+				if param.In == "path" && !strings.Contains(routeProperties.Path, param.Name) {
+					// This path param is not actually contained in the path, skip adding it to the final params
+					continue
+				}
+				validParams = append(validParams, param)
+			}
+			newOp.Operation.OperationProps.Parameters = validParams
+			*op = &newOp.Operation
+		} else {
+			*op = &operation.Operation
+		}
 
 		parser.swagger.Paths.Paths[routeProperties.Path] = pathItem
 	}
@@ -1051,7 +1139,7 @@ func (parser *Parser) getTypeSchema(typeName string, file *ast.File, ref bool) (
 			if err == ErrRecursiveParseStruct && ref {
 				return parser.getRefTypeSchema(typeSpecDef, schema), nil
 			}
-			return nil, err
+			return nil, fmt.Errorf("%s: %w", typeName, err)
 		}
 	}
 
@@ -1285,7 +1373,7 @@ func (parser *Parser) parseStruct(file *ast.File, fields *ast.FieldList) (*spec.
 	for _, field := range fields.List {
 		fieldProps, requiredFromAnon, err := parser.parseStructField(file, field)
 		if err != nil {
-			if err == ErrFuncTypeField || err == ErrSkippedField {
+			if errors.Is(err, ErrFuncTypeField) || errors.Is(err, ErrSkippedField) {
 				continue
 			}
 
@@ -1336,12 +1424,12 @@ func (parser *Parser) parseStructField(file *ast.File, field *ast.Field) (map[st
 	if fieldName == "" {
 		typeName, err := getFieldType(file, field.Type, nil)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("%s: %w", fieldName, err)
 		}
 
 		schema, err := parser.getTypeSchema(typeName, file, false)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("%s: %w", fieldName, err)
 		}
 
 		if len(schema.Type) > 0 && schema.Type[0] == OBJECT {
@@ -1363,7 +1451,7 @@ func (parser *Parser) parseStructField(file *ast.File, field *ast.Field) (map[st
 
 	schema, err := ps.CustomSchema()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("%s: %w", fieldName, err)
 	}
 
 	if schema == nil {
@@ -1377,20 +1465,20 @@ func (parser *Parser) parseStructField(file *ast.File, field *ast.Field) (map[st
 		}
 
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("%s: %w", fieldName, err)
 		}
 	}
 
 	err = ps.ComplementSchema(schema)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("%s: %w", fieldName, err)
 	}
 
 	var tagRequired []string
 
 	required, err := ps.IsRequired()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("%s: %w", fieldName, err)
 	}
 
 	if required {
@@ -1567,6 +1655,9 @@ func defineTypeOfExample(schemaType, arrayType, exampleValue string) (interface{
 
 // GetAllGoFileInfo gets all Go source files information for given searchDir.
 func (parser *Parser) getAllGoFileInfo(packageDir, searchDir string) error {
+	if parser.skipPackageByPrefix(packageDir) {
+		return nil // ignored by user-defined package path prefixes
+	}
 	return filepath.Walk(searchDir, func(path string, f os.FileInfo, _ error) error {
 		err := parser.Skip(path, f)
 		if err != nil {
@@ -1586,10 +1677,14 @@ func (parser *Parser) getAllGoFileInfo(packageDir, searchDir string) error {
 	})
 }
 
-func (parser *Parser) getAllGoFileInfoFromDeps(pkg *depth.Pkg) error {
+func (parser *Parser) getAllGoFileInfoFromDeps(pkg *depth.Pkg, parseFlag ParseFlag) error {
 	ignoreInternal := pkg.Internal && !parser.ParseInternal
 	if ignoreInternal || !pkg.Resolved { // ignored internal and not resolved dependencies
 		return nil
+	}
+
+	if pkg.Raw != nil && parser.skipPackageByPrefix(pkg.Raw.ImportPath) {
+		return nil // ignored by user-defined package path prefixes
 	}
 
 	// Skip cgo
@@ -1610,13 +1705,13 @@ func (parser *Parser) getAllGoFileInfoFromDeps(pkg *depth.Pkg) error {
 		}
 
 		path := filepath.Join(srcDir, f.Name())
-		if err := parser.parseFile(pkg.Name, path, nil, ParseModels); err != nil {
+		if err := parser.parseFile(pkg.Name, path, nil, parseFlag); err != nil {
 			return err
 		}
 	}
 
 	for i := 0; i < len(pkg.Deps); i++ {
-		if err := parser.getAllGoFileInfoFromDeps(&pkg.Deps[i]); err != nil {
+		if err := parser.getAllGoFileInfoFromDeps(&pkg.Deps[i], parseFlag); err != nil {
 			return err
 		}
 	}

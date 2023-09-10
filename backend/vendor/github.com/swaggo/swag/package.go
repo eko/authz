@@ -5,6 +5,7 @@ import (
 	"go/token"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 // PackageDefinitions files and definition in a package.
@@ -94,22 +95,26 @@ func (pkg *PackageDefinitions) evaluateConstValue(file *ast.File, iota int, expr
 	case *ast.BasicLit:
 		switch valueExpr.Kind {
 		case token.INT:
-			// hexadecimal
-			if len(valueExpr.Value) > 2 && valueExpr.Value[0] == '0' && valueExpr.Value[1] == 'x' {
-				if x, err := strconv.ParseInt(valueExpr.Value[2:], 16, 64); err == nil {
-					return int(x), nil
-				} else if x, err := strconv.ParseUint(valueExpr.Value[2:], 16, 64); err == nil {
-					return x, nil
-				} else {
-					panic(err)
-				}
+			// handle underscored number, such as 1_000_000
+			if strings.ContainsRune(valueExpr.Value, '_') {
+				valueExpr.Value = strings.Replace(valueExpr.Value, "_", "", -1)
 			}
-
-			//octet
-			if len(valueExpr.Value) > 1 && valueExpr.Value[0] == '0' {
-				if x, err := strconv.ParseInt(valueExpr.Value[1:], 8, 64); err == nil {
+			if len(valueExpr.Value) >= 2 && valueExpr.Value[0] == '0' {
+				var start, base = 2, 8
+				switch valueExpr.Value[1] {
+				case 'x', 'X':
+					//hex
+					base = 16
+				case 'b', 'B':
+					//binary
+					base = 2
+				default:
+					//octet
+					start = 1
+				}
+				if x, err := strconv.ParseInt(valueExpr.Value[start:], base, 64); err == nil {
 					return int(x), nil
-				} else if x, err := strconv.ParseUint(valueExpr.Value[1:], 8, 64); err == nil {
+				} else if x, err := strconv.ParseUint(valueExpr.Value[start:], base, 64); err == nil {
 					return x, nil
 				} else {
 					panic(err)

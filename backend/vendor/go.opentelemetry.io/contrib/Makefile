@@ -71,7 +71,10 @@ $(CROSSLINK): PACKAGE=go.opentelemetry.io/build-tools/crosslink
 GOTMPL = $(TOOLS)/gotmpl
 $(GOTMPL): PACKAGE=go.opentelemetry.io/build-tools/gotmpl
 
-tools: $(GOLANGCI_LINT) $(MISSPELL) $(GOCOVMERGE) $(STRINGER) $(PORTO) $(MULTIMOD) $(DBOTCONF) $(CROSSLINK) $(GOTMPL)
+GORELEASE = $(TOOLS)/gorelease
+$(GORELEASE): PACKAGE=golang.org/x/exp/cmd/gorelease
+
+tools: $(GOLANGCI_LINT) $(MISSPELL) $(GOCOVMERGE) $(STRINGER) $(PORTO) $(MULTIMOD) $(DBOTCONF) $(CROSSLINK) $(GOTMPL) $(GORELEASE)
 
 # Generate
 
@@ -81,7 +84,7 @@ generate: go-generate vanity-import-fix
 .PHONY: go-generate
 go-generate: $(OTEL_GO_MOD_DIRS:%=go-generate/%)
 go-generate/%: DIR=$*
-go-generate/%: | $(STRINGER) $(PORTO)
+go-generate/%: | $(STRINGER) $(GOTMPL)
 	@echo "$(GO) generate $(DIR)/..." \
 		&& cd $(DIR) \
 		&& PATH="$(TOOLS):$${PATH}" $(GO) generate ./...
@@ -89,6 +92,11 @@ go-generate/%: | $(STRINGER) $(PORTO)
 .PHONY: vanity-import-fix
 vanity-import-fix: | $(PORTO)
 	@$(PORTO) --include-internal -w .
+
+# Generate go.work file for local development.
+.PHONY: go-work
+go-work: | $(CROSSLINK)
+	$(CROSSLINK) work --root=$(shell pwd)
 
 # Build
 
@@ -140,7 +148,7 @@ misspell: | $(MISSPELL)
 
 .PHONY: vanity-import-check
 vanity-import-check: | $(PORTO)
-	@$(PORTO) --include-internal -l . || echo "(run: make vanity-import-fix)"
+	@$(PORTO) --include-internal -l . || ( echo "(run: make vanity-import-fix)"; exit 1 )
 
 .PHONY: lint
 lint: go-mod-tidy golangci-lint misspell
@@ -148,7 +156,7 @@ lint: go-mod-tidy golangci-lint misspell
 .PHONY: license-check
 license-check:
 	@licRes=$$(for f in $$(find . -type f \( -iname '*.go' -o -iname '*.sh' \) ! -path './vendor/*' ! -path './exporters/otlp/internal/opentelemetry-proto/*') ; do \
-	           awk '/Copyright The OpenTelemetry Authors|generated|GENERATED/ && NR<=3 { found=1; next } END { if (!found) print FILENAME }' $$f; \
+	           awk '/Copyright The OpenTelemetry Authors|generated|GENERATED/ && NR<=4 { found=1; next } END { if (!found) print FILENAME }' $$f; \
 	   done); \
 	   if [ -n "$${licRes}" ]; then \
 	           echo "license header checking failed:"; echo "$${licRes}"; \
@@ -181,7 +189,7 @@ registry-links-check:
 DEPENDABOT_CONFIG = .github/dependabot.yml
 .PHONY: dependabot-check
 dependabot-check: | $(DBOTCONF)
-	@$(DBOTCONF) verify $(DEPENDABOT_CONFIG) || echo "(run: make dependabot-generate)"
+	@$(DBOTCONF) verify $(DEPENDABOT_CONFIG) || ( echo "(run: make dependabot-generate)"; exit 1 )
 
 .PHONY: dependabot-generate
 dependabot-generate: | $(DBOTCONF)
@@ -284,12 +292,20 @@ test-gomemcache:
 
 # Releasing
 
+.PHONY: gorelease
+gorelease: $(OTEL_GO_MOD_DIRS:%=gorelease/%)
+gorelease/%: DIR=$*
+gorelease/%:| $(GORELEASE)
+	@echo "gorelease in $(DIR):" \
+		&& cd $(DIR) \
+		&& $(GORELEASE) \
+		|| echo ""
+
 COREPATH ?= "../opentelemetry-go"
 .PHONY: sync-core
 sync-core: | $(MULTIMOD)
 	@[ ! -d $COREPATH ] || ( echo ">> Path to core repository must be set in COREPATH and must exist"; exit 1 )
 	$(MULTIMOD) verify && $(MULTIMOD) sync -a -o ${COREPATH}
-
 
 .PHONY: prerelease
 prerelease: | $(MULTIMOD)
