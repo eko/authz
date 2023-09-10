@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/eko/authz/backend/configs"
-	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/zipkin"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
@@ -33,9 +32,17 @@ func NewExporter(cfg *configs.App) (tracesdk.SpanExporter, error) {
 
 	switch cfg.TraceExporter {
 	case jaegerExporter:
-		return jaeger.New(jaeger.WithCollectorEndpoint(
-			jaeger.WithEndpoint(cfg.TraceJaegerURL),
-		))
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		conn, err := grpc.DialContext(ctx, cfg.TraceJaegerEndpoint,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithBlock(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gRPC connection to otlp collector: %w", err)
+		}
+
+		return otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
 
 	case otlpgrpcExporter:
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -48,7 +55,6 @@ func NewExporter(cfg *configs.App) (tracesdk.SpanExporter, error) {
 			return nil, fmt.Errorf("failed to create gRPC connection to otlp collector: %w", err)
 		}
 
-		// Set up a trace exporter
 		return otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
 
 	case zipkinExporter:

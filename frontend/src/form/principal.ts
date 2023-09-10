@@ -13,7 +13,7 @@ import { ItemType } from 'component/MultipleAutocompleteInput';
 export type PrincipalFormData = {
     id: string
     roles: ItemType[]
-    attributes: PrincipalAttribute[] | undefined
+    attributes?: PrincipalAttribute[]
 }
 
 export type OnSubmitHandler = (token: string) => FormEventHandler;

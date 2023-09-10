@@ -1,6 +1,6 @@
 module github.com/eko/authz/sdk
 
-go 1.20
+go 1.21
 
 require (
 	github.com/eko/authz/backend v0.8.4

@@ -33,7 +33,7 @@ Here are the available configuration options available as environment variable:
 | APP_METRICS_ENABLED | `false` | Enable Prometheus metrics observability (available under `/v1/metrics` URL) |
 | APP_TRACE_ENABLED | `false` | Enable tracing observability using OpenTelemetry |
 | APP_TRACE_EXPORTER | `jaeger` | Exporter you want to use. Could be `jaeger`, `zipkin` or `otlpgrpc` |
-| APP_TRACE_JAEGER_URL | `http://localhost:14268/api/traces` | Jaeger API URL to be used |
+| APP_TRACE_JAEGER_ENDPOINT | `localhost:14250` | Jaeger endpoint to be used |
 | APP_TRACE_OTLP_DIAL_TIMEOUT | `3s` | OTLP gRPC exporter dial timeout value |
 | APP_TRACE_OTLP_ENDPOINT | `localhost:30080` | OTLP gRPC endpoint value |
 | APP_TRACE_SAMPLE_RATIO | `1.0` | Sampling ratio value defines how many traces should be sent to your exporter |

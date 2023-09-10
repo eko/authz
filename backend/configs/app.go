@@ -15,7 +15,7 @@ type App struct {
 	StatsResourceKindRegex     string        `config:"app_stats_resource_kind_regex"`
 	TraceEnabled               bool          `config:"app_trace_enabled"`
 	TraceExporter              string        `config:"app_trace_exporter"`
-	TraceJaegerURL             string        `config:"app_trace_jaeger_url"`
+	TraceJaegerEndpoint        string        `config:"app_trace_jaeger_endpoint"`
 	TraceOtlpDialTimeout       time.Duration `config:"app_trace_otlp_dial_timeout"`
 	TraceOtlpEndpoint          string        `config:"app_trace_otlp_endpoint"`
 	TraceZipkinURL             string        `config:"app_trace_zipkin_url"`
@@ -36,7 +36,7 @@ func newApp() *App {
 		StatsResourceKindRegex:     `.*`,
 		TraceEnabled:               false,
 		TraceExporter:              "jaeger",
-		TraceJaegerURL:             "http://localhost:14268/api/traces",
+		TraceJaegerEndpoint:        "localhost:14250",
 		TraceOtlpDialTimeout:       3 * time.Second,
 		TraceOtlpEndpoint:          "localhost:30080",
 		TraceZipkinURL:             "http://localhost:9411/api/v2/spans",
