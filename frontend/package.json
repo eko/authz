@@ -33,7 +33,7 @@
     "react-hook-form": "^7.46.1",
     "react-router-dom": "^6.15.0",
     "react-scripts": "5.0.1",
-    "styled-components": "^6.0.7",
+    "styled-components": "^6.0.8",
     "typescript": "^5.2.2",
     "universal-cookie": "^6.1.1",
     "web-vitals": "^3.4.0",
