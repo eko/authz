@@ -10,7 +10,7 @@
     "@mui/icons-material": "^5.14.8",
     "@mui/lab": "^5.0.0-alpha.137",
     "@mui/material": "^5.14.8",
-    "@mui/styled-engine-sc": "^5.14.8",
+    "@mui/styled-engine-sc": "^5.14.10",
     "@mui/x-data-grid": "^6.13.0",
     "@mui/x-date-pickers": "^6.13.0",
     "@nivo/bar": "^0.83.0",
