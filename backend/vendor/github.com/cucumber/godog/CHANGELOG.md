@@ -8,8 +8,24 @@ This document is formatted according to the principles of [Keep A CHANGELOG](htt
 
 ## Unreleased
 
+## [v0.13.0]
+### Added
+- Support for reading feature files from an `fs.FS` ([550](https://github.com/cucumber/godog/pull/550) - [tigh-latte](https://github.com/tigh-latte))
+- Added keyword functions. ([509](https://github.com/cucumber/godog/pull/509) - [otrava7](https://github.com/otrava7))
+- Prefer go test to use of godog cli in README ([548](https://github.com/cucumber/godog/pull/548) - [danielhelfand](https://github.com/danielhelfand))
+- Use `fs.FS` abstraction for filesystem ([550](https://github.com/cucumber/godog/pull/550) - [tigh-latte](https://github.com/tigh-latte))
+- Cancel context for each scenario ([514](https://github.com/cucumber/godog/pull/514) - [draganm](https://github.com/draganm))
+
+### Fixed
+- Improve hooks invocation flow ([568](https://github.com/cucumber/godog/pull/568) - [vearutop](https://github.com/vearutop))
+- Result of testing.T respect strict option ([539](https://github.com/cucumber/godog/pull/539) - [eiel](https://github.com/eiel))
+
+### Changed
+- BREAKING CHANGE, upgraded cucumber and messages dependencies = ([515](https://github.com/cucumber/godog/pull/515) - [otrava7](https://github.com/otrava7))
+
 ## [v0.12.6]
 ### Changed
+- Each scenario is run with a cancellable `context.Context` which is cancelled at the end of the scenario. ([514](https://github.com/cucumber/godog/pull/514) - [draganm](https://github.com/draganm))
 - README example is updated with `context.Context` and `go test` usage. ([477](https://github.com/cucumber/godog/pull/477) - [vearutop](https://github.com/vearutop))
 - Removed deprecation of `godog.BindFlags`. ([498](https://github.com/cucumber/godog/pull/498) - [vearutop](https://github.com/vearutop))
 - Pretty Print when using rules. ([480](https://github.com/cucumber/godog/pull/480) - [dumpsterfireproject](https://github.com/dumpsterfireproject))
@@ -193,6 +209,7 @@ This document is formatted according to the principles of [Keep A CHANGELOG](htt
 ### Changed
 - Changed code references to DATA-DOG/godog to cucumber/godog to help get things building correctly. ([mxygem](https://github.com/mxygem))
 
+[v0.13.0]: https://github.com/cucumber/godog/compare/v0.12.6...v0.13.0
 [v0.12.6]: https://github.com/cucumber/godog/compare/v0.12.5...v0.12.6
 [v0.12.5]: https://github.com/cucumber/godog/compare/v0.12.4...v0.12.5
 [v0.12.4]: https://github.com/cucumber/godog/compare/v0.12.3...v0.12.4

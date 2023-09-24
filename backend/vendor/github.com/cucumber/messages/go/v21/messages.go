@@ -36,6 +36,11 @@ type Envelope struct {
 	UndefinedParameterType *UndefinedParameterType `json:"undefinedParameterType,omitempty"`
 }
 
+type Exception struct {
+	Type    string `json:"type"`
+	Message string `json:"message,omitempty"`
+}
+
 type GherkinDocument struct {
 	Uri      string     `json:"uri,omitempty"`
 	Feature  *Feature   `json:"feature,omitempty"`
@@ -122,12 +127,13 @@ type Scenario struct {
 }
 
 type Step struct {
-	Location  *Location  `json:"location"`
-	Keyword   string     `json:"keyword"`
-	Text      string     `json:"text"`
-	DocString *DocString `json:"docString,omitempty"`
-	DataTable *DataTable `json:"dataTable,omitempty"`
-	Id        string     `json:"id"`
+	Location    *Location       `json:"location"`
+	Keyword     string          `json:"keyword"`
+	KeywordType StepKeywordType `json:"keywordType,omitempty"`
+	Text        string          `json:"text"`
+	DocString   *DocString      `json:"docString,omitempty"`
+	DataTable   *DataTable      `json:"dataTable,omitempty"`
+	Id          string          `json:"id"`
 }
 
 type TableCell struct {
@@ -149,6 +155,7 @@ type Tag struct {
 
 type Hook struct {
 	Id              string           `json:"id"`
+	Name            string           `json:"name,omitempty"`
 	SourceReference *SourceReference `json:"sourceReference"`
 	TagExpression   string           `json:"tagExpression,omitempty"`
 }
@@ -168,9 +175,10 @@ type Meta struct {
 }
 
 type Ci struct {
-	Name string `json:"name"`
-	Url  string `json:"url,omitempty"`
-	Git  *Git   `json:"git,omitempty"`
+	Name        string `json:"name"`
+	Url         string `json:"url,omitempty"`
+	BuildNumber string `json:"buildNumber,omitempty"`
+	Git         *Git   `json:"git,omitempty"`
 }
 
 type Git struct {
@@ -217,6 +225,7 @@ type PickleStep struct {
 	Argument   *PickleStepArgument `json:"argument,omitempty"`
 	AstNodeIds []string            `json:"astNodeIds"`
 	Id         string              `json:"id"`
+	Type       PickleStepType      `json:"type,omitempty"`
 	Text       string              `json:"text"`
 }
 
@@ -310,12 +319,14 @@ type TestStep struct {
 type TestCaseFinished struct {
 	TestCaseStartedId string     `json:"testCaseStartedId"`
 	Timestamp         *Timestamp `json:"timestamp"`
+	WillBeRetried     bool       `json:"willBeRetried"`
 }
 
 type TestCaseStarted struct {
 	Attempt    int64      `json:"attempt"`
 	Id         string     `json:"id"`
 	TestCaseId string     `json:"testCaseId"`
+	WorkerId   string     `json:"workerId,omitempty"`
 	Timestamp  *Timestamp `json:"timestamp"`
 }
 
@@ -323,6 +334,7 @@ type TestRunFinished struct {
 	Message   string     `json:"message,omitempty"`
 	Success   bool       `json:"success"`
 	Timestamp *Timestamp `json:"timestamp"`
+	Exception *Exception `json:"exception,omitempty"`
 }
 
 type TestRunStarted struct {
@@ -337,10 +349,10 @@ type TestStepFinished struct {
 }
 
 type TestStepResult struct {
-	Duration      *Duration            `json:"duration"`
-	Message       string               `json:"message,omitempty"`
-	Status        TestStepResultStatus `json:"status"`
-	WillBeRetried bool                 `json:"willBeRetried"`
+	Duration  *Duration            `json:"duration"`
+	Message   string               `json:"message,omitempty"`
+	Status    TestStepResultStatus `json:"status"`
+	Exception *Exception           `json:"exception,omitempty"`
 }
 
 type TestStepStarted struct {
@@ -377,6 +389,30 @@ func (e AttachmentContentEncoding) String() string {
 	}
 }
 
+type PickleStepType string
+
+const (
+	PickleStepType_UNKNOWN PickleStepType = "Unknown"
+	PickleStepType_CONTEXT PickleStepType = "Context"
+	PickleStepType_ACTION  PickleStepType = "Action"
+	PickleStepType_OUTCOME PickleStepType = "Outcome"
+)
+
+func (e PickleStepType) String() string {
+	switch e {
+	case PickleStepType_UNKNOWN:
+		return "Unknown"
+	case PickleStepType_CONTEXT:
+		return "Context"
+	case PickleStepType_ACTION:
+		return "Action"
+	case PickleStepType_OUTCOME:
+		return "Outcome"
+	default:
+		panic("Bad enum value for PickleStepType")
+	}
+}
+
 type SourceMediaType string
 
 const (
@@ -410,6 +446,33 @@ func (e StepDefinitionPatternType) String() string {
 		return "REGULAR_EXPRESSION"
 	default:
 		panic("Bad enum value for StepDefinitionPatternType")
+	}
+}
+
+type StepKeywordType string
+
+const (
+	StepKeywordType_UNKNOWN     StepKeywordType = "Unknown"
+	StepKeywordType_CONTEXT     StepKeywordType = "Context"
+	StepKeywordType_ACTION      StepKeywordType = "Action"
+	StepKeywordType_OUTCOME     StepKeywordType = "Outcome"
+	StepKeywordType_CONJUNCTION StepKeywordType = "Conjunction"
+)
+
+func (e StepKeywordType) String() string {
+	switch e {
+	case StepKeywordType_UNKNOWN:
+		return "Unknown"
+	case StepKeywordType_CONTEXT:
+		return "Context"
+	case StepKeywordType_ACTION:
+		return "Action"
+	case StepKeywordType_OUTCOME:
+		return "Outcome"
+	case StepKeywordType_CONJUNCTION:
+		return "Conjunction"
+	default:
+		panic("Bad enum value for StepKeywordType")
 	}
 }
 
