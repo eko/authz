@@ -180,6 +180,8 @@ func New(config ...Config) fiber.Handler {
 			return fiber.ErrForbidden
 		}
 
+		c.Status(fiber.StatusOK)
+
 		modTime := stat.ModTime()
 		contentLength := int(stat.Size())
 
@@ -217,7 +219,9 @@ func New(config ...Config) fiber.Handler {
 	}
 }
 
-// SendFile ...
+// SendFile serves a file from an HTTP file system at the specified path.
+// It handles content serving, sets appropriate headers, and returns errors when needed.
+// Usage: err := SendFile(ctx, fs, "/path/to/file.txt")
 func SendFile(c *fiber.Ctx, filesystem http.FileSystem, path string) error {
 	file, err := filesystem.Open(path)
 	if err != nil {
@@ -249,6 +253,8 @@ func SendFile(c *fiber.Ctx, filesystem http.FileSystem, path string) error {
 	if stat.IsDir() {
 		return fiber.ErrForbidden
 	}
+
+	c.Status(fiber.StatusOK)
 
 	modTime := stat.ModTime()
 	contentLength := int(stat.Size())
