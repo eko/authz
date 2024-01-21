@@ -2,7 +2,7 @@ import { useState, useEffect, createContext, ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { AuthResponseUser } from 'service/auth/model';
 import Cookies from 'js-cookie';
-import jwt_decode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 
 export type User = {
     username: string
@@ -55,7 +55,7 @@ const AuthContextProvider = ({ children }: AuthContextProviderType) => {
             localStorage.setItem(AuthenticationToken, authToken);
             localStorage.setItem(AuthenticationExpiration, expireAt.toISOString());
 
-            const decodedHeader = jwt_decode(authToken);
+            const decodedHeader = jwtDecode(authToken);
             if (decodedHeader !== undefined) {
                 localStorage.setItem(AuthenticationUser, JSON.stringify({
                     username: (decodedHeader as any)?.sub,

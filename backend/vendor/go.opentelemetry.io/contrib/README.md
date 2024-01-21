@@ -15,6 +15,7 @@ Collection of 3rd-party packages for [OpenTelemetry-Go](https://github.com/open-
 - [Detectors](./detectors/): Packages providing OpenTelemetry resource detectors for 3rd-party cloud computing environments.
 - [Exporters](./exporters/): Packages providing OpenTelemetry exporters for 3rd-party export formats.
 - [Samplers](./samplers/): Packages providing additional implementations of OpenTelemetry samplers.
+- [Bridges](./bridges/): Packages providing adapters for 3rd-party instrumentation frameworks.
 
 ## Project Status
 
@@ -50,19 +51,14 @@ This project is tested on the following systems.
 | ------- | ---------- | ------------ |
 | Ubuntu  | 1.21       | amd64        |
 | Ubuntu  | 1.20       | amd64        |
-| Ubuntu  | 1.19       | amd64        |
 | Ubuntu  | 1.21       | 386          |
 | Ubuntu  | 1.20       | 386          |
-| Ubuntu  | 1.19       | 386          |
 | MacOS   | 1.21       | amd64        |
 | MacOS   | 1.20       | amd64        |
-| MacOS   | 1.19       | amd64        |
 | Windows | 1.21       | amd64        |
 | Windows | 1.20       | amd64        |
-| Windows | 1.19       | amd64        |
 | Windows | 1.21       | 386          |
 | Windows | 1.20       | 386          |
-| Windows | 1.19       | 386          |
 
 While this project should work for other systems, no compatibility guarantees
 are made for those systems currently.

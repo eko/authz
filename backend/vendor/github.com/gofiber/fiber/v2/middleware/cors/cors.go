@@ -54,6 +54,9 @@ type Config struct {
 
 	// MaxAge indicates how long (in seconds) the results of a preflight request
 	// can be cached.
+	// If you pass MaxAge 0, Access-Control-Max-Age header will not be added and
+	// browser will use 5 seconds by default.
+	// To disable caching completely, pass MaxAge value negative. It will set the Access-Control-Max-Age header 0.
 	//
 	// Optional. Default value 0.
 	MaxAge int
@@ -91,13 +94,14 @@ func New(config ...Config) fiber.Handler {
 		if cfg.AllowMethods == "" {
 			cfg.AllowMethods = ConfigDefault.AllowMethods
 		}
-		if cfg.AllowOrigins == "" {
+		// When none of the AllowOrigins or AllowOriginsFunc config was defined, set the default AllowOrigins value with "*"
+		if cfg.AllowOrigins == "" && cfg.AllowOriginsFunc == nil {
 			cfg.AllowOrigins = ConfigDefault.AllowOrigins
 		}
 	}
 
 	// Warning logs if both AllowOrigins and AllowOriginsFunc are set
-	if cfg.AllowOrigins != ConfigDefault.AllowOrigins && cfg.AllowOriginsFunc != nil {
+	if cfg.AllowOrigins != "" && cfg.AllowOriginsFunc != nil {
 		log.Warn("[CORS] Both 'AllowOrigins' and 'AllowOriginsFunc' have been defined.")
 	}
 
@@ -142,7 +146,7 @@ func New(config ...Config) fiber.Handler {
 		// Run AllowOriginsFunc if the logic for
 		// handling the value in 'AllowOrigins' does
 		// not result in allowOrigin being set.
-		if (allowOrigin == "" || allowOrigin == ConfigDefault.AllowOrigins) && cfg.AllowOriginsFunc != nil {
+		if allowOrigin == "" && cfg.AllowOriginsFunc != nil {
 			if cfg.AllowOriginsFunc(origin) {
 				allowOrigin = origin
 			}
@@ -187,6 +191,8 @@ func New(config ...Config) fiber.Handler {
 		// Set MaxAge is set
 		if cfg.MaxAge > 0 {
 			c.Set(fiber.HeaderAccessControlMaxAge, maxAge)
+		} else if cfg.MaxAge < 0 {
+			c.Set(fiber.HeaderAccessControlMaxAge, "0")
 		}
 
 		// Send 204 No Content
