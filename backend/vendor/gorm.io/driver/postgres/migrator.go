@@ -13,25 +13,28 @@ import (
 	"gorm.io/gorm/schema"
 )
 
+// See https://stackoverflow.com/questions/2204058/list-columns-with-indexes-in-postgresql
+// Here are some changes:
+// - use `LEFT JOIN` instead of `CROSS JOIN`
+// - exclude indexes used to support constraints (they are auto-generated)
 const indexSql = `
-select
-    t.relname as table_name,
-    i.relname as index_name,
-    a.attname as column_name,
-    ix.indisunique as non_unique,
-	ix.indisprimary as primary
-from
-    pg_class t,
-    pg_class i,
-    pg_index ix,
-    pg_attribute a
-where
-    t.oid = ix.indrelid
-    and i.oid = ix.indexrelid
-    and a.attrelid = t.oid
-    and a.attnum = ANY(ix.indkey)
-    and t.relkind = 'r'
-    and t.relname = ?
+SELECT
+	ct.relname AS table_name,
+	ci.relname AS index_name,
+	i.indisunique AS non_unique,
+	i.indisprimary AS primary,
+	a.attname AS column_name
+FROM
+	pg_index i
+	LEFT JOIN pg_class ct ON ct.oid = i.indrelid
+	LEFT JOIN pg_class ci ON ci.oid = i.indexrelid
+	LEFT JOIN pg_attribute a ON a.attrelid = ct.oid
+	LEFT JOIN pg_constraint con ON con.conindid = i.indexrelid
+WHERE
+	a.attnum = ANY(i.indkey)
+	AND con.oid IS NULL
+	AND ct.relkind = 'r'
+	AND ct.relname = ?
 `
 
 var typeAliasMap = map[string][]string{
@@ -347,16 +350,6 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 					}
 				}
 
-				if uniq, _ := fieldColumnType.Unique(); !uniq && field.Unique {
-					idxName := clause.Column{Name: m.DB.Config.NamingStrategy.IndexName(stmt.Table, field.DBName)}
-					// Not a unique constraint but a unique index
-					if !m.HasIndex(stmt.Table, idxName.Name) {
-						if err := m.DB.Exec("ALTER TABLE ? ADD CONSTRAINT ? UNIQUE(?)", m.CurrentTable(stmt), idxName, clause.Column{Name: field.DBName}).Error; err != nil {
-							return err
-						}
-					}
-				}
-
 				if v, ok := fieldColumnType.DefaultValue(); (field.DefaultValueInterface == nil && ok) || v != field.DefaultValue {
 					if field.HasDefaultValue && (field.DefaultValueInterface != nil || field.DefaultValue != "") {
 						if field.DefaultValueInterface != nil {
@@ -415,13 +408,11 @@ func (m Migrator) modifyColumn(stmt *gorm.Statement, field *schema.Field, target
 func (m Migrator) HasConstraint(value interface{}, name string) bool {
 	var count int64
 	m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		constraint, chk, table := m.GuessConstraintAndTable(stmt, name)
-		currentSchema, curTable := m.CurrentSchema(stmt, table)
+		constraint, table := m.GuessConstraintInterfaceAndTable(stmt, name)
 		if constraint != nil {
-			name = constraint.Name
-		} else if chk != nil {
-			name = chk.Name
+			name = constraint.GetName()
 		}
+		currentSchema, curTable := m.CurrentSchema(stmt, table)
 
 		return m.DB.Raw(
 			"SELECT count(*) FROM INFORMATION_SCHEMA.table_constraints WHERE table_schema = ? AND table_name = ? AND constraint_name = ?",
