@@ -43,6 +43,7 @@ const (
 	headerAttr              = "@header"
 	tagsAttr                = "@tags"
 	routerAttr              = "@router"
+	deprecatedRouterAttr    = "@deprecatedrouter"
 	summaryAttr             = "@summary"
 	deprecatedAttr          = "@deprecated"
 	securityAttr            = "@security"
@@ -66,6 +67,7 @@ const (
 	extDocsURLAttr          = "@externaldocs.url"
 	xCodeSamplesAttr        = "@x-codesamples"
 	scopeAttrPrefix         = "@scope."
+	stateAttr               = "@state"
 )
 
 // ParseFlag determine what to parse
@@ -174,6 +176,9 @@ type Parser struct {
 
 	// tags to filter the APIs after
 	tags map[string]struct{}
+
+	// HostState is the state of the host
+	HostState string
 }
 
 // FieldParserFactory create FieldParser.
@@ -184,6 +189,8 @@ type FieldParser interface {
 	ShouldSkip() bool
 	FieldName() (string, error)
 	FormName() string
+	HeaderName() string
+	PathName() string
 	CustomSchema() (*spec.Schema, error)
 	ComplementSchema(schema *spec.Schema) error
 	IsRequired() (bool, error)
@@ -541,6 +548,14 @@ func parseGeneralAPIInfo(parser *Parser, comments []string) error {
 
 		case "@host":
 			parser.swagger.Host = value
+		case "@hoststate":
+			fields = FieldsByAnySpace(commentLine, 3)
+			if len(fields) != 3 {
+				return fmt.Errorf("%s needs 3 arguments", attribute)
+			}
+			if parser.HostState == fields[1] {
+				parser.swagger.Host = fields[2]
+			}
 		case "@basepath":
 			parser.swagger.BasePath = value
 
@@ -722,6 +737,7 @@ func parseSecAttributes(context string, lines []string, index *int) (*spec.Secur
 	attrMap, scopes := make(map[string]string), make(map[string]string)
 	extensions, description := make(map[string]interface{}), ""
 
+loopline:
 	for ; *index < len(lines); *index++ {
 		v := strings.TrimSpace(lines[*index])
 		if len(v) == 0 {
@@ -738,23 +754,21 @@ func parseSecAttributes(context string, lines []string, index *int) (*spec.Secur
 		for _, findterm := range search {
 			if securityAttr == findterm {
 				attrMap[securityAttr] = value
-
-				break
+				continue loopline
 			}
 		}
 
-		isExists, err := isExistsScope(securityAttr)
-		if err != nil {
+		if isExists, err := isExistsScope(securityAttr); err != nil {
 			return nil, err
-		}
-
-		if isExists {
-			scopes[securityAttr[len(scopeAttrPrefix):]] = v[len(securityAttr):]
+		} else if isExists {
+			scopes[securityAttr[len(scopeAttrPrefix):]] = value
+			continue
 		}
 
 		if strings.HasPrefix(securityAttr, "@x-") {
 			// Add the custom attribute without the @
 			extensions[securityAttr[1:]] = value
+			continue
 		}
 
 		// Not mandatory field
@@ -901,14 +915,14 @@ func getMarkdownForTag(tagName string, dirPath string) ([]byte, error) {
 func isExistsScope(scope string) (bool, error) {
 	s := strings.Fields(scope)
 	for _, v := range s {
-		if strings.Contains(v, scopeAttrPrefix) {
+		if strings.HasPrefix(v, scopeAttrPrefix) {
 			if strings.Contains(v, ",") {
 				return false, fmt.Errorf("@scope can't use comma(,) get=" + v)
 			}
 		}
 	}
 
-	return strings.Contains(scope, scopeAttrPrefix), nil
+	return strings.HasPrefix(scope, scopeAttrPrefix), nil
 }
 
 func getTagsFromComment(comment string) (tags []string) {
@@ -977,6 +991,7 @@ func matchExtension(extensionToMatch string, comments []*ast.Comment) (match boo
 
 // ParseRouterAPIInfo parses router api info for given astFile.
 func (parser *Parser) ParseRouterAPIInfo(fileInfo *AstFileInfo) error {
+DeclsLoop:
 	for _, astDescription := range fileInfo.File.Decls {
 		if (fileInfo.ParseFlag & ParseOperations) == ParseNone {
 			continue
@@ -991,6 +1006,9 @@ func (parser *Parser) ParseRouterAPIInfo(fileInfo *AstFileInfo) error {
 					err := operation.ParseComment(comment.Text, fileInfo.File)
 					if err != nil {
 						return fmt.Errorf("ParseComment error in file %s :%+v", fileInfo.Path, err)
+					}
+					if operation.State != "" && operation.State != parser.HostState {
+						continue DeclsLoop
 					}
 				}
 				err := processRouterOperation(parser, operation)
@@ -1063,6 +1081,10 @@ func processRouterOperation(parser *Parser, operation *Operation) error {
 			*op = &newOp.Operation
 		} else {
 			*op = &operation.Operation
+		}
+
+		if routeProperties.Deprecated {
+			(*op).Deprecated = routeProperties.Deprecated
 		}
 
 		parser.swagger.Paths.Paths[routeProperties.Path] = pathItem
@@ -1261,6 +1283,9 @@ func fullTypeName(parts ...string) string {
 // fillDefinitionDescription additionally fills fields in definition (spec.Schema)
 // TODO: If .go file contains many types, it may work for a long time
 func fillDefinitionDescription(definition *spec.Schema, file *ast.File, typeSpecDef *TypeSpecDef) {
+	if file == nil {
+		return
+	}
 	for _, astDeclaration := range file.Decls {
 		generalDeclaration, ok := astDeclaration.(*ast.GenDecl)
 		if !ok || generalDeclaration.Tok != token.TYPE {
@@ -1485,11 +1510,17 @@ func (parser *Parser) parseStructField(file *ast.File, field *ast.Field) (map[st
 		tagRequired = append(tagRequired, fieldName)
 	}
 
+	if schema.Extensions == nil {
+		schema.Extensions = make(spec.Extensions)
+	}
 	if formName := ps.FormName(); len(formName) > 0 {
-		if schema.Extensions == nil {
-			schema.Extensions = make(spec.Extensions)
-		}
-		schema.Extensions[formTag] = formName
+		schema.Extensions["formData"] = formName
+	}
+	if headerName := ps.HeaderName(); len(headerName) > 0 {
+		schema.Extensions["header"] = headerName
+	}
+	if pathName := ps.PathName(); len(pathName) > 0 {
+		schema.Extensions["path"] = pathName
 	}
 
 	return map[string]spec.Schema{fieldName: *schema}, tagRequired, nil

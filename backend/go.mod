@@ -11,7 +11,7 @@ require (
 	github.com/gofiber/adaptor/v2 v2.2.1
 	github.com/gofiber/contrib/otelfiber v1.0.10
 	github.com/gofiber/fiber/v2 v2.52.0
-	github.com/gofiber/swagger v0.1.14
+	github.com/gofiber/swagger v1.0.0
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.5.0
@@ -20,7 +20,7 @@ require (
 	github.com/prometheus/client_golang v1.18.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
-	github.com/swaggo/swag v1.16.2
+	github.com/swaggo/swag v1.16.3
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.47.0
 	go.opentelemetry.io/otel v1.22.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.22.0
