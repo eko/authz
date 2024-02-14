@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/coreos/go-oidc/v3 v3.9.0
-	github.com/cucumber/godog v0.13.0
+	github.com/cucumber/godog v0.14.0
 	github.com/glebarez/sqlite v1.10.0
 	github.com/go-oauth2/oauth2/v4 v4.5.2
 	github.com/go-playground/validator/v10 v10.17.0
