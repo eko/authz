@@ -8,7 +8,7 @@
     "@fontsource/roboto": "^5.0.8",
     "@hookform/resolvers": "^3.3.4",
     "@mui/icons-material": "^5.15.5",
-    "@mui/lab": "^5.0.0-alpha.137",
+    "@mui/lab": "^5.0.0-alpha.169",
     "@mui/material": "^5.15.5",
     "@mui/styled-engine-sc": "^6.0.0-alpha.12",
     "@mui/x-data-grid": "^6.19.1",
