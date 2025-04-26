@@ -12,7 +12,7 @@
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPSignalE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 // AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
@@ -46,11 +46,15 @@ func (sig ShutdownSignal) String() string {
 
 func newSignalReceivers() signalReceivers {
 	return signalReceivers{
-		notify:  signal.Notify,
-		signals: make(chan os.Signal, 1),
+		notify:     signal.Notify,
+		stopNotify: signal.Stop,
+		signals:    make(chan os.Signal, 1),
+		b:          &broadcaster{},
 	}
 }
 
+// signalReceivers listens to OS signals and shutdown signals,
+// and relays them to registered listeners when started.
 type signalReceivers struct {
 	// this mutex protects writes and reads of this struct to prevent
 	// race conditions in a parallel execution pattern
@@ -64,22 +68,15 @@ type signalReceivers struct {
 	finished chan struct{}
 
 	// this stub allows us to unit test signal relay functionality
-	notify func(c chan<- os.Signal, sig ...os.Signal)
+	notify     func(c chan<- os.Signal, sig ...os.Signal)
+	stopNotify func(c chan<- os.Signal)
 
-	// last will contain a pointer to the last ShutdownSignal received, or
-	// nil if none, if a new channel is created by Wait or Done, this last
-	// signal will be immediately written to, this allows Wait or Done state
-	// to be read after application stop
-	last *ShutdownSignal
-
-	// contains channels created by Done
-	done []chan os.Signal
-
-	// contains channels created by Wait
-	wait []chan ShutdownSignal
+	// used to register and broadcast to signal listeners
+	// created via Done and Wait
+	b *broadcaster
 }
 
-func (recv *signalReceivers) relayer(ctx context.Context) {
+func (recv *signalReceivers) relayer() {
 	defer func() {
 		recv.finished <- struct{}{}
 	}()
@@ -88,7 +85,7 @@ func (recv *signalReceivers) relayer(ctx context.Context) {
 	case <-recv.shutdown:
 		return
 	case signal := <-recv.signals:
-		recv.Broadcast(ShutdownSignal{
+		recv.b.Broadcast(ShutdownSignal{
 			Signal: signal,
 		})
 	}
@@ -100,7 +97,7 @@ func (recv *signalReceivers) running() bool {
 	return recv.shutdown != nil && recv.finished != nil
 }
 
-func (recv *signalReceivers) Start(ctx context.Context) {
+func (recv *signalReceivers) Start() {
 	recv.m.Lock()
 	defer recv.m.Unlock()
 
@@ -112,12 +109,13 @@ func (recv *signalReceivers) Start(ctx context.Context) {
 	recv.finished = make(chan struct{}, 1)
 	recv.shutdown = make(chan struct{}, 1)
 	recv.notify(recv.signals, os.Interrupt, _sigINT, _sigTERM)
-	go recv.relayer(ctx)
+	go recv.relayer()
 }
 
 func (recv *signalReceivers) Stop(ctx context.Context) error {
 	recv.m.Lock()
 	defer recv.m.Unlock()
+	recv.stopNotify(recv.signals)
 
 	// if the relayer is not running; return nil error
 	if !recv.running() {
@@ -134,120 +132,15 @@ func (recv *signalReceivers) Stop(ctx context.Context) error {
 		close(recv.finished)
 		recv.shutdown = nil
 		recv.finished = nil
-		recv.last = nil
+		recv.b.reset()
 		return nil
 	}
 }
 
 func (recv *signalReceivers) Done() <-chan os.Signal {
-	recv.m.Lock()
-	defer recv.m.Unlock()
-
-	ch := make(chan os.Signal, 1)
-
-	// If we had received a signal prior to the call of done, send it's
-	// os.Signal to the new channel.
-	// However we still want to have the operating system notify signals to this
-	// channel should the application receive another.
-	if recv.last != nil {
-		ch <- recv.last.Signal
-	}
-
-	recv.done = append(recv.done, ch)
-	return ch
+	return recv.b.Done()
 }
 
 func (recv *signalReceivers) Wait() <-chan ShutdownSignal {
-	recv.m.Lock()
-	defer recv.m.Unlock()
-
-	ch := make(chan ShutdownSignal, 1)
-
-	if recv.last != nil {
-		ch <- *recv.last
-	}
-
-	recv.wait = append(recv.wait, ch)
-	return ch
-}
-
-func (recv *signalReceivers) Broadcast(signal ShutdownSignal) error {
-	recv.m.Lock()
-	defer recv.m.Unlock()
-
-	recv.last = &signal
-
-	channels, unsent := recv.broadcast(
-		signal,
-		recv.broadcastDone,
-		recv.broadcastWait,
-	)
-
-	if unsent != 0 {
-		return &unsentSignalError{
-			Signal: signal,
-			Total:  channels,
-			Unsent: unsent,
-		}
-	}
-
-	return nil
-}
-
-func (recv *signalReceivers) broadcast(
-	signal ShutdownSignal,
-	anchors ...func(ShutdownSignal) (int, int),
-) (int, int) {
-	var channels, unsent int
-
-	for _, anchor := range anchors {
-		c, u := anchor(signal)
-		channels += c
-		unsent += u
-	}
-
-	return channels, unsent
-}
-
-func (recv *signalReceivers) broadcastDone(signal ShutdownSignal) (int, int) {
-	var unsent int
-
-	for _, reader := range recv.done {
-		select {
-		case reader <- signal.Signal:
-		default:
-			unsent++
-		}
-	}
-
-	return len(recv.done), unsent
-}
-
-func (recv *signalReceivers) broadcastWait(signal ShutdownSignal) (int, int) {
-	var unsent int
-
-	for _, reader := range recv.wait {
-		select {
-		case reader <- signal:
-		default:
-			unsent++
-		}
-	}
-
-	return len(recv.wait), unsent
-}
-
-type unsentSignalError struct {
-	Signal ShutdownSignal
-	Unsent int
-	Total  int
-}
-
-func (err *unsentSignalError) Error() string {
-	return fmt.Sprintf(
-		"send %v signal: %v/%v channels are blocked",
-		err.Signal,
-		err.Unsent,
-		err.Total,
-	)
+	return recv.b.Wait()
 }

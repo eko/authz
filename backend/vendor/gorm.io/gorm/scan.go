@@ -15,7 +15,7 @@ func prepareValues(values []interface{}, db *DB, columnTypes []*sql.ColumnType, 
 	if db.Statement.Schema != nil {
 		for idx, name := range columns {
 			if field := db.Statement.Schema.LookUpField(name); field != nil {
-				values[idx] = reflect.New(reflect.PtrTo(field.FieldType)).Interface()
+				values[idx] = reflect.New(reflect.PointerTo(field.FieldType)).Interface()
 				continue
 			}
 			values[idx] = new(interface{})
@@ -23,7 +23,7 @@ func prepareValues(values []interface{}, db *DB, columnTypes []*sql.ColumnType, 
 	} else if len(columnTypes) > 0 {
 		for idx, columnType := range columnTypes {
 			if columnType.ScanType() != nil {
-				values[idx] = reflect.New(reflect.PtrTo(columnType.ScanType())).Interface()
+				values[idx] = reflect.New(reflect.PointerTo(columnType.ScanType())).Interface()
 			} else {
 				values[idx] = new(interface{})
 			}
@@ -130,6 +130,15 @@ func Scan(rows Rows, db *DB, mode ScanMode) {
 		update              = mode&ScanUpdate != 0
 		onConflictDonothing = mode&ScanOnConflictDoNothing != 0
 	)
+
+	if len(db.Statement.ColumnMapping) > 0 {
+		for i, column := range columns {
+			v, ok := db.Statement.ColumnMapping[column]
+			if ok {
+				columns[i] = v
+			}
+		}
+	}
 
 	db.RowsAffected = 0
 
@@ -244,7 +253,7 @@ func Scan(rows Rows, db *DB, mode ScanMode) {
 								rel = rel.FieldSchema.Relationships.Relations[name]
 								relFields = append(relFields, rel.Field)
 							}
-							// lastest name is raw dbname
+							// latest name is raw dbname
 							dbName := names[subNameCount-1]
 							if field := rel.FieldSchema.LookUpField(dbName); field != nil && field.Readable {
 								fields[idx] = field
@@ -257,9 +266,11 @@ func Scan(rows Rows, db *DB, mode ScanMode) {
 								continue
 							}
 						}
-						values[idx] = &sql.RawBytes{}
+						var val interface{}
+						values[idx] = &val
 					} else {
-						values[idx] = &sql.RawBytes{}
+						var val interface{}
+						values[idx] = &val
 					}
 				}
 			}
@@ -274,12 +285,16 @@ func Scan(rows Rows, db *DB, mode ScanMode) {
 
 			if !update || reflectValue.Len() == 0 {
 				update = false
-				// if the slice cap is externally initialized, the externally initialized slice is directly used here
-				if reflectValue.Cap() == 0 {
-					db.Statement.ReflectValue.Set(reflect.MakeSlice(reflectValue.Type(), 0, 20))
-				} else if !isArrayKind {
-					reflectValue.SetLen(0)
-					db.Statement.ReflectValue.Set(reflectValue)
+				if isArrayKind {
+					db.Statement.ReflectValue.Set(reflect.Zero(reflectValue.Type()))
+				} else {
+					// if the slice cap is externally initialized, the externally initialized slice is directly used here
+					if reflectValue.Cap() == 0 {
+						db.Statement.ReflectValue.Set(reflect.MakeSlice(reflectValue.Type(), 0, 20))
+					} else {
+						reflectValue.SetLen(0)
+						db.Statement.ReflectValue.Set(reflectValue)
+					}
 				}
 			}
 
@@ -325,6 +340,9 @@ func Scan(rows Rows, db *DB, mode ScanMode) {
 			}
 		case reflect.Struct, reflect.Ptr:
 			if initialized || rows.Next() {
+				if mode == ScanInitialized && reflectValue.Kind() == reflect.Struct {
+					db.Statement.ReflectValue.Set(reflect.Zero(reflectValue.Type()))
+				}
 				db.scanIntoStruct(rows, reflectValue, values, fields, joinFields)
 			}
 		default:

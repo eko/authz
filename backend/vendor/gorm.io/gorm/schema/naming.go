@@ -8,6 +8,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/jinzhu/inflection"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // Namer namer interface
@@ -19,12 +21,15 @@ type Namer interface {
 	RelationshipFKName(Relationship) string
 	CheckerName(table, column string) string
 	IndexName(table, column string) string
+	UniqueName(table, column string) string
 }
 
 // Replacer replacer interface like strings.Replacer
 type Replacer interface {
 	Replace(name string) string
 }
+
+var _ Namer = (*NamingStrategy)(nil)
 
 // NamingStrategy tables, columns naming strategy
 type NamingStrategy struct {
@@ -85,6 +90,11 @@ func (ns NamingStrategy) IndexName(table, column string) string {
 	return ns.formatName("idx", table, ns.toDBName(column))
 }
 
+// UniqueName generate unique constraint name
+func (ns NamingStrategy) UniqueName(table, column string) string {
+	return ns.formatName("uni", table, ns.toDBName(column))
+}
+
 func (ns NamingStrategy) formatName(prefix, table, name string) string {
 	formattedName := strings.ReplaceAll(strings.Join([]string{
 		prefix, table, name,
@@ -113,7 +123,7 @@ var (
 func init() {
 	commonInitialismsForReplacer := make([]string, 0, len(commonInitialisms))
 	for _, initialism := range commonInitialisms {
-		commonInitialismsForReplacer = append(commonInitialismsForReplacer, initialism, strings.Title(strings.ToLower(initialism)))
+		commonInitialismsForReplacer = append(commonInitialismsForReplacer, initialism, cases.Title(language.Und).String(initialism))
 	}
 	commonInitialismsReplacer = strings.NewReplacer(commonInitialismsForReplacer...)
 }
@@ -178,9 +188,9 @@ func (ns NamingStrategy) toDBName(name string) string {
 }
 
 func (ns NamingStrategy) toSchemaName(name string) string {
-	result := strings.ReplaceAll(strings.Title(strings.ReplaceAll(name, "_", " ")), " ", "")
+	result := strings.ReplaceAll(cases.Title(language.Und, cases.NoLower).String(strings.ReplaceAll(name, "_", " ")), " ", "")
 	for _, initialism := range commonInitialisms {
-		result = regexp.MustCompile(strings.Title(strings.ToLower(initialism))+"([A-Z]|$|_)").ReplaceAllString(result, initialism+"$1")
+		result = regexp.MustCompile(cases.Title(language.Und, cases.NoLower).String(strings.ToLower(initialism))+"([A-Z]|$|_)").ReplaceAllString(result, initialism+"$1")
 	}
 	return result
 }

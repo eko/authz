@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine3.19 as builder
+FROM golang:1.24-alpine3.21 as builder
 
 WORKDIR /project
 
@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=1 go build -mod vendor -ldflags "-s -w" -o authz ./cmd/
 
-FROM alpine:3.17
+FROM alpine:3.21
 
 RUN adduser -S app
 USER app
