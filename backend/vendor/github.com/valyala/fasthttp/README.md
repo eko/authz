@@ -1,12 +1,14 @@
-# fasthttp [![GoDoc](https://pkg.go.dev/badge/github.com/valyala/fasthttp)](https://pkg.go.dev/github.com/valyala/fasthttp) [![Go Report](https://goreportcard.com/badge/github.com/valyala/fasthttp)](https://goreportcard.com/report/github.com/valyala/fasthttp)
+# fasthttp
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/valyala/fasthttp)](https://pkg.go.dev/github.com/valyala/fasthttp) [![Go Report](https://goreportcard.com/badge/github.com/valyala/fasthttp)](https://goreportcard.com/report/github.com/valyala/fasthttp)
 
 ![FastHTTP – Fastest and reliable HTTP implementation in Go](https://github.com/fasthttp/docs-assets/raw/master/banner@0.5.png)
 
 Fast HTTP implementation for Go.
 
-# fasthttp might not be for you!
-fasthttp was designed for some high performance edge cases. **Unless** your server/client needs to handle **thousands of small to medium requests per second** and needs a consistent low millisecond response time fasthttp might not be for you. **For most cases `net/http` is much better** as it's easier to use and can handle more cases. For most cases you won't even notice the performance difference.
+## fasthttp might not be for you!
 
+fasthttp was designed for some high performance edge cases. **Unless** your server/client needs to handle **thousands of small to medium requests per second** and needs a consistent low millisecond response time fasthttp might not be for you. **For most cases `net/http` is much better** as it's easier to use and can handle more cases. For most cases you won't even notice the performance difference.
 
 ## General info and links
 
@@ -534,7 +536,7 @@ This is an **unsafe** way, the result string and `[]byte` buffer share the same 
     performance fasthttp request router that scales well.
   * [fastws](https://github.com/fasthttp/fastws) - Bloatless WebSocket package made for fasthttp
     to handle Read/Write operations concurrently.
-  * [gramework](https://github.com/gramework/gramework) - a web framework made by one of fasthttp maintainers
+  * [gramework](https://github.com/gramework/gramework) - a web framework made by one of fasthttp maintainers.
   * [lu](https://github.com/vincentLiuxiang/lu) - a high performance
     go middleware web framework which is based on fasthttp.
   * [websocket](https://github.com/fasthttp/websocket) - Gorilla-based
@@ -545,9 +547,10 @@ This is an **unsafe** way, the result string and `[]byte` buffer share the same 
   * [atreugo](https://github.com/savsgio/atreugo) - High performance and extensible micro web framework with zero memory allocations in hot paths.
   * [kratgo](https://github.com/savsgio/kratgo) - Simple, lightweight and ultra-fast HTTP Cache to speed up your websites.
   * [kit-plugins](https://github.com/wencan/kit-plugins/tree/master/transport/fasthttp) - go-kit transport implementation for fasthttp.
-  * [Fiber](https://github.com/gofiber/fiber) - An Expressjs inspired web framework running on Fasthttp
-  * [Gearbox](https://github.com/gogearbox/gearbox) - :gear: gearbox is a web framework written in Go with a focus on high performance and memory optimization
-  * [http2curl](https://github.com/li-jin-gou/http2curl) - A tool to convert fasthttp requests to curl command line
+  * [Fiber](https://github.com/gofiber/fiber) - An Expressjs inspired web framework running on Fasthttp.
+  * [Gearbox](https://github.com/gogearbox/gearbox) - :gear: gearbox is a web framework written in Go with a focus on high performance and memory optimization.
+  * [http2curl](https://github.com/li-jin-gou/http2curl) - A tool to convert fasthttp requests to curl command line.
+  * [OpenTelemetry Golang Compile Time Instrumentation](https://github.com/alibaba/opentelemetry-go-auto-instrumentation) - A tool to monitor fasthttp application without changing any code with OpenTelemetry APIs.
 
 ## FAQ
 
@@ -600,7 +603,9 @@ This is an **unsafe** way, the result string and `[]byte` buffer share the same 
 
 * *Which GO versions are supported by fasthttp?*
 
-  Go 1.15.x. Older versions won't be supported.
+  We support the same versions the Go team supports.
+  Currently that is Go 1.23.x and newer.
+  Older versions might work, but won't officially be supported.
 
 * *Please provide real benchmark data and server information*
 

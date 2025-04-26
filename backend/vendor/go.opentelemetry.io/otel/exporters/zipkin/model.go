@@ -1,16 +1,5 @@
 // Copyright The OpenTelemetry Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
 
 package zipkin // import "go.opentelemetry.io/otel/exporters/zipkin"
 
@@ -30,14 +19,12 @@ import (
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv120 "go.opentelemetry.io/otel/semconv/v1.20.0"
 	semconv121 "go.opentelemetry.io/otel/semconv/v1.21.0"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
+	semconv125 "go.opentelemetry.io/otel/semconv/v1.25.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
 const (
-	keyInstrumentationLibraryName    = "otel.library.name"
-	keyInstrumentationLibraryVersion = "otel.library.version"
-
 	keyPeerHostname attribute.Key = "peer.hostname"
 	keyPeerAddress  attribute.Key = "peer.address"
 )
@@ -191,17 +178,17 @@ func attributeToStringPair(kv attribute.KeyValue) (string, string) {
 	}
 }
 
-// extraZipkinTags are those that may be added to every outgoing span.
-var extraZipkinTags = []string{
-	"otel.status_code",
-	keyInstrumentationLibraryName,
-	keyInstrumentationLibraryVersion,
-}
+// extraZipkinTagsLen is a count of tags that may be added to every outgoing span.
+var extraZipkinTagsLen = len([]attribute.Key{
+	semconv.OTelStatusCodeKey,
+	semconv.OTelScopeNameKey,
+	semconv.OTelScopeVersionKey,
+})
 
 func toZipkinTags(data tracesdk.ReadOnlySpan) map[string]string {
 	attr := data.Attributes()
 	resourceAttr := data.Resource().Attributes()
-	m := make(map[string]string, len(attr)+len(resourceAttr)+len(extraZipkinTags))
+	m := make(map[string]string, len(attr)+len(resourceAttr)+extraZipkinTagsLen)
 	for _, kv := range attr {
 		k, v := attributeToStringPair(kv)
 		m[k] = v
@@ -214,7 +201,7 @@ func toZipkinTags(data tracesdk.ReadOnlySpan) map[string]string {
 	if data.Status().Code != codes.Unset {
 		// Zipkin expect to receive uppercase status values
 		// rather than default capitalized ones.
-		m["otel.status_code"] = strings.ToUpper(data.Status().Code.String())
+		m[string(semconv.OTelStatusCodeKey)] = strings.ToUpper(data.Status().Code.String())
 	}
 
 	if data.Status().Code == codes.Error {
@@ -224,9 +211,9 @@ func toZipkinTags(data tracesdk.ReadOnlySpan) map[string]string {
 	}
 
 	if is := data.InstrumentationScope(); is.Name != "" {
-		m[keyInstrumentationLibraryName] = is.Name
+		m[string(semconv.OTelScopeNameKey)] = is.Name
 		if is.Version != "" {
-			m[keyInstrumentationLibraryVersion] = is.Version
+			m[string(semconv.OTelScopeVersionKey)] = is.Version
 		}
 	}
 
@@ -250,7 +237,7 @@ var remoteEndpointKeyRank = map[attribute.Key]int{
 	semconv120.NetSockPeerAddrKey:     8,
 	keyPeerHostname:                   9,
 	keyPeerAddress:                    10,
-	semconv.DBNameKey:                 11,
+	semconv125.DBNameKey:              11,
 }
 
 func toZipkinRemoteEndpoint(data tracesdk.ReadOnlySpan) *zkmodel.Endpoint {
@@ -312,7 +299,7 @@ func remoteEndpointPeerIPWithPort(peerIP string, portKey attribute.Key, attrs []
 	for _, kv := range attrs {
 		if kv.Key == portKey {
 			port, _ := strconv.ParseUint(kv.Value.Emit(), 10, 16)
-			endpoint.Port = uint16(port)
+			endpoint.Port = uint16(port) // nolint: gosec  // Bit size of 16 checked above.
 			return endpoint
 		}
 	}

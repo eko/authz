@@ -13,28 +13,32 @@ import (
 	"gorm.io/gorm/schema"
 )
 
+// See https://stackoverflow.com/questions/2204058/list-columns-with-indexes-in-postgresql
+// Here are some changes:
+// - use `LEFT JOIN` instead of `CROSS JOIN`
+// - exclude indexes used to support constraints (they are auto-generated)
 const indexSql = `
-select
-    t.relname as table_name,
-    i.relname as index_name,
-    a.attname as column_name,
-    ix.indisunique as non_unique,
-	ix.indisprimary as primary
-from
-    pg_class t,
-    pg_class i,
-    pg_index ix,
-    pg_attribute a
-where
-    t.oid = ix.indrelid
-    and i.oid = ix.indexrelid
-    and a.attrelid = t.oid
-    and a.attnum = ANY(ix.indkey)
-    and t.relkind = 'r'
-    and t.relname = ?
+SELECT
+	ct.relname AS table_name,
+	ci.relname AS index_name,
+	i.indisunique AS non_unique,
+	i.indisprimary AS primary,
+	a.attname AS column_name
+FROM
+	pg_index i
+	LEFT JOIN pg_class ct ON ct.oid = i.indrelid
+	LEFT JOIN pg_class ci ON ci.oid = i.indexrelid
+	LEFT JOIN pg_attribute a ON a.attrelid = ct.oid
+	LEFT JOIN pg_constraint con ON con.conindid = i.indexrelid
+WHERE
+	a.attnum = ANY(i.indkey)
+	AND con.oid IS NULL
+	AND ct.relkind = 'r'
+	AND ct.relname = ?
 `
 
 var typeAliasMap = map[string][]string{
+	"int":                      {"integer"},
 	"int2":                     {"smallint"},
 	"int4":                     {"integer"},
 	"int8":                     {"bigint"},
@@ -45,14 +49,35 @@ var typeAliasMap = map[string][]string{
 	"numeric":                  {"decimal"},
 	"timestamptz":              {"timestamp with time zone"},
 	"timestamp with time zone": {"timestamptz"},
+	"bool":                     {"boolean"},
+	"boolean":                  {"bool"},
+	"serial2":                  {"smallserial"},
+	"serial4":                  {"serial"},
+	"serial8":                  {"bigserial"},
+	"varbit":                   {"bit varying"},
+	"char":                     {"character"},
+	"varchar":                  {"character varying"},
+	"float4":                   {"real"},
+	"float8":                   {"double precision"},
+	"timetz":                   {"time with time zone"},
 }
 
 type Migrator struct {
 	migrator.Migrator
 }
 
+// select querys ignore dryrun
+func (m Migrator) queryRaw(sql string, values ...interface{}) (tx *gorm.DB) {
+	queryTx := m.DB
+	if m.DB.DryRun {
+		queryTx = m.DB.Session(&gorm.Session{})
+		queryTx.DryRun = false
+	}
+	return queryTx.Raw(sql, values...)
+}
+
 func (m Migrator) CurrentDatabase() (name string) {
-	m.DB.Raw("SELECT CURRENT_DATABASE()").Scan(&name)
+	m.queryRaw("SELECT CURRENT_DATABASE()").Scan(&name)
 	return
 }
 
@@ -84,7 +109,7 @@ func (m Migrator) HasIndex(value interface{}, name string) bool {
 			}
 		}
 		currentSchema, curTable := m.CurrentSchema(stmt, stmt.Table)
-		return m.DB.Raw(
+		return m.queryRaw(
 			"SELECT count(*) FROM pg_indexes WHERE tablename = ? AND indexname = ? AND schemaname = ?", curTable, name, currentSchema,
 		).Scan(&count).Error
 	})
@@ -115,6 +140,10 @@ func (m Migrator) CreateIndex(value interface{}, name string) error {
 					createIndexSQL += " USING " + idx.Type + "(?)"
 				} else {
 					createIndexSQL += " ?"
+				}
+
+				if idx.Option != "" {
+					createIndexSQL += " " + idx.Option
 				}
 
 				if idx.Where != "" {
@@ -152,7 +181,7 @@ func (m Migrator) DropIndex(value interface{}, name string) error {
 
 func (m Migrator) GetTables() (tableList []string, err error) {
 	currentSchema, _ := m.CurrentSchema(m.DB.Statement, "")
-	return tableList, m.DB.Raw("SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_type = ?", currentSchema, "BASE TABLE").Scan(&tableList).Error
+	return tableList, m.queryRaw("SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_type = ?", currentSchema, "BASE TABLE").Scan(&tableList).Error
 }
 
 func (m Migrator) CreateTable(values ...interface{}) (err error) {
@@ -186,7 +215,7 @@ func (m Migrator) HasTable(value interface{}) bool {
 	var count int64
 	m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		currentSchema, curTable := m.CurrentSchema(stmt, stmt.Table)
-		return m.DB.Raw("SELECT count(*) FROM information_schema.tables WHERE table_schema = ? AND table_name = ? AND table_type = ?", currentSchema, curTable, "BASE TABLE").Scan(&count).Error
+		return m.queryRaw("SELECT count(*) FROM information_schema.tables WHERE table_schema = ? AND table_name = ? AND table_type = ?", currentSchema, curTable, "BASE TABLE").Scan(&count).Error
 	})
 	return count > 0
 }
@@ -238,7 +267,7 @@ func (m Migrator) HasColumn(value interface{}, field string) bool {
 		}
 
 		currentSchema, curTable := m.CurrentSchema(stmt, stmt.Table)
-		return m.DB.Raw(
+		return m.queryRaw(
 			"SELECT count(*) FROM INFORMATION_SCHEMA.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?",
 			currentSchema, curTable, name,
 		).Scan(&count).Error
@@ -263,7 +292,7 @@ func (m Migrator) MigrateColumn(value interface{}, field *schema.Field, columnTy
 		checkSQL += "WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?) "
 		checkSQL += "AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = ? AND relnamespace = "
 		checkSQL += "(SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = ?))"
-		m.DB.Raw(checkSQL, values...).Scan(&description)
+		m.queryRaw(checkSQL, values...).Scan(&description)
 
 		comment := strings.Trim(field.Comment, "'")
 		comment = strings.Trim(comment, `"`)
@@ -297,7 +326,7 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 				fileType := clause.Expr{SQL: m.DataTypeOf(field)}
 				// check for typeName and SQL name
 				isSameType := true
-				if fieldColumnType.DatabaseTypeName() != fileType.SQL {
+				if !strings.EqualFold(fieldColumnType.DatabaseTypeName(), fileType.SQL) {
 					isSameType = false
 					// if different, also check for aliases
 					aliases := m.GetTypeAliases(fieldColumnType.DatabaseTypeName())
@@ -347,16 +376,6 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 					}
 				}
 
-				if uniq, _ := fieldColumnType.Unique(); !uniq && field.Unique {
-					idxName := clause.Column{Name: m.DB.Config.NamingStrategy.IndexName(stmt.Table, field.DBName)}
-					// Not a unique constraint but a unique index
-					if !m.HasIndex(stmt.Table, idxName.Name) {
-						if err := m.DB.Exec("ALTER TABLE ? ADD CONSTRAINT ? UNIQUE(?)", m.CurrentTable(stmt), idxName, clause.Column{Name: field.DBName}).Error; err != nil {
-							return err
-						}
-					}
-				}
-
 				if v, ok := fieldColumnType.DefaultValue(); (field.DefaultValueInterface == nil && ok) || v != field.DefaultValue {
 					if field.HasDefaultValue && (field.DefaultValueInterface != nil || field.DefaultValue != "") {
 						if field.DefaultValueInterface != nil {
@@ -370,9 +389,15 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 								return err
 							}
 						} else {
-							if err := m.DB.Exec("ALTER TABLE ? ALTER COLUMN ? DROP DEFAULT", m.CurrentTable(stmt), clause.Column{Name: field.DBName}, clause.Expr{SQL: field.DefaultValue}).Error; err != nil {
+							if err := m.DB.Exec("ALTER TABLE ? ALTER COLUMN ? DROP DEFAULT", m.CurrentTable(stmt), clause.Column{Name: field.DBName}).Error; err != nil {
 								return err
 							}
+						}
+					} else if !field.HasDefaultValue {
+						// case - as-is column has default value and to-be column has no default value
+						// need to drop default
+						if err := m.DB.Exec("ALTER TABLE ? ALTER COLUMN ? DROP DEFAULT", m.CurrentTable(stmt), clause.Column{Name: field.DBName}).Error; err != nil {
+							return err
 						}
 					}
 				}
@@ -415,15 +440,13 @@ func (m Migrator) modifyColumn(stmt *gorm.Statement, field *schema.Field, target
 func (m Migrator) HasConstraint(value interface{}, name string) bool {
 	var count int64
 	m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		constraint, chk, table := m.GuessConstraintAndTable(stmt, name)
-		currentSchema, curTable := m.CurrentSchema(stmt, table)
+		constraint, table := m.GuessConstraintInterfaceAndTable(stmt, name)
 		if constraint != nil {
-			name = constraint.Name
-		} else if chk != nil {
-			name = chk.Name
+			name = constraint.GetName()
 		}
+		currentSchema, curTable := m.CurrentSchema(stmt, table)
 
-		return m.DB.Raw(
+		return m.queryRaw(
 			"SELECT count(*) FROM INFORMATION_SCHEMA.table_constraints WHERE table_schema = ? AND table_name = ? AND constraint_name = ?",
 			currentSchema, curTable, name,
 		).Scan(&count).Error
@@ -438,7 +461,7 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 		var (
 			currentDatabase      = m.DB.Migrator().CurrentDatabase()
 			currentSchema, table = m.CurrentSchema(stmt, stmt.Table)
-			columns, err         = m.DB.Raw(
+			columns, err         = m.queryRaw(
 				"SELECT c.column_name, c.is_nullable = 'YES', c.udt_name, c.character_maximum_length, c.numeric_precision, c.numeric_precision_radix, c.numeric_scale, c.datetime_precision, 8 * typlen, c.column_default, pd.description, c.identity_increment FROM information_schema.columns AS c JOIN pg_type AS pgt ON c.udt_name = pgt.typname LEFT JOIN pg_catalog.pg_description as pd ON pd.objsubid = c.ordinal_position AND pd.objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = c.table_name AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = c.table_schema)) where table_catalog = ? AND table_schema = ? AND table_name = ?",
 				currentDatabase, currentSchema, table).Rows()
 		)
@@ -512,7 +535,7 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 
 		// check primary, unique field
 		{
-			columnTypeRows, err := m.DB.Raw("SELECT constraint_name FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_catalog, table_name, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = ? AND c.table_schema = ? AND c.table_name = ? AND constraint_type = ?", currentDatabase, currentSchema, table, "UNIQUE").Rows()
+			columnTypeRows, err := m.queryRaw("SELECT constraint_name FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_catalog, table_name, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = ? AND c.table_schema = ? AND c.table_name = ? AND constraint_type = ?", currentDatabase, currentSchema, table, "UNIQUE").Rows()
 			if err != nil {
 				return err
 			}
@@ -524,7 +547,7 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 			}
 			columnTypeRows.Close()
 
-			columnTypeRows, err = m.DB.Raw("SELECT c.column_name, constraint_name, constraint_type FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_catalog, table_name, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = ? AND c.table_schema = ? AND c.table_name = ?", currentDatabase, currentSchema, table).Rows()
+			columnTypeRows, err = m.queryRaw("SELECT c.column_name, constraint_name, constraint_type FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_catalog, table_name, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = ? AND c.table_schema = ? AND c.table_name = ?", currentDatabase, currentSchema, table).Rows()
 			if err != nil {
 				return err
 			}
@@ -551,7 +574,7 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 
 		// check column type
 		{
-			dataTypeRows, err := m.DB.Raw(`SELECT a.attname as column_name, format_type(a.atttypid, a.atttypmod) AS data_type
+			dataTypeRows, err := m.queryRaw(`SELECT a.attname as column_name, format_type(a.atttypid, a.atttypmod) AS data_type
 		FROM pg_attribute a JOIN pg_class b ON a.attrelid = b.oid AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = ?)
 		WHERE a.attnum > 0 -- hide internal columns
 		AND NOT a.attisdropped -- hide deleted columns
@@ -709,7 +732,7 @@ func (m Migrator) GetIndexes(value interface{}) ([]gorm.Index, error) {
 
 	err := m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		result := make([]*Index, 0)
-		scanErr := m.DB.Raw(indexSql, stmt.Table).Scan(&result).Error
+		scanErr := m.queryRaw(indexSql, stmt.Table).Scan(&result).Error
 		if scanErr != nil {
 			return scanErr
 		}

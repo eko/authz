@@ -34,9 +34,9 @@ func NewExporter(cfg *configs.App) (tracesdk.SpanExporter, error) {
 	case jaegerExporter:
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		conn, err := grpc.DialContext(ctx, cfg.TraceJaegerEndpoint,
+		conn, err := grpc.NewClient(
+			cfg.TraceJaegerEndpoint,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithBlock(),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create gRPC connection to otlp collector: %w", err)
@@ -47,9 +47,9 @@ func NewExporter(cfg *configs.App) (tracesdk.SpanExporter, error) {
 	case otlpgrpcExporter:
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		conn, err := grpc.DialContext(ctx, cfg.TraceOtlpEndpoint,
+		conn, err := grpc.NewClient(
+			cfg.TraceOtlpEndpoint,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithBlock(),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create gRPC connection to otlp collector: %w", err)

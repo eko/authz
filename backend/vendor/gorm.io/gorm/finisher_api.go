@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"hash/maphash"
 	"reflect"
 	"strings"
 
@@ -376,8 +377,12 @@ func (db *DB) FirstOrCreate(dest interface{}, conds ...interface{}) (tx *DB) {
 	} else if len(db.Statement.assigns) > 0 {
 		exprs := tx.Statement.BuildCondition(db.Statement.assigns[0], db.Statement.assigns[1:]...)
 		assigns := map[string]interface{}{}
-		for _, expr := range exprs {
-			if eq, ok := expr.(clause.Eq); ok {
+		for i := 0; i < len(exprs); i++ {
+			expr := exprs[i]
+
+			if eq, ok := expr.(clause.AndConditions); ok {
+				exprs = append(exprs, eq.Exprs...)
+			} else if eq, ok := expr.(clause.Eq); ok {
 				switch column := eq.Column.(type) {
 				case string:
 					assigns[column] = eq.Value
@@ -619,14 +624,15 @@ func (db *DB) Transaction(fc func(tx *DB) error, opts ...*sql.TxOptions) (err er
 	if committer, ok := db.Statement.ConnPool.(TxCommitter); ok && committer != nil {
 		// nested transaction
 		if !db.DisableNestedTransaction {
-			err = db.SavePoint(fmt.Sprintf("sp%p", fc)).Error
+			spID := new(maphash.Hash).Sum64()
+			err = db.SavePoint(fmt.Sprintf("sp%d", spID)).Error
 			if err != nil {
 				return
 			}
 			defer func() {
 				// Make sure to rollback when panic, Block error or Commit error
 				if panicked || err != nil {
-					db.RollbackTo(fmt.Sprintf("sp%p", fc))
+					db.RollbackTo(fmt.Sprintf("sp%d", spID))
 				}
 			}()
 		}
