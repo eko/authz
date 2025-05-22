@@ -46,15 +46,11 @@ Godog is a community driven Open Source Project within the Cucumber organization
 
 See the [contributing guide] for more detail on how to get started.
 
+See the [releasing guide] for release flow details.
+
 ## Getting help
 
-We have a [community Slack] where you can chat with other users, developers, and BDD practitioners.
-
-Here are some useful channels to try:
-
-- [#help-godog](https://cucumberbdd.slack.com/archives/CTNL1JCVA) - General Godog Adoption Help
-- [#committers-go](https://cucumberbdd.slack.com/archives/CA5NJPDJ4) - Golang focused Cucumber Contributors
-- [#committers](https://cucumberbdd.slack.com/archives/C62D0FK0E) - General Cucumber Contributors
+We have a [community Discord](https://cucumber.io/docs/community/get-in-touch/#discord) where you can chat with other users, developers, and BDD practitioners.
 
 ## Examples
 
@@ -290,6 +286,10 @@ When steps are orthogonal and small, you can combine them just like you do with 
 
 `TestFeatures` acts as a regular Go test, so you can leverage your IDE facilities to run and debug it.
 
+### Attachments
+
+An example showing how to make attachments (aka embeddings) to the results is shown in [_examples/attachments](/_examples/attachments/)
+
 ## Code of Conduct
 
 Everyone interacting in this codebase and issue tracker is expected to follow the Cucumber [code of conduct](https://github.com/cucumber/cucumber/blob/master/CODE_OF_CONDUCT.md).
@@ -493,31 +493,12 @@ If you want to filter scenarios by tags, you can use the `-t=<expression>` or `-
 A more extensive example can be [found here](/_examples/assert-godogs).
 
 ```go
-func thereShouldBeRemaining(remaining int) error {
-	return assertExpectedAndActual(
-		assert.Equal, Godogs, remaining,
-		"Expected %d godogs to be remaining, but there is %d", remaining, Godogs,
-	)
-}
-
-// assertExpectedAndActual is a helper function to allow the step function to call
-// assertion functions where you want to compare an expected and an actual value.
-func assertExpectedAndActual(a expectedAndActualAssertion, expected, actual interface{}, msgAndArgs ...interface{}) error {
-	var t asserter
-	a(&t, expected, actual, msgAndArgs...)
-	return t.err
-}
-
-type expectedAndActualAssertion func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool
-
-// asserter is used to be able to retrieve the error reported by the called assertion
-type asserter struct {
-	err error
-}
-
-// Errorf is used by the called assertion to report an error
-func (a *asserter) Errorf(format string, args ...interface{}) {
-	a.err = fmt.Errorf(format, args...)
+func thereShouldBeRemaining(ctx context.Context, remaining int) error {
+	assert.Equal(
+    godog.T(ctx), Godogs, remaining, 
+    "Expected %d godogs to be remaining, but there is %d", remaining, Godogs,
+  )
+	return nil
 }
 ```
 
@@ -595,4 +576,8 @@ A simple example can be [found here](/_examples/custom-formatter).
 [cucumber]: https://cucumber.io/ "Behavior driven development framework"
 [license]: https://en.wikipedia.org/wiki/MIT_License "The MIT license"
 [contributing guide]: https://github.com/cucumber/godog/blob/main/CONTRIBUTING.md
-[community Slack]: https://cucumber.io/community#slack
+[releasing guide]: https://github.com/cucumber/godog/blob/main/RELEASING.md
+[community Discord]: https://cucumber.io/community#discord
+
+
+
