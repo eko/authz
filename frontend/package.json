@@ -21,7 +21,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/jest": "^29.5.14",
     "@types/js-cookie": "^3.0.6",
-    "@types/node": "^20.17.31",
+    "@types/node": "^22.15.21",
     "@types/react": "^18.3.20",
     "@types/react-dom": "^18.3.6",
     "axios": "^1.9.0",
