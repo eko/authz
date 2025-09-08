@@ -1,6 +1,6 @@
 module github.com/eko/authz/backend
 
-go 1.24
+go 1.24.0
 
 toolchain go1.24.1
 
@@ -31,7 +31,7 @@ require (
 	go.uber.org/fx v1.23.0
 	golang.org/x/crypto v0.37.0
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
-	golang.org/x/oauth2 v0.29.0
+	golang.org/x/oauth2 v0.31.0
 	google.golang.org/grpc v1.72.0
 	google.golang.org/protobuf v1.36.6
 	gorm.io/datatypes v1.2.5
