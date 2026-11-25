@@ -12,18 +12,18 @@ jobs:
   backend-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
-          go-version: "1.24"
+          go-version: "1.26"
 
   backend-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
-          go-version: "1.24"
+          go-version: "1.26"
       - name: Run Go tests
         run: |
           cd backend
@@ -32,14 +32,14 @@ jobs:
   backend-functional-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
-          go-version: "1.24"
-      - uses: actions/setup-node@v4
+          go-version: "1.26"
+      - uses: actions/setup-node@v6
         with:
-          node-version: 16
-      - uses: isbang/compose-action@v1.5.1
+          node-version: 24
+      - uses: isbang/compose-action@v2.4.1
         with:
           compose-file: "./docker-compose.postgres.yaml"
 
@@ -74,10 +74,10 @@ jobs:
   frontend-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 19
+          node-version: 24
       - name: Run tests
         run: |
           cd frontend
@@ -87,18 +87,18 @@ jobs:
   sdk-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
-          go-version: "1.24"
+          go-version: "1.26"
 
   sdk-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
-          go-version: "1.24"
+          go-version: "1.26"
       - name: Run Go tests
         run: |
           cd sdk
