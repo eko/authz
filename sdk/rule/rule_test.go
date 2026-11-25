@@ -269,3 +269,25 @@ func TestAttributeNotEqualValue(t *testing.T) {
 		})
 	}
 }
+
+func TestAttributeContainsValue(t *testing.T) {
+	testCases := []struct {
+		name     string
+		build    func(attribute string, value string) string
+		value    string
+		expected string
+	}{
+		{name: "principal", build: PrincipalAttributeContainsValue, value: "app1", expected: "principal.apps contains app1"},
+		{name: "resource", build: ResourceAttributeContainsValue, value: "app1", expected: "resource.apps contains app1"},
+		{name: "principal empty value", build: PrincipalAttributeContainsValue, value: "", expected: ""},
+		{name: "resource empty value", build: ResourceAttributeContainsValue, value: "", expected: ""},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if value := testCase.build("apps", testCase.value); value != testCase.expected {
+				t.Errorf("expected %q, got %q", testCase.expected, value)
+			}
+		})
+	}
+}

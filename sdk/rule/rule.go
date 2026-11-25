@@ -75,3 +75,23 @@ func AttributeNotEqual(value PrincipalResourceAttribute) string {
 
 	return fmt.Sprintf("%s.%s %s %s.%s", PrincipalKey, value.PrincipalAttribute, OperatorNotEqual, ResourceKey, value.ResourceAttribute)
 }
+
+// PrincipalAttributeContainsValue is used to create an attribute rule when a
+// principal comma-separated list attribute contains the given value.
+func PrincipalAttributeContainsValue(attribute string, value string) string {
+	if attribute == "" || value == "" {
+		return ""
+	}
+
+	return fmt.Sprintf("%s.%s %s %s", PrincipalKey, attribute, OperatorContains, value)
+}
+
+// ResourceAttributeContainsValue is used to create an attribute rule when a
+// resource comma-separated list attribute contains the given value.
+func ResourceAttributeContainsValue(attribute string, value string) string {
+	if attribute == "" || value == "" {
+		return ""
+	}
+
+	return fmt.Sprintf("%s.%s %s %s", ResourceKey, attribute, OperatorContains, value)
+}

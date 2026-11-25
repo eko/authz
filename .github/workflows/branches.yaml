@@ -103,3 +103,7 @@ jobs:
         run: |
           cd sdk
           go test -race -count=1 -v ./...
+      - name: Run Go tests (fiber middleware)
+        run: |
+          cd sdk/fiber
+          go test -race -count=1 -v ./...

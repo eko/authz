@@ -88,6 +88,8 @@ if isAllowed {
 }
 ```
 
+If you use [GoFiber](https://gofiber.io), a ready-to-use authorization middleware is available in the [`fiber`](./fiber) module.
+
 Please note that you have access to all the gRPC methods [declared here](https://github.com/eko/authz/blob/master/backend/api/proto/api.proto) in the proto file.
 
 ## Configuration
