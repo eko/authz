@@ -12,16 +12,16 @@ jobs:
   backend-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.26"
 
   backend-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.26"
       - name: Run Go tests
@@ -32,14 +32,14 @@ jobs:
   backend-functional-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.26"
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
-      - uses: isbang/compose-action@v2.4.1
+      - uses: isbang/compose-action@v3.2.1
         with:
           compose-file: "./docker-compose.postgres.yaml"
 
@@ -63,7 +63,7 @@ jobs:
           REPORT_LINK=$(echo $OUTPUT | grep -Eo 'https://reports.cucumber.io/reports/[0-9a-z-]+' | tr -d '\r')
           echo "::set-output name=REPORT_LINK::$REPORT_LINK"
 
-      - uses: mshick/add-pr-comment@v1
+      - uses: mshick/add-pr-comment@v3
         if: ${{ github.event_name == 'pull_request' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -76,8 +76,8 @@ jobs:
   frontend-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - name: Run tests
@@ -89,16 +89,16 @@ jobs:
   sdk-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.26"
 
   sdk-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.26"
       - name: Run Go tests
