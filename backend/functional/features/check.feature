@@ -530,3 +530,191 @@ Feature: check
         ]
       }
       """
+
+  Scenario: Check for access (using ABAC principal rule on wildcard resource)
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
+      """
+      {"id": "app.123", "kind": "app", "value": "123"}
+      """
+    And the response code should be 200
+    And I send "POST" request to "/v1/principals" with payload:
+      """
+      {
+        "id": "app-admin",
+        "attributes": [
+          {"key": "applications", "value": "app1,app2"}
+        ]
+      }
+      """
+    And the response code should be 200
+    And I send "POST" request to "/v1/principals" with payload:
+      """
+      {
+        "id": "other-admin",
+        "attributes": [
+          {"key": "applications", "value": "app10"}
+        ]
+      }
+      """
+    And the response code should be 200
+    And I send "POST" request to "/v1/policies" with payload:
+      """
+      {
+        "id": "app1-admins-list",
+        "resources": [
+            "app.*"
+        ],
+        "actions": ["list"],
+        "attribute_rules": [
+          "principal.applications contains app1"
+        ]
+      }
+      """
+    And the response code should be 200
+    And I wait "1s"
+    When I send "POST" request to "/v1/check" with payload:
+      """
+      {
+        "checks": [
+          {
+            "principal": "app-admin",
+            "resource_kind": "app",
+            "resource_value": "*",
+            "action": "list"
+          },
+          {
+            "principal": "app-admin",
+            "resource_kind": "app",
+            "resource_value": "123",
+            "action": "list"
+          },
+          {
+            "principal": "other-admin",
+            "resource_kind": "app",
+            "resource_value": "*",
+            "action": "list"
+          }
+        ]
+      }
+      """
+    And the response code should be 200
+    And the response should match json:
+      """
+      {
+        "checks": [
+          {
+            "principal": "app-admin",
+            "resource_kind": "app",
+            "resource_value": "*",
+            "action": "list",
+            "is_allowed": true
+          },
+          {
+            "principal": "app-admin",
+            "resource_kind": "app",
+            "resource_value": "123",
+            "action": "list",
+            "is_allowed": true
+          },
+          {
+            "principal": "other-admin",
+            "resource_kind": "app",
+            "resource_value": "*",
+            "action": "list",
+            "is_allowed": false
+          }
+        ]
+      }
+      """
+
+  Scenario: Check for access (ABAC policy attached to a role only grants matching principals)
+    Given I authenticate with username "admin" and password "changeme"
+    And I send "POST" request to "/v1/resources" with payload:
+      """
+      {"id": "doc.1", "kind": "doc", "value": "1"}
+      """
+    And the response code should be 200
+    And I send "POST" request to "/v1/principals" with payload:
+      """
+      {
+        "id": "doc-reader",
+        "attributes": [
+          {"key": "team", "value": "docs"}
+        ]
+      }
+      """
+    And the response code should be 200
+    And I send "POST" request to "/v1/policies" with payload:
+      """
+      {
+        "id": "docs-team-read",
+        "resources": ["doc.*"],
+        "actions": ["read"],
+        "attribute_rules": [
+          "principal.team == docs"
+        ]
+      }
+      """
+    And the response code should be 200
+    And I send "POST" request to "/v1/roles" with payload:
+      """
+      {
+        "id": "docs-role",
+        "policies": ["docs-team-read"]
+      }
+      """
+    And the response code should be 200
+    And I send "POST" request to "/v1/principals" with payload:
+      """
+      {
+        "id": "intruder",
+        "roles": ["docs-role"],
+        "attributes": [
+          {"key": "team", "value": "sales"}
+        ]
+      }
+      """
+    And the response code should be 200
+    And I wait "1s"
+    When I send "POST" request to "/v1/check" with payload:
+      """
+      {
+        "checks": [
+          {
+            "principal": "doc-reader",
+            "resource_kind": "doc",
+            "resource_value": "1",
+            "action": "read"
+          },
+          {
+            "principal": "intruder",
+            "resource_kind": "doc",
+            "resource_value": "1",
+            "action": "read"
+          }
+        ]
+      }
+      """
+    And the response code should be 200
+    And the response should match json:
+      """
+      {
+        "checks": [
+          {
+            "principal": "doc-reader",
+            "resource_kind": "doc",
+            "resource_value": "1",
+            "action": "read",
+            "is_allowed": true
+          },
+          {
+            "principal": "intruder",
+            "resource_kind": "doc",
+            "resource_value": "1",
+            "action": "read",
+            "is_allowed": false
+          }
+        ]
+      }
+      """

@@ -13,7 +13,7 @@ var (
 	resourceAttributeRegexp  = regexp.MustCompile(`(resource\.)(.+)`)
 	principalAttributeRegexp = regexp.MustCompile(`(principal\.)(.+)`)
 
-	ruleRegexp = regexp.MustCompile(`([resource|principal]?\.?.+)\s?(==|!=|>|<)\s?([resource|principal]?\.?.+)`)
+	ruleRegexp = regexp.MustCompile(`^\s*([^\s=!<>]+)\s*(==|!=|>=|<=|>|<|contains)\s*(.+?)\s*$`)
 
 	// ErrInvalidRuleFormat is returned when a rule format is invalid.
 	ErrInvalidRuleFormat = errors.New("rule is invalid: should have at least one resource.<attribute> or a principal.<attribute>")
@@ -45,6 +45,11 @@ const (
 	// RuleOperatorEqual represents a NOT equal attribute rule.
 	// For example: my.owner_id != 123
 	RuleOperatorNotEqual RuleOperator = "!="
+
+	// RuleOperatorContains represents a rule matching when one side, as a
+	// comma-separated list, contains the other side's value.
+	// For example: principal.applications contains app1
+	RuleOperatorContains RuleOperator = "contains"
 
 	principal = "principal"
 	resource  = "resource"
@@ -80,36 +85,54 @@ func (r *Rule) MatchResource(attributes model.Attributes) bool {
 }
 
 func (r *Rule) match(value string) bool {
+	return r.Compare(value, r.Value)
+}
+
+// Compare applies the rule operator between left and right values.
+func (r *Rule) Compare(left string, right string) bool {
 	switch r.Operator {
 	case RuleOperatorEqual:
-		return value == r.Value
-	case RuleOperatorGreater, RuleOperatorGreaterEqual, RuleOperatorLower, RuleOperatorLowerEqual:
-		intValue, valueErr := strconv.ParseInt(value, 10, 0)
-		ruleIntValue, ruleValueErr := strconv.ParseInt(r.Value, 10, 0)
-
-		if valueErr != nil || ruleValueErr != nil {
-			return false
-		}
-
-		switch r.Operator {
-		case RuleOperatorGreater:
-			return intValue > ruleIntValue
-		case RuleOperatorGreaterEqual:
-			return intValue >= ruleIntValue
-		case RuleOperatorLower:
-			return intValue < ruleIntValue
-		case RuleOperatorLowerEqual:
-			return intValue <= ruleIntValue
-		default:
-			return false
-		}
-
+		return left == right
 	case RuleOperatorNotEqual:
-		return value != r.Value
-
+		return left != right
+	case RuleOperatorContains:
+		return listContains(left, right) || listContains(right, left)
+	case RuleOperatorGreater, RuleOperatorGreaterEqual, RuleOperatorLower, RuleOperatorLowerEqual:
+		return compareInts(r.Operator, left, right)
 	default:
 		return false
 	}
+}
+
+func compareInts(operator RuleOperator, left string, right string) bool {
+	leftInt, leftErr := strconv.ParseInt(left, 10, 0)
+	rightInt, rightErr := strconv.ParseInt(right, 10, 0)
+	if leftErr != nil || rightErr != nil {
+		return false
+	}
+
+	switch operator {
+	case RuleOperatorGreater:
+		return leftInt > rightInt
+	case RuleOperatorGreaterEqual:
+		return leftInt >= rightInt
+	case RuleOperatorLower:
+		return leftInt < rightInt
+	case RuleOperatorLowerEqual:
+		return leftInt <= rightInt
+	default:
+		return false
+	}
+}
+
+func listContains(list string, value string) bool {
+	for _, item := range strings.Split(list, ",") {
+		if strings.TrimSpace(item) == value {
+			return true
+		}
+	}
+
+	return false
 }
 
 // ToString converts the rule structure to string.

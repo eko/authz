@@ -285,6 +285,36 @@ func TestConvertStringToRuleOperator(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
+			name: "valid greater or equal rule",
+			rule: "principal.age >= 18",
+			expectedRule: &Rule{
+				PrincipalAttribute: "age",
+				Operator:           RuleOperatorGreaterEqual,
+				Value:              "18",
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "valid lower or equal rule without whitespaces",
+			rule: "resource.level<=principal.level",
+			expectedRule: &Rule{
+				ResourceAttribute:  "level",
+				PrincipalAttribute: "level",
+				Operator:           RuleOperatorLowerEqual,
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "valid contains rule",
+			rule: "principal.applications contains app1",
+			expectedRule: &Rule{
+				PrincipalAttribute: "applications",
+				Operator:           RuleOperatorContains,
+				Value:              "app1",
+			},
+			expectedErr: nil,
+		},
+		{
 			name: "valid not equal rule",
 			rule: "resource.my_attribute != principal.another_attribute",
 			expectedRule: &Rule{
@@ -375,6 +405,33 @@ func TestConvertRuleToString(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			assert.Equal(t, testCase.expected, testCase.rule.ToString())
+		})
+	}
+}
+
+func TestRule_Compare(t *testing.T) {
+	testCases := []struct {
+		name     string
+		operator RuleOperator
+		left     string
+		right    string
+		expected bool
+	}{
+		{name: "equal", operator: RuleOperatorEqual, left: "a", right: "a", expected: true},
+		{name: "not equal", operator: RuleOperatorNotEqual, left: "a", right: "a", expected: false},
+		{name: "greater or equal", operator: RuleOperatorGreaterEqual, left: "18", right: "18", expected: true},
+		{name: "lower or equal", operator: RuleOperatorLowerEqual, left: "19", right: "18", expected: false},
+		{name: "greater with non numeric", operator: RuleOperatorGreater, left: "abc", right: "1", expected: false},
+		{name: "contains in left list", operator: RuleOperatorContains, left: "app1, app2", right: "app2", expected: true},
+		{name: "contains in right list", operator: RuleOperatorContains, left: "app1", right: "app2,app1", expected: true},
+		{name: "contains does not match prefix", operator: RuleOperatorContains, left: "app10,app2", right: "app1", expected: false},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			rule := &Rule{Operator: testCase.operator}
+
+			assert.Equal(t, testCase.expected, rule.Compare(testCase.left, testCase.right))
 		})
 	}
 }

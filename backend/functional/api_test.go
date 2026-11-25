@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/cucumber/godog"
@@ -15,8 +16,17 @@ import (
 )
 
 var (
-	baseURL = "http://localhost:8080"
+	baseURL = functionalBaseURL()
 )
+
+// functionalBaseURL follows HTTP_SERVER_ADDR so tests can run on another port.
+func functionalBaseURL() string {
+	if addr := os.Getenv("HTTP_SERVER_ADDR"); addr != "" {
+		return "http://localhost" + addr
+	}
+
+	return "http://localhost:8080"
+}
 
 type apiFeature struct {
 	httpClient *http.Client

@@ -41,7 +41,14 @@ principal.<attribute_name> > <a numeric value>
 principal.<attribute_name> >= <a numeric value>
 principal.<attribute_name> < <a numeric value>
 principal.<attribute_name> <= <a numeric value>
+principal.<attribute_name> contains <a value>
 ```
+
+The `contains` operator treats attribute values as comma-separated lists: `principal.applications contains app1` matches a principal whose `applications` attribute is `app1,app2`, but not `app10`. It can also be used between a resource and a principal attribute.
+
+When a rule only uses principal attributes and the policy targets a wildcard resource (for instance `authz.principals.*`), matching principals are granted on every resource of that kind, including list endpoints.
+
+Policies with attribute rules only grant access to the principals matching these rules, even when the policy is attached to a role.
 
 ## Blog post example
 

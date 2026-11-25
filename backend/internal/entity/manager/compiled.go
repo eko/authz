@@ -103,7 +103,10 @@ func (m *compiledPolicyManager) IsAllowed(principalID string, resourceKind strin
 
 func (m *compiledPolicyManager) isPolicyAllowed(policyIDs []string, resourceKind string, resourceValue string, actionID string) (bool, *model.CompiledPolicy, error) {
 	fields := map[string]repository.FieldValue{
-		"policy_id":      {Operator: "IN", Value: policyIDs},
+		"policy_id": {Operator: "IN", Value: policyIDs},
+		// Rows with a principal come from attribute rules and must only
+		// grant access to the principal they were compiled for.
+		"principal_id":   {Operator: "=", Value: ""},
 		"resource_kind":  {Operator: "=", Value: resourceKind},
 		"resource_value": {Operator: "=", Value: resourceValue},
 		"action_id":      {Operator: "=", Value: actionID},

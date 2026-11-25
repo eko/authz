@@ -165,9 +165,8 @@ func (c *compiler) compilePolicyAttributesWithValue(
 	}
 
 	for _, resource := range opts.resources {
-		if resource.Value == manager.WildcardValue {
-			// Don't handle wildcard resources to compiled policies
-			// in case of attribute rules.
+		if resource.Value == manager.WildcardValue && attributeRule.ResourceAttribute != "" {
+			// Wildcard resources cannot be matched against resource attributes.
 			continue
 		}
 
@@ -237,7 +236,7 @@ func (c *compiler) compilePolicyAttributesWithMatching(
 
 	for _, resourceMatch := range resourcesMatches {
 		for _, principalMatch := range principalsMatches {
-			if resourceMatch.AttributeValue != principalMatch.AttributeValue {
+			if !attributeRule.Compare(resourceMatch.AttributeValue, principalMatch.AttributeValue) {
 				continue
 			}
 
@@ -272,7 +271,10 @@ func (c *compiler) retrieveResources(resources []*model.Resource, rule *attribut
 	var result = make([]*model.Resource, 0)
 
 	for _, resource := range resources {
-		if resource.Value != manager.WildcardValue {
+		// Rules only based on principal attributes keep the wildcard resource
+		// so matching principals are granted on every resource of this kind,
+		// including listing endpoints checked against the wildcard value.
+		if resource.Value != manager.WildcardValue || rule.ResourceAttribute == "" {
 			result = append(result, resource)
 			continue
 		}
