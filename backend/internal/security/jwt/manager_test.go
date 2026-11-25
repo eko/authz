@@ -137,7 +137,7 @@ func TestManager_Parse_RejectsForgedTokens(t *testing.T) {
 			clock.EXPECT().Now().Return(date).AnyTimes()
 
 			manager := NewManager(&configs.Auth{
-				JWTSignString: []byte("expected-secret-value-of-32-bytes!!"),
+				JWTSignString: "expected-secret-value-of-32-bytes!!",
 			}, clock)
 
 			result, err := manager.Parse(testCase.token)

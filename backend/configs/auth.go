@@ -2,6 +2,7 @@ package configs
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
@@ -16,7 +17,8 @@ const (
 	// minJWTSignStringLength is the minimum HMAC secret length (256 bits) for HS256.
 	minJWTSignStringLength = 32
 
-	generatedJWTSignStringLength = 64
+	// generatedJWTSignStringBytes random bytes give a 64 characters base64 secret.
+	generatedJWTSignStringBytes = 48
 )
 
 var (
@@ -28,7 +30,7 @@ type Auth struct {
 	AccessTokenDuration  time.Duration `config:"auth_access_token_duration"`
 	RefreshTokenDuration time.Duration `config:"auth_refresh_token_duration"`
 	Domain               string        `config:"auth_domain"`
-	JWTSignString        []byte        `config:"auth_jwt_sign_string"`
+	JWTSignString        string        `config:"auth_jwt_sign_string"`
 }
 
 func newAuth() *Auth {
@@ -42,13 +44,13 @@ func newAuth() *Auth {
 // ensureJWTSignString rejects weak signing secrets and generates a random one
 // when none is provided, so tokens can never be signed with a known key.
 func (a *Auth) ensureJWTSignString() error {
-	if len(a.JWTSignString) == 0 {
-		secret := make([]byte, generatedJWTSignStringLength)
+	if a.JWTSignString == "" {
+		secret := make([]byte, generatedJWTSignStringBytes)
 		if _, err := rand.Read(secret); err != nil {
 			return fmt.Errorf("cannot generate JWT signing secret: %w", err)
 		}
 
-		a.JWTSignString = secret
+		a.JWTSignString = base64.RawURLEncoding.EncodeToString(secret)
 
 		log.Print(
 			"AUTH_JWT_SIGN_STRING is not set: a random signing secret has been generated. " +
@@ -59,7 +61,7 @@ func (a *Auth) ensureJWTSignString() error {
 		return nil
 	}
 
-	if string(a.JWTSignString) == legacyJWTSignString {
+	if a.JWTSignString == legacyJWTSignString {
 		return ErrJWTSignStringLegacyDefault
 	}
 

@@ -52,6 +52,8 @@ jobs:
         id: tests
         env:
           CUCUMBER_PUBLISH_TOKEN: "${{ secrets.CUCUMBER_PUBLISH_TOKEN }}"
+          # Test-only signing secret, avoids the random secret warning polluting the cucumber JSON output.
+          AUTH_JWT_SIGN_STRING: "functional-tests-signing-secret-0123456789"
         run: |
           cd backend
           go test -count=1 --tags=functional -v ./functional --godog.format=cucumber | grep -v -E "^(ok|FAIL)" | json-to-messages > messages.json

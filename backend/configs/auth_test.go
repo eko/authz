@@ -1,6 +1,7 @@
 package configs
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -10,24 +11,24 @@ import (
 func TestAuth_EnsureJWTSignString(t *testing.T) {
 	testCases := []struct {
 		name          string
-		signString    []byte
+		signString    string
 		expectedErr   error
-		expectedValue []byte
+		expectedValue string
 	}{
 		{
 			name:        "legacy default is rejected",
-			signString:  []byte(legacyJWTSignString),
+			signString:  legacyJWTSignString,
 			expectedErr: ErrJWTSignStringLegacyDefault,
 		},
 		{
 			name:        "too short secret is rejected",
-			signString:  []byte("short-secret"),
+			signString:  "short-secret",
 			expectedErr: ErrJWTSignStringTooShort,
 		},
 		{
 			name:          "custom strong secret is kept",
-			signString:    []byte(strings.Repeat("a", minJWTSignStringLength)),
-			expectedValue: []byte(strings.Repeat("a", minJWTSignStringLength)),
+			signString:    strings.Repeat("a", minJWTSignStringLength),
+			expectedValue: strings.Repeat("a", minJWTSignStringLength),
 		},
 	}
 
@@ -38,7 +39,7 @@ func TestAuth_EnsureJWTSignString(t *testing.T) {
 			err := cfg.ensureJWTSignString()
 
 			assert.ErrorIs(t, err, testCase.expectedErr)
-			if testCase.expectedValue != nil {
+			if testCase.expectedValue != "" {
 				assert.Equal(t, testCase.expectedValue, cfg.JWTSignString)
 			}
 		})
@@ -52,7 +53,16 @@ func TestAuth_EnsureJWTSignString_GeneratesRandomSecretWhenEmpty(t *testing.T) {
 	assert.NoError(t, first.ensureJWTSignString())
 	assert.NoError(t, second.ensureJWTSignString())
 
-	assert.Len(t, first.JWTSignString, generatedJWTSignStringLength)
-	assert.NotEqual(t, []byte(legacyJWTSignString), first.JWTSignString)
+	assert.Len(t, first.JWTSignString, 64)
+	assert.NotEqual(t, legacyJWTSignString, first.JWTSignString)
 	assert.NotEqual(t, first.JWTSignString, second.JWTSignString)
+}
+
+func TestLoad_ReadsJWTSignStringFromEnvironment(t *testing.T) {
+	secret := "a-strong-signing-secret-from-environment"
+	t.Setenv("AUTH_JWT_SIGN_STRING", secret)
+
+	cfg := Load(context.Background())
+
+	assert.Equal(t, secret, cfg.Auth.JWTSignString)
 }

@@ -58,7 +58,7 @@ func (g *manager) Generate(identifier string) (*Token, error) {
 		},
 	}
 
-	accessToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(g.cfg.JWTSignString)
+	accessToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(g.cfg.JWTSignString))
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (g *manager) Parse(accessToken string) (*Claims, error) {
 		accessToken,
 		claims,
 		func(token *jwt.Token) (interface{}, error) {
-			return g.cfg.JWTSignString, nil
+			return []byte(g.cfg.JWTSignString), nil
 		},
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
 	)
