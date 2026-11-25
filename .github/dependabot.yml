@@ -2,7 +2,10 @@ version: 2
 
 updates:
 - package-ecosystem: "docker"
-  directory: "/"
+  directories:
+    - "/"
+    - "/backend"
+    - "/frontend"
   schedule:
     interval: daily
     time: "05:00"
