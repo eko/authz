@@ -2,8 +2,10 @@ package fasthttp
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"sync"
 
 	"github.com/klauspost/compress/zstd"
@@ -19,19 +21,30 @@ const (
 	CompressZstdBestCompression
 )
 
+const (
+	limitedZstdDecoderMemoryHeadroom uint64 = 8 * 1024 * 1024
+	maxZstdDecoderMemory             uint64 = 1 << 63
+)
+
 var (
 	zstdDecoderPool            sync.Pool
-	zstdEncoderPool            sync.Pool
+	zstdLimitedDecoderPool     sync.Pool
 	realZstdWriterPoolMap      = newCompressWriterPoolMap()
 	stacklessZstdWriterPoolMap = newCompressWriterPoolMap()
 )
 
+type limitedZstdReader struct {
+	zr        *zstd.Decoder
+	maxMemory uint64
+}
+
 func acquireZstdReader(r io.Reader) (*zstd.Decoder, error) {
 	v := zstdDecoderPool.Get()
 	if v == nil {
-		return zstd.NewReader(r)
+		// The concurrent decoder can write stale block data on a sequence error.
+		return zstd.NewReader(r, zstd.WithDecoderConcurrency(1))
 	}
-	zr := v.(*zstd.Decoder)
+	zr := v.(*zstd.Decoder) //nolint:forcetypeassert
 	if err := zr.Reset(r); err != nil {
 		return nil, err
 	}
@@ -39,22 +52,54 @@ func acquireZstdReader(r io.Reader) (*zstd.Decoder, error) {
 }
 
 func releaseZstdReader(zr *zstd.Decoder) {
+	if err := zr.Reset(nil); err != nil {
+		zr.Close()
+		return
+	}
 	zstdDecoderPool.Put(zr)
 }
 
-func acquireZstdWriter(w io.Writer, level int) (*zstd.Encoder, error) {
-	v := zstdEncoderPool.Get()
-	if v == nil {
-		return zstd.NewWriter(w, zstd.WithEncoderLevel(zstd.EncoderLevel(level)))
+func acquireLimitedZstdReader(r io.Reader, maxBodySize int) (*limitedZstdReader, error) {
+	requiredMemory := uint64(max(maxBodySize, zstd.MinWindowSize))
+	if v := zstdLimitedDecoderPool.Get(); v != nil {
+		limited := v.(*limitedZstdReader) //nolint:forcetypeassert
+		// Decoder caps are rounded up to 8 MiB buckets below. These bounds
+		// accept exactly the bucket a fresh decoder would use for this limit.
+		if limited.maxMemory >= requiredMemory &&
+			limited.maxMemory-requiredMemory < limitedZstdDecoderMemoryHeadroom {
+			if err := limited.zr.Reset(r); err != nil {
+				limited.zr.Close()
+				return nil, err
+			}
+			return limited, nil
+		}
+		limited.zr.Close()
 	}
-	zw := v.(*zstd.Encoder)
-	zw.Reset(w)
-	return zw, nil
+
+	maxMemory := requiredMemory
+	if remainder := requiredMemory % limitedZstdDecoderMemoryHeadroom; remainder != 0 {
+		maxMemory = min(
+			requiredMemory+limitedZstdDecoderMemoryHeadroom-remainder,
+			maxZstdDecoderMemory,
+		)
+	}
+	zr, err := zstd.NewReader(
+		r,
+		zstd.WithDecoderMaxMemory(maxMemory),
+		zstd.WithDecoderConcurrency(1),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &limitedZstdReader{zr: zr, maxMemory: maxMemory}, nil
 }
 
-func releaseZstdWriter(zw *zstd.Encoder) { //nolint:unused
-	zw.Close()
-	zstdEncoderPool.Put(zw)
+func releaseLimitedZstdReader(limited *limitedZstdReader) {
+	if err := limited.zr.Reset(nil); err != nil {
+		limited.zr.Close()
+		return
+	}
+	zstdLimitedDecoderPool.Put(limited)
 }
 
 func acquireStacklessZstdWriter(w io.Writer, compressLevel int) stackless.Writer {
@@ -63,42 +108,29 @@ func acquireStacklessZstdWriter(w io.Writer, compressLevel int) stackless.Writer
 	v := p.Get()
 	if v == nil {
 		return stackless.NewWriter(w, func(w io.Writer) stackless.Writer {
-			return acquireRealZstdWriter(w, compressLevel)
+			// The stackless writer drains and reuses its buffer after each call,
+			// so the encoder must not write to it asynchronously.
+			zw, err := zstd.NewWriter(w,
+				zstd.WithEncoderLevel(zstd.EncoderLevel(nLevel)),
+				zstd.WithEncoderConcurrency(1),
+			)
+			if err != nil {
+				panic(err)
+			}
+			return zw
 		})
 	}
-	sw := v.(stackless.Writer)
+	sw := v.(stackless.Writer) //nolint:forcetypeassert
 	sw.Reset(w)
 	return sw
 }
 
-func releaseStacklessZstdWriter(zf stackless.Writer, zstdDefault int) {
-	zf.Close()
-	nLevel := normalizeZstdCompressLevel(zstdDefault)
+func releaseStacklessZstdWriter(zf stackless.Writer, level int) error {
+	err := zf.Close()
+	nLevel := normalizeZstdCompressLevel(level)
 	p := stacklessZstdWriterPoolMap[nLevel]
 	p.Put(zf)
-}
-
-func acquireRealZstdWriter(w io.Writer, level int) *zstd.Encoder {
-	nLevel := normalizeZstdCompressLevel(level)
-	p := realZstdWriterPoolMap[nLevel]
-	v := p.Get()
-	if v == nil {
-		zw, err := acquireZstdWriter(w, level)
-		if err != nil {
-			panic(err)
-		}
-		return zw
-	}
-	zw := v.(*zstd.Encoder)
-	zw.Reset(w)
-	return zw
-}
-
-func releaseRealZstdWrter(zw *zstd.Encoder, level int) {
-	zw.Close()
-	nLevel := normalizeZstdCompressLevel(level)
-	p := realZstdWriterPoolMap[nLevel]
-	p.Put(zw)
+	return err
 }
 
 func AppendZstdBytesLevel(dst, src []byte, level int) []byte {
@@ -123,7 +155,9 @@ func WriteZstdLevel(w io.Writer, p []byte, level int) (int, error) {
 	default:
 		zw := acquireStacklessZstdWriter(w, level)
 		n, err := zw.Write(p)
-		releaseStacklessZstdWriter(zw, level)
+		if errc := releaseStacklessZstdWriter(zw, level); err == nil {
+			err = errc
+		}
 		return n, err
 	}
 }
@@ -141,10 +175,22 @@ func stacklessWriteZstd(ctx any) {
 }
 
 func nonblockingWriteZstd(ctxv any) {
-	ctx := ctxv.(*compressCtx)
-	zw := acquireRealZstdWriter(ctx.w, ctx.level)
+	ctx := ctxv.(*compressCtx) //nolint:forcetypeassert
+	p := realZstdWriterPoolMap[ctx.level]
+	var zw *zstd.Encoder
+	if v := p.Get(); v != nil {
+		zw = v.(*zstd.Encoder) //nolint:forcetypeassert
+		zw.Reset(ctx.w)
+	} else {
+		var err error
+		zw, err = zstd.NewWriter(ctx.w, zstd.WithEncoderLevel(zstd.EncoderLevel(ctx.level)))
+		if err != nil {
+			panic(err)
+		}
+	}
 	zw.Write(ctx.p) //nolint:errcheck
-	releaseRealZstdWrter(zw, ctx.level)
+	zw.Close()
+	p.Put(zw)
 }
 
 // AppendZstdBytes appends zstd src to dst and returns the resulting dst.
@@ -155,13 +201,48 @@ func AppendZstdBytes(dst, src []byte) []byte {
 // WriteUnzstd writes unzstd p to w and returns the number of uncompressed
 // bytes written to w.
 func WriteUnzstd(w io.Writer, p []byte) (int, error) {
+	return writeUnzstd(w, p, 0)
+}
+
+func writeUnzstd(w io.Writer, p []byte, maxBodySize int) (int, error) {
+	estimatedDecompressedSize := estimateUnzstdSize(p)
+	if maxBodySize > 0 {
+		estimatedDecompressedSize = min(estimatedDecompressedSize, maxBodySize)
+	}
+
+	switch dst := w.(type) {
+	case *byteSliceWriter:
+		dst.b = slices.Grow(dst.b, estimatedDecompressedSize)
+	case *bytebufferpool.ByteBuffer:
+		dst.B = slices.Grow(dst.B, estimatedDecompressedSize)
+	case *bytes.Buffer:
+		dst.Grow(estimatedDecompressedSize)
+	}
+
 	r := &byteSliceReader{b: p}
-	zr, err := acquireZstdReader(r)
+	var zr *zstd.Decoder
+	var limited *limitedZstdReader
+	var err error
+	if maxBodySize > 0 {
+		limited, err = acquireLimitedZstdReader(r, maxBodySize)
+		if limited != nil {
+			zr = limited.zr
+		}
+	} else {
+		zr, err = acquireZstdReader(r)
+	}
 	if err != nil {
 		return 0, err
 	}
-	n, err := copyZeroAlloc(w, zr)
-	releaseZstdReader(zr)
+	n, err := copyZeroAllocWithLimit(w, zr, maxBodySize)
+	if maxBodySize > 0 {
+		releaseLimitedZstdReader(limited)
+		if errors.Is(err, zstd.ErrWindowSizeExceeded) || errors.Is(err, zstd.ErrDecoderSizeExceeded) {
+			err = ErrBodyTooLarge
+		}
+	} else {
+		releaseZstdReader(zr)
+	}
 	nn := int(n)
 	if int64(nn) != n {
 		return 0, fmt.Errorf("too much data unzstd: %d", n)
@@ -169,17 +250,69 @@ func WriteUnzstd(w io.Writer, p []byte) (int, error) {
 	return nn, err
 }
 
+func estimateUnzstdSize(p []byte) int {
+	// Somewhat reasonable and conservative expectation of compression factor of 2
+	sizeHint := 2 * len(p)
+
+	// We look for the first non-skippable header
+	var header zstd.Header
+	for {
+		if err := header.Decode(p); err != nil {
+			break
+		}
+		if !header.Skippable {
+			break
+		}
+		skippedBytes := header.HeaderSize + int(header.SkippableSize)
+		if skippedBytes <= 0 || skippedBytes > len(p) {
+			break
+		}
+		p = p[skippedBytes:]
+	}
+
+	if header.HasFCS {
+		// Let's have some limit just in case the input is malicious
+		// and wants us to allocate bazillion bytes.
+		// In a non-malicious case it's still better to start growing from 4 MB than from 0.
+
+		// gosec complains about integer overflow but the uint64 argument to int() is not larger than 4_000_000, so we silence it.
+		sizeHint = int(min(header.FrameContentSize, 4_000_000)) // #nosec G115
+	}
+	return sizeHint
+}
+
 // AppendUnzstdBytes appends unzstd src to dst and returns the resulting dst.
 func AppendUnzstdBytes(dst, src []byte) ([]byte, error) {
+	return AppendUnzstdBytesWithLimit(dst, src, 0)
+}
+
+// AppendUnzstdBytesWithLimit is like AppendUnzstdBytes, but it stops with
+// ErrBodyTooLarge when src unzstds to more than maxBodySize bytes. The data
+// already in dst doesn't count towards the limit.
+//
+// The limit also caps the zstd decoder window, in steps of 8 MiB: the cap is
+// maxBodySize rounded up to a multiple of 8 MiB, and the 1 KiB minimum window
+// of the format is rounded up in the same way, so it is never below 8 MiB. The
+// zstd decoder has its own window limit of 512 MiB, which the cap doesn't
+// raise. With maxBodySize > 0, a valid frame that requires a window larger
+// than the cap or than 512 MiB returns ErrBodyTooLarge. Without a limit, a
+// frame that requires a window larger than 512 MiB returns the decoder's own
+// error, zstd.ErrWindowSizeExceeded or zstd.ErrDecoderSizeExceeded, which is
+// no ErrBodyTooLarge.
+//
+// The returned dst holds the data that was unzstded before an error.
+//
+// If maxBodySize <= 0, then no limit is applied.
+func AppendUnzstdBytesWithLimit(dst, src []byte, maxBodySize int) ([]byte, error) {
 	w := &byteSliceWriter{b: dst}
-	_, err := WriteUnzstd(w, src)
+	_, err := writeUnzstd(w, src, maxBodySize)
 	return w.b, err
 }
 
-// normalizes compression level into [0..7], so it could be used as an index
-// in *PoolMap.
+// normalizes compression level into [1..4], so it could be used as an index
+// in *PoolMap. zstd.WithEncoderLevel rejects CompressZstdSpeedNotSet.
 func normalizeZstdCompressLevel(level int) int {
-	if level < CompressZstdSpeedNotSet || level > CompressZstdBestCompression {
+	if level < CompressZstdBestSpeed || level > CompressZstdBestCompression {
 		level = CompressZstdDefault
 	}
 	return level

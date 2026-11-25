@@ -12,7 +12,6 @@
 // limitations under the License.
 
 //go:build !windows && !js && !wasip1 && !darwin
-// +build !windows,!js,!wasip1,!darwin
 
 package prometheus
 
@@ -66,11 +65,11 @@ func (c *processCollector) processCollect(ch chan<- Metric) {
 
 	if netstat, err := p.Netstat(); err == nil {
 		var inOctets, outOctets float64
-		if netstat.IpExt.InOctets != nil {
-			inOctets = *netstat.IpExt.InOctets
+		if netstat.InOctets != nil {
+			inOctets = *netstat.InOctets
 		}
-		if netstat.IpExt.OutOctets != nil {
-			outOctets = *netstat.IpExt.OutOctets
+		if netstat.OutOctets != nil {
+			outOctets = *netstat.OutOctets
 		}
 		ch <- MustNewConstMetric(c.inBytes, CounterValue, inOctets)
 		ch <- MustNewConstMetric(c.outBytes, CounterValue, outOctets)

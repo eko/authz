@@ -66,8 +66,14 @@ func (cfg *Config) NewListener(network, addr string) (net.Listener, error) {
 		return nil, err
 	}
 
+	fdUintptr, err := safeIntToUintptr(fd)
+	if err != nil {
+		unix.Close(fd)
+		return nil, fmt.Errorf("unexpected convert socket fd int to uintptr: %w", err)
+	}
+
 	name := fmt.Sprintf("reuseport.%d.%s.%s", os.Getpid(), network, addr)
-	file := os.NewFile(uintptr(fd), name)
+	file := os.NewFile(fdUintptr, name)
 	ln, err := net.FileListener(file)
 	if err != nil {
 		file.Close()
@@ -86,18 +92,18 @@ func (cfg *Config) fdSetup(fd int, sa unix.Sockaddr, addr string) error {
 	var err error
 
 	if err = unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_REUSEADDR, 1); err != nil {
-		return fmt.Errorf("cannot enable SO_REUSEADDR: %w", err)
+		return fmt.Errorf("cannot enable so_reuseaddr: %w", err)
 	}
 
 	// This should disable Nagle's algorithm in all accepted sockets by default.
 	// Users may enable it with net.TCPConn.SetNoDelay(false).
 	if err = unix.SetsockoptInt(fd, unix.IPPROTO_TCP, unix.TCP_NODELAY, 1); err != nil {
-		return fmt.Errorf("cannot disable Nagle's algorithm: %w", err)
+		return fmt.Errorf("cannot disable nagle's algorithm: %w", err)
 	}
 
 	if cfg.ReusePort {
 		if err = unix.SetsockoptInt(fd, unix.SOL_SOCKET, soReusePort, 1); err != nil {
-			return fmt.Errorf("cannot enable SO_REUSEPORT: %w", err)
+			return fmt.Errorf("cannot enable so_reuseport: %w", err)
 		}
 	}
 
@@ -189,4 +195,11 @@ func safeIntToUint32(i int) (uint32, error) {
 		return 0, errors.New("value exceeds uint32 max value")
 	}
 	return uint32(ui), nil
+}
+
+func safeIntToUintptr(i int) (uintptr, error) {
+	if i < 0 {
+		return 0, errors.New("value is negative, cannot convert to uintptr")
+	}
+	return uintptr(i), nil
 }

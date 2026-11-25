@@ -33,6 +33,9 @@ import (
 //
 // It is recommended obtaining req and resp via AcquireRequest
 // and AcquireResponse in performance-critical code.
+//
+// The response body size is not limited. Use a Client or HostClient with a
+// positive MaxResponseBodySize when requesting untrusted servers.
 func Do(req *Request, resp *Response) error {
 	return defaultClient.Do(req, resp)
 }
@@ -60,6 +63,9 @@ func Do(req *Request, resp *Response) error {
 //
 // It is recommended obtaining req and resp via AcquireRequest
 // and AcquireResponse in performance-critical code.
+//
+// The response body size is not limited. Use a Client or HostClient with a
+// positive MaxResponseBodySize when requesting untrusted servers.
 func DoTimeout(req *Request, resp *Response, timeout time.Duration) error {
 	return defaultClient.DoTimeout(req, resp, timeout)
 }
@@ -87,6 +93,9 @@ func DoTimeout(req *Request, resp *Response, timeout time.Duration) error {
 //
 // It is recommended obtaining req and resp via AcquireRequest
 // and AcquireResponse in performance-critical code.
+//
+// The response body size is not limited. Use a Client or HostClient with a
+// positive MaxResponseBodySize when requesting untrusted servers.
 func DoDeadline(req *Request, resp *Response, deadline time.Time) error {
 	return defaultClient.DoDeadline(req, resp, deadline)
 }
@@ -110,6 +119,9 @@ func DoDeadline(req *Request, resp *Response, deadline time.Time) error {
 //
 // It is recommended obtaining req and resp via AcquireRequest
 // and AcquireResponse in performance-critical code.
+//
+// The response body size is not limited. Use a Client or HostClient with a
+// positive MaxResponseBodySize when requesting untrusted servers.
 func DoRedirects(req *Request, resp *Response, maxRedirectsCount int) error {
 	if defaultClient.DisablePathNormalizing {
 		req.URI().DisablePathNormalizing = true
@@ -124,6 +136,9 @@ func DoRedirects(req *Request, resp *Response, maxRedirectsCount int) error {
 // is too small a new slice will be allocated.
 //
 // The function follows redirects. Use Do* for manually handling redirects.
+//
+// The response body size is not limited. Use a Client or HostClient with a
+// positive MaxResponseBodySize when requesting untrusted servers.
 func Get(dst []byte, url string) (statusCode int, body []byte, err error) {
 	return defaultClient.Get(dst, url)
 }
@@ -137,6 +152,9 @@ func Get(dst []byte, url string) (statusCode int, body []byte, err error) {
 //
 // ErrTimeout error is returned if url contents couldn't be fetched
 // during the given timeout.
+//
+// The response body size is not limited. Use a Client or HostClient with a
+// positive MaxResponseBodySize when requesting untrusted servers.
 func GetTimeout(dst []byte, url string, timeout time.Duration) (statusCode int, body []byte, err error) {
 	return defaultClient.GetTimeout(dst, url, timeout)
 }
@@ -150,6 +168,9 @@ func GetTimeout(dst []byte, url string, timeout time.Duration) (statusCode int, 
 //
 // ErrTimeout error is returned if url contents couldn't be fetched
 // until the given deadline.
+//
+// The response body size is not limited. Use a Client or HostClient with a
+// positive MaxResponseBodySize when requesting untrusted servers.
 func GetDeadline(dst []byte, url string, deadline time.Time) (statusCode int, body []byte, err error) {
 	return defaultClient.GetDeadline(dst, url, deadline)
 }
@@ -162,6 +183,9 @@ func GetDeadline(dst []byte, url string, deadline time.Time) (statusCode int, bo
 // The function follows redirects. Use Do* for manually handling redirects.
 //
 // Empty POST body is sent if postArgs is nil.
+//
+// The response body size is not limited. Use a Client or HostClient with a
+// positive MaxResponseBodySize when requesting untrusted servers.
 func Post(dst []byte, url string, postArgs *Args) (statusCode int, body []byte, err error) {
 	return defaultClient.Post(dst, url, postArgs)
 }
@@ -216,6 +240,10 @@ type Client struct {
 	// This field is only effective within the range of MaxIdemponentCallAttempts.
 	RetryIfErr RetryIfErrFunc
 
+	// RetryIfErrUpstream works just like RetryIfErr but also provides information about which upstream caused the error, if known.
+	// Upstream information is a <host>:<port> format.
+	RetryIfErrUpstream RetryIfErrUpstreamFunc
+
 	// ConfigureClient configures the fasthttp.HostClient.
 	ConfigureClient func(hc *HostClient) error
 
@@ -260,11 +288,17 @@ type Client struct {
 	WriteBufferSize int
 
 	// Maximum duration for full response reading (including body).
+	// When response streaming is enabled, the deadline remains active while
+	// the caller reads Response.BodyStream.
+	//
+	// If a request timeout is set, the shorter timeout applies.
 	//
 	// By default response read timeout is unlimited.
 	ReadTimeout time.Duration
 
 	// Maximum duration for full request writing (including body).
+	//
+	// If a request timeout is set, the shorter timeout applies.
 	//
 	// By default request write timeout is unlimited.
 	WriteTimeout time.Duration
@@ -275,6 +309,16 @@ type Client struct {
 	// and response body is greater than the limit.
 	//
 	// By default response body size is unlimited.
+	//
+	// A value less than or equal to zero disables the limit. In this mode,
+	// buffered responses may consume unbounded memory, including when a peer
+	// sends a very large Content-Length or chunk size. Set a positive limit
+	// when requesting untrusted servers.
+	//
+	// If response streaming is enabled for Do methods through StreamResponseBody
+	// or Response.StreamBody, MaxResponseBodySize is ignored and the response
+	// body isn't fully buffered before Do returns. The caller must limit reads
+	// from BodyStream itself. Get and Post methods always enforce this limit.
 	MaxResponseBodySize int
 
 	// Maximum duration for waiting for a free connection.
@@ -286,7 +330,6 @@ type Client struct {
 	ConnPoolStrategy ConnPoolStrategyType
 
 	mLock sync.RWMutex
-	mOnce sync.Once
 
 	// NoDefaultUserAgentHeader when set to true, causes the default
 	// User-Agent header to be excluded from the Request.
@@ -328,7 +371,19 @@ type Client struct {
 	// extra slashes are removed, special characters are encoded.
 	DisablePathNormalizing bool
 
-	// StreamResponseBody enables response body streaming.
+	// StreamResponseBody enables response body streaming for Do methods.
+	// Response bodies aren't fully buffered before Do returns. The caller must
+	// read [Response.BodyStream] and close it with [Response.CloseBodyStream] or
+	// [ReadCloserWithError.CloseWithError]. Body read errors occur after Do
+	// returns and aren't handled by retry callbacks. ReadTimeout and request
+	// deadlines remain active while reading the stream.
+	//
+	// See the [Response.BodyStream] example for retaining only a bounded prefix
+	// of a response body.
+	//
+	// Get and Post methods still read the full response body before returning.
+	// If Do is called with a nil Response, the client drains only small,
+	// known-length bodies for connection reuse and closes other body streams.
 	StreamResponseBody bool
 }
 
@@ -499,7 +554,7 @@ func (c *Client) Do(req *Request, resp *Response) error {
 	host := uri.Host()
 
 	if bytes.ContainsRune(host, ',') {
-		return fmt.Errorf("invalid host %q. Use HostClient for multiple hosts", host)
+		return fmt.Errorf("invalid host %q: use a host client for multiple hosts", host)
 	}
 
 	isTLS := false
@@ -509,82 +564,82 @@ func (c *Client) Do(req *Request, resp *Response) error {
 		return fmt.Errorf("unsupported protocol %q. http and https are supported", uri.Scheme())
 	}
 
-	c.mOnce.Do(func() {
-		c.mLock.Lock()
-		c.m = make(map[string]*HostClient)
-		c.ms = make(map[string]*HostClient)
-		c.mLock.Unlock()
-	})
+	hc, err := c.hostClient(host, isTLS)
+	if err != nil {
+		return err
+	}
 
-	startCleaner := false
+	atomic.AddInt32(&hc.pendingClientRequests, 1)
+	defer atomic.AddInt32(&hc.pendingClientRequests, -1)
+	return hc.Do(req, resp)
+}
+
+func (c *Client) hostClient(host []byte, isTLS bool) (*HostClient, error) {
+	mp := &c.m
+	if isTLS {
+		mp = &c.ms
+	}
 
 	c.mLock.RLock()
-	m := c.m
-	if isTLS {
-		m = c.ms
-	}
-	hc := m[string(host)]
-	if hc != nil {
-		atomic.AddInt32(&hc.pendingClientRequests, 1)
-		defer atomic.AddInt32(&hc.pendingClientRequests, -1)
-	}
+	hc, exist := (*mp)[string(host)]
 	c.mLock.RUnlock()
-	if hc == nil {
-		c.mLock.Lock()
-		hc = m[string(host)]
-		if hc == nil {
-			hc = &HostClient{
-				Addr:                          AddMissingPort(string(host), isTLS),
-				Transport:                     c.Transport,
-				Name:                          c.Name,
-				NoDefaultUserAgentHeader:      c.NoDefaultUserAgentHeader,
-				Dial:                          c.Dial,
-				DialTimeout:                   c.DialTimeout,
-				DialDualStack:                 c.DialDualStack,
-				IsTLS:                         isTLS,
-				TLSConfig:                     c.TLSConfig,
-				MaxConns:                      c.MaxConnsPerHost,
-				MaxIdleConnDuration:           c.MaxIdleConnDuration,
-				MaxConnDuration:               c.MaxConnDuration,
-				MaxIdemponentCallAttempts:     c.MaxIdemponentCallAttempts,
-				ReadBufferSize:                c.ReadBufferSize,
-				WriteBufferSize:               c.WriteBufferSize,
-				ReadTimeout:                   c.ReadTimeout,
-				WriteTimeout:                  c.WriteTimeout,
-				MaxResponseBodySize:           c.MaxResponseBodySize,
-				DisableHeaderNamesNormalizing: c.DisableHeaderNamesNormalizing,
-				DisablePathNormalizing:        c.DisablePathNormalizing,
-				MaxConnWaitTimeout:            c.MaxConnWaitTimeout,
-				RetryIf:                       c.RetryIf,
-				RetryIfErr:                    c.RetryIfErr,
-				ConnPoolStrategy:              c.ConnPoolStrategy,
-				StreamResponseBody:            c.StreamResponseBody,
-				clientReaderPool:              &c.readerPool,
-				clientWriterPool:              &c.writerPool,
-			}
-
-			if c.ConfigureClient != nil {
-				if err := c.ConfigureClient(hc); err != nil {
-					c.mLock.Unlock()
-					return err
-				}
-			}
-
-			m[string(host)] = hc
-			if len(m) == 1 {
-				startCleaner = true
-			}
-		}
-		atomic.AddInt32(&hc.pendingClientRequests, 1)
-		defer atomic.AddInt32(&hc.pendingClientRequests, -1)
-		c.mLock.Unlock()
+	if exist {
+		return hc, nil
+	}
+	c.mLock.Lock()
+	defer c.mLock.Unlock()
+	// The map is made here rather than through a sync.Once, whose state
+	// every request would read from a cache line that mLock keeps changing.
+	if *mp == nil {
+		*mp = make(map[string]*HostClient)
+	}
+	m := *mp
+	hc, exist = m[string(host)]
+	if exist {
+		return hc, nil
+	}
+	hc = &HostClient{
+		Addr:                          AddMissingPort(string(host), isTLS),
+		Transport:                     c.Transport,
+		Name:                          c.Name,
+		NoDefaultUserAgentHeader:      c.NoDefaultUserAgentHeader,
+		Dial:                          c.Dial,
+		DialTimeout:                   c.DialTimeout,
+		DialDualStack:                 c.DialDualStack,
+		IsTLS:                         isTLS,
+		TLSConfig:                     c.TLSConfig,
+		MaxConns:                      c.MaxConnsPerHost,
+		MaxIdleConnDuration:           c.MaxIdleConnDuration,
+		MaxConnDuration:               c.MaxConnDuration,
+		MaxIdemponentCallAttempts:     c.MaxIdemponentCallAttempts,
+		ReadBufferSize:                c.ReadBufferSize,
+		WriteBufferSize:               c.WriteBufferSize,
+		ReadTimeout:                   c.ReadTimeout,
+		WriteTimeout:                  c.WriteTimeout,
+		MaxResponseBodySize:           c.MaxResponseBodySize,
+		DisableHeaderNamesNormalizing: c.DisableHeaderNamesNormalizing,
+		DisablePathNormalizing:        c.DisablePathNormalizing,
+		MaxConnWaitTimeout:            c.MaxConnWaitTimeout,
+		RetryIf:                       c.RetryIf,
+		RetryIfErr:                    c.RetryIfErr,
+		RetryIfErrUpstream:            c.RetryIfErrUpstream,
+		ConnPoolStrategy:              c.ConnPoolStrategy,
+		StreamResponseBody:            c.StreamResponseBody,
+		clientReaderPool:              &c.readerPool,
+		clientWriterPool:              &c.writerPool,
 	}
 
-	if startCleaner {
+	if c.ConfigureClient != nil {
+		if err := c.ConfigureClient(hc); err != nil {
+			return nil, err
+		}
+	}
+
+	m[string(host)] = hc
+	if len(m) == 1 {
 		go c.mCleaner(m)
 	}
-
-	return hc.Do(req, resp)
+	return hc, nil
 }
 
 // CloseIdleConnections closes any connections which were previously
@@ -600,6 +655,36 @@ func (c *Client) CloseIdleConnections() {
 		v.CloseIdleConnections()
 	}
 	c.mLock.RUnlock()
+}
+
+// ConnsCount returns total connection count across all HostClients managed by Client.
+func (c *Client) ConnsCount() int {
+	c.mLock.RLock()
+	defer c.mLock.RUnlock()
+
+	n := 0
+	for _, v := range c.m {
+		n += v.ConnsCount()
+	}
+	for _, v := range c.ms {
+		n += v.ConnsCount()
+	}
+	return n
+}
+
+// IdleConnsCount returns total idle connection count across all HostClients managed by Client.
+func (c *Client) IdleConnsCount() int {
+	c.mLock.RLock()
+	defer c.mLock.RUnlock()
+
+	n := 0
+	for _, v := range c.m {
+		n += v.IdleConnsCount()
+	}
+	for _, v := range c.ms {
+		n += v.IdleConnsCount()
+	}
+	return n
 }
 
 func (c *Client) mCleaner(m map[string]*HostClient) {
@@ -678,10 +763,10 @@ type DialFuncWithTimeout func(addr string, timeout time.Duration) (net.Conn, err
 // Request argument passed to RetryIfFunc, if there are any request errors.
 type RetryIfFunc func(request *Request) bool
 
-// RetryIfErrFunc defines an interface used for implementing the following functionality:
-// When the client encounters an error during a request, the behavior—whether to retry
-// and whether to reset the request timeout—should be determined
-// based on the return value of this interface.
+// RetryIfErrFunc decides whether to retry a failed request and whether to reset its timeout.
+// The retry loop calls it after a retryable failure while another attempt remains.
+// A request carrying a streaming body uses a single attempt. An eligible retry starts
+// as soon as this function returns, subject to the request timeout.
 //
 // attempt indicates which attempt the current retry is due to a failure of.
 // The first request counts as the first attempt.
@@ -695,6 +780,12 @@ type RetryIfFunc func(request *Request) bool
 // retry indicates whether to retry the current request. If it is false,
 // the request function will immediately return with the `err`.
 type RetryIfErrFunc func(request *Request, attempts int, err error) (resetTimeout bool, retry bool)
+
+// RetryIfErrUpstreamFunc works just like a RetryIfErrFunc and also provides
+// information about which upstream caused the error, if known.
+//
+// Upstream information is a <host>:<port> format.
+type RetryIfErrUpstreamFunc func(request *Request, attempts int, err error, upstream string) (resetTimeout bool, retry bool)
 
 // RoundTripper wraps every request/response.
 type RoundTripper interface {
@@ -757,7 +848,9 @@ type HostClient struct {
 	// This field is only effective within the range of MaxIdemponentCallAttempts.
 	RetryIfErr RetryIfErrFunc
 
-	connsWait *wantConnQueue
+	// RetryIfErrUpstream works just like RetryIfErr but also provides information about which upstream causes the error, if known.
+	// Upstream information is a <host>:<port> format.
+	RetryIfErrUpstream RetryIfErrUpstreamFunc
 
 	tlsConfigMap map[string]*tls.Config
 
@@ -778,7 +871,6 @@ type HostClient struct {
 	// Client name. Used in User-Agent request header.
 	Name string
 
-	conns []*clientConn
 	addrs []string
 
 	// Maximum number of connections which may be established to all hosts
@@ -821,11 +913,17 @@ type HostClient struct {
 	WriteBufferSize int
 
 	// Maximum duration for full response reading (including body).
+	// When response streaming is enabled, the deadline remains active while
+	// the caller reads Response.BodyStream.
+	//
+	// If a request timeout is set, the shorter timeout applies.
 	//
 	// By default response read timeout is unlimited.
 	ReadTimeout time.Duration
 
 	// Maximum duration for full request writing (including body).
+	//
+	// If a request timeout is set, the shorter timeout applies.
 	//
 	// By default request write timeout is unlimited.
 	WriteTimeout time.Duration
@@ -836,6 +934,16 @@ type HostClient struct {
 	// and response body is greater than the limit.
 	//
 	// By default response body size is unlimited.
+	//
+	// A value less than or equal to zero disables the limit. In this mode,
+	// buffered responses may consume unbounded memory, including when a peer
+	// sends a very large Content-Length or chunk size. Set a positive limit
+	// when requesting untrusted servers.
+	//
+	// If response streaming is enabled for Do methods through StreamResponseBody
+	// or Response.StreamBody, MaxResponseBodySize is ignored and the response
+	// body isn't fully buffered before Do returns. The caller must limit reads
+	// from BodyStream itself. Get and Post methods always enforce this limit.
 	MaxResponseBodySize int
 
 	// Maximum duration for waiting for a free connection.
@@ -845,22 +953,6 @@ type HostClient struct {
 
 	// Connection pool strategy. Can be either LIFO or FIFO (default).
 	ConnPoolStrategy ConnPoolStrategyType
-
-	connsCount int
-
-	connsLock sync.Mutex
-
-	addrsLock        sync.Mutex
-	tlsConfigMapLock sync.Mutex
-
-	addrIdx     uint32
-	lastUseTime uint32
-
-	pendingRequests int32
-
-	// pendingClientRequests counts the number of requests that a Client is currently running using this HostClient.
-	// It will be incremented earlier than pendingRequests and will be used by Client to see if the HostClient is still in use.
-	pendingClientRequests int32
 
 	// NoDefaultUserAgentHeader when set to true, causes the default
 	// User-Agent header to be excluded from the Request.
@@ -914,20 +1006,66 @@ type HostClient struct {
 	// Client logs full errors by default.
 	SecureErrorLogMessage bool
 
-	// StreamResponseBody enables response body streaming.
+	// StreamResponseBody enables response body streaming for Do methods.
+	// Response bodies aren't fully buffered before Do returns. The caller must
+	// read [Response.BodyStream] and close it with [Response.CloseBodyStream] or
+	// [ReadCloserWithError.CloseWithError]. Body read errors occur after Do
+	// returns and aren't handled by retry callbacks. ReadTimeout and request
+	// deadlines remain active while reading the stream.
+	//
+	// See the [Response.BodyStream] example for retaining only a bounded prefix
+	// of a response body.
+	//
+	// Get and Post methods still read the full response body before returning.
+	// If Do is called with a nil Response, the client drains only small,
+	// known-length bodies for connection reuse and closes other body streams.
 	StreamResponseBody bool
 
+	// The fields below change while requests run, many of them on every
+	// request. The padding keeps them off the cache lines of the fields above,
+	// which every request reads, so that requests running on other CPUs don't
+	// have to fetch those lines again after each change.
+	_ cacheLinePad
+
+	connsLock       sync.Mutex
+	conns           []*clientConn
+	connsWait       *wantConnQueue
+	connsCount      int
 	connsCleanerRun bool
+
+	addrsLock        sync.Mutex
+	tlsConfigMapLock sync.Mutex
+	addrIdx          uint32
+
+	lastUseTime     uint32
+	pendingRequests int32
+
+	// pendingClientRequests counts the number of requests that a Client is currently running using this HostClient.
+	// It will be incremented earlier than pendingRequests and will be used by Client to see if the HostClient is still in use.
+	pendingClientRequests int32
+
+	_ cacheLinePad
 }
+
+// cacheLinePad keeps the fields on either side of it off each other's cache
+// lines. 128 bytes covers the 64-byte lines of most CPUs, the pairs of them
+// that Intel CPUs prefetch together, and the 128-byte lines of others.
+type cacheLinePad struct{ _ [128]byte }
 
 type clientConn struct {
 	c net.Conn
 
 	createdTime time.Time
 	lastUseTime time.Time
+
+	// readDeadlineSet and writeDeadlineSet record whether c currently has a
+	// deadline, so a request without timeouts can skip clearing one that was
+	// never set.
+	readDeadlineSet  bool
+	writeDeadlineSet bool
 }
 
-// CreatedTime returns net.Conn the client.
+// Conn returns the underlying net.Conn associated with the client connection.
 func (cc *clientConn) Conn() net.Conn {
 	return cc.c
 }
@@ -1033,7 +1171,7 @@ func clientGetURLDeadline(dst []byte, url string, deadline time.Time, c clientDo
 	if chv == nil {
 		chv = make(chan clientURLResponse, 1)
 	}
-	ch = chv.(chan clientURLResponse)
+	ch = chv.(chan clientURLResponse) //nolint:forcetypeassert
 
 	// Note that the request continues execution on ErrTimeout until
 	// client-specific ReadTimeout exceeds. This helps limiting load
@@ -1049,9 +1187,10 @@ func clientGetURLDeadline(dst []byte, url string, deadline time.Time, c clientDo
 	go func() {
 		req := AcquireRequest()
 
-		statusCodeCopy, bodyCopy, errCopy := doRequestFollowRedirectsBuffer(req, dst, url, c)
+		statusCodeCopy, bodyCopy, errCopy := doRequestFollowRedirectsBuffer(req, nil, url, c)
 		mu.Lock()
 		if !timedout {
+			bodyCopy = append(dst[:0], bodyCopy...)
 			ch <- clientURLResponse{
 				statusCode: statusCodeCopy,
 				body:       bodyCopy,
@@ -1113,30 +1252,70 @@ func clientPostURL(dst []byte, url string, postArgs *Args, c clientDoer) (status
 var (
 	// ErrMissingLocation is returned by clients when the Location header is missing on
 	// an HTTP response with a redirect status code.
-	ErrMissingLocation = errors.New("missing Location header for http redirect")
+	ErrMissingLocation = errors.New("fasthttp: missing location header for http redirect")
 	// ErrTooManyRedirects is returned by clients when the number of redirects followed
 	// exceed the max count.
-	ErrTooManyRedirects = errors.New("too many redirects detected when doing the request")
+	ErrTooManyRedirects = errors.New("fasthttp: too many redirects detected when doing the request")
+	// ErrRedirectBodyStream is returned by clients when a redirect that keeps the request
+	// body is received for a request whose body is a stream. The hop that produced the
+	// redirect consumed the stream, so the body cannot be sent again.
+	ErrRedirectBodyStream = errors.New("fasthttp: cannot follow a body-preserving redirect for a request with a body stream")
 
-	// HostClients are only able to follow redirects to the same protocol.
-	ErrHostClientRedirectToDifferentScheme = errors.New("HostClient can't follow redirects to a different protocol," +
-		" please use Client instead")
+	// ErrHostClientRedirectToDifferentScheme is returned when a HostClient follows a redirect to a different protocol.
+	ErrHostClientRedirectToDifferentScheme = errors.New("fasthttp: hostclient can't follow redirects to a different protocol," +
+		" please use client instead")
 )
 
-const defaultMaxRedirectsCount = 16
+// DefaultMaxRedirectsCount is the number of redirects that Get, GetTimeout,
+// GetDeadline and Post follow, on a Client, a HostClient and as package
+// functions, before they return ErrTooManyRedirects.
+//
+// DoRedirects follows as many redirects as its caller asks for, and none
+// when that is zero or less.
+const DefaultMaxRedirectsCount = 16
+
+// Only drain response streams that are known to be small. Reading an unknown
+// length stream can block forever (for example, on an event stream), while
+// closing a large stream avoids transferring a body the caller discarded.
+const maxResponseBodyDrainSize = 8 * 1024
+
+func closeOrDrainResponseBody(resp *Response, maxDrainSize int) error {
+	if !resp.IsBodyStream() {
+		return nil
+	}
+
+	contentLength := resp.Header.ContentLength()
+	if contentLength < 0 || contentLength > maxDrainSize {
+		return resp.CloseBodyStream()
+	}
+	return resp.BodyWriteTo(io.Discard)
+}
+
+func responseBodyDrainSize(maxBodySize int) int {
+	if maxBodySize > 0 && maxBodySize < maxResponseBodyDrainSize {
+		return maxBodySize
+	}
+	return maxResponseBodyDrainSize
+}
 
 func doRequestFollowRedirectsBuffer(req *Request, dst []byte, url string, c clientDoer) (statusCode int, body []byte, err error) {
+	req.SetRequestURI(url)
 	resp := AcquireResponse()
 	bodyBuf := resp.bodyBuffer()
-	resp.keepBodyBuffer = true
+	resp.KeepBodyBuffer = true
+	resp.preserveBodyBuffer = true
 	oldBody := bodyBuf.B
 	bodyBuf.B = dst
+	forceResponseBodyBuffering := req.forceResponseBodyBuffering
+	req.forceResponseBodyBuffering = true
 
-	statusCode, _, err = doRequestFollowRedirects(req, resp, url, defaultMaxRedirectsCount, c)
+	statusCode, _, err = doRequestFollowRedirects(req, resp, url, DefaultMaxRedirectsCount, c)
+	req.forceResponseBodyBuffering = forceResponseBodyBuffering
 
 	body = bodyBuf.B
 	bodyBuf.B = oldBody
-	resp.keepBodyBuffer = false
+	resp.preserveBodyBuffer = false
+	resp.KeepBodyBuffer = false
 	ReleaseResponse(resp)
 
 	return statusCode, body, err
@@ -1145,13 +1324,26 @@ func doRequestFollowRedirectsBuffer(req *Request, dst []byte, url string, c clie
 func doRequestFollowRedirects(
 	req *Request, resp *Response, url string, maxRedirectsCount int, c clientDoer,
 ) (statusCode int, body []byte, err error) {
+	if resp == nil {
+		resp = AcquireResponse()
+		defer ReleaseResponse(resp)
+	}
+
 	redirectsCount := 0
+	initialHost := hostnameFromURLString(url)
+	// Writing the request consumes a body stream, so remember it here: by the
+	// time a redirect arrives req.IsBodyStream() is already false.
+	hasBodyStream := req.IsBodyStream()
 
 	for {
-		req.SetRequestURI(url)
 		if err := req.parseURI(); err != nil {
 			return 0, nil, err
 		}
+
+		// Write builds Authorization from the userinfo when the request
+		// doesn't have one. Like net/http, that header is only for this URI:
+		// it is built again from the userinfo of the next one on a redirect.
+		authFromUserinfo := len(req.uri.username) > 0 && len(req.Header.peek(strAuthorization)) == 0
 
 		if err = c.Do(req, resp); err != nil {
 			break
@@ -1171,24 +1363,201 @@ func doRequestFollowRedirects(
 			err = ErrMissingLocation
 			break
 		}
-		url = getRedirectURL(url, location, req.DisableRedirectPathNormalizing)
-
-		if string(req.Header.Method()) == "POST" && (statusCode == 301 || statusCode == 302) {
-			req.Header.SetMethod(MethodGet)
+		if HasNonHTTPSchemeWithoutAuthority(location) {
+			// There is nothing to fetch for mailto:, tel: or an app callback
+			// such as com.example.app:/cb, so return the redirect response
+			// as is and leave the location to the caller.
+			break
 		}
+		redirectURI := AcquireURI()
+		url, err = getRedirectURL(url, location, req.DisableRedirectPathNormalizing, redirectURI)
+		if err != nil {
+			// A location that can't be parsed leaves an empty uri behind, and
+			// following that would send the next request without a host.
+			ReleaseURI(redirectURI)
+			break
+		}
+		stripSensitiveHeadersOnRedirect(req, initialHost, redirectURI)
+		if authFromUserinfo {
+			req.Header.del(strAuthorization)
+		}
+		// A relative location keeps the userinfo of the current URI, while
+		// an absolute one only has its own, as with url.URL.ResolveReference.
+		if !hasAuthority(location) {
+			redirectURI.SetUsernameBytes(req.uri.username)
+			redirectURI.SetPasswordBytes(req.uri.password)
+		}
+
+		// A 303, or a POST rewritten to GET on 301/302, retrieves the target
+		// without the original body (RFC 9110 section 15.4).
+		if statusCode == StatusSeeOther ||
+			((statusCode == StatusMovedPermanently || statusCode == StatusFound) && req.Header.IsPost()) {
+			if !req.Header.IsGet() && !req.Header.IsHead() {
+				req.Header.SetMethod(MethodGet)
+			}
+			req.Header.dropRedirectBodyHeaders()
+			req.ResetBody()
+			req.postArgs.Reset()
+			req.parsedPostArgs = false
+			// The body is gone for the rest of the chain, so later
+			// body-preserving redirects have nothing left to replay.
+			hasBodyStream = false
+		} else if hasBodyStream {
+			// The previous hop consumed the stream this redirect would replay.
+			ReleaseURI(redirectURI)
+			err = ErrRedirectBodyStream
+			break
+		}
+
+		if err = closeOrDrainResponseBody(resp, maxResponseBodyDrainSize); err != nil {
+			ReleaseURI(redirectURI)
+			break
+		}
+
+		// Set the URI here and not at the top of the loop: DoRedirects
+		// passes req.URI().String() as url, which leaves out the userinfo,
+		// so the first request has to go out with the URI the caller set.
+		req.SetRequestURI(url)
+		if len(redirectURI.username) > 0 {
+			uri := req.URI()
+			uri.SetUsernameBytes(redirectURI.username)
+			uri.SetPasswordBytes(redirectURI.password)
+		}
+		ReleaseURI(redirectURI)
 	}
 
 	return statusCode, body, err
 }
 
-func getRedirectURL(baseURL string, location []byte, disablePathNormalizing bool) string {
-	u := AcquireURI()
-	u.Update(baseURL)
-	u.UpdateBytes(location)
-	u.DisablePathNormalizing = disablePathNormalizing
-	redirectURL := u.String()
-	ReleaseURI(u)
-	return redirectURL
+// HasNonHTTPSchemeWithoutAuthority reports whether location, the value of a
+// Location header, has a scheme other than http or https and no authority, e.g.
+// mailto:user@example.com or com.example.app:/callback.
+//
+// There is nothing to fetch at such a location, and URI can't hold it: Update
+// and UpdateBytes would resolve it as a relative path. Client and HostClient
+// return the redirect response as it is instead of following it, and so
+// should code that follows redirects itself, before it resolves location
+// against the uri it requested.
+//
+// A location with an authority, such as ftp://example.com/, has a scheme other
+// than http or https too, but URI can hold it, so the result is false for it.
+func HasNonHTTPSchemeWithoutAuthority(location []byte) bool {
+	if !hasSchemeWithoutAuthority(b2s(location)) {
+		return false
+	}
+	scheme := location[:bytes.IndexByte(location, ':')]
+	return !bytes.EqualFold(scheme, strHTTP) && !bytes.EqualFold(scheme, strHTTPS)
+}
+
+// hasAuthority reports whether location replaces the authority of the URI
+// it is resolved against, the same way URI.UpdateBytes decides it.
+func hasAuthority(location []byte) bool {
+	n := bytes.Index(location, strSlashSlash)
+	return n >= 0 && isAuthorityDelimiter(location, n)
+}
+
+func getRedirectURL(baseURL string, location []byte, disablePathNormalizing bool, dst *URI) (string, error) {
+	dst.Update(baseURL)
+	if err := dst.UpdateBytesErr(location); err != nil {
+		return "", err
+	}
+	dst.DisablePathNormalizing = disablePathNormalizing
+	return dst.String(), nil
+}
+
+// Redirect handling reuses the original Request, so sensitive request
+// headers must be cleared before following redirects that net/http treats
+// as untrusted.
+func stripSensitiveHeadersOnRedirect(req *Request, initialHost []byte, redirectURI *URI) {
+	if !shouldStripSensitiveHeadersOnRedirect(initialHost, redirectURI.Host()) {
+		return
+	}
+
+	h := &req.Header
+	h.cookies = h.cookies[:0]
+	h.h = stripSensitiveFields(h.h)
+	h.trailerH = stripSensitiveFields(h.trailerH)
+}
+
+func stripSensitiveFields(fields []argsKV) []argsKV {
+	n := 0
+	for i := range fields {
+		key := fields[i].key
+		if caseInsensitiveCompare(key, strAuthorization) || caseInsensitiveCompare(key, strCookie) ||
+			caseInsensitiveCompare(key, []byte(HeaderCookie2)) || caseInsensitiveCompare(key, strProxyAuthenticate) ||
+			caseInsensitiveCompare(key, strProxyAuthorization) || caseInsensitiveCompare(key, strWWWAuthenticate) {
+			continue
+		}
+		if i != n {
+			fields[n], fields[i] = fields[i], fields[n]
+		}
+		n++
+	}
+	return fields[:n]
+}
+
+// shouldStripSensitiveHeadersOnRedirect defines the trust boundary for
+// caller-supplied credentials during redirect handling.
+//
+// net/http forwards sensitive headers only to trusted redirect targets and
+// documents that policy in the Client redirect handling:
+// https://github.com/golang/go/blob/go1.24.1/src/net/http/client.go#L41-L49
+// https://github.com/golang/go/blob/go1.24.1/src/net/http/client.go#L1005-L1021
+//
+// Match that behavior here by anchoring the trust decision to the initial
+// request host, ignoring ports and scheme, and allowing exact-host or
+// subdomain redirects to keep caller-supplied credentials.
+func shouldStripSensitiveHeadersOnRedirect(initialHost, redirectHostPort []byte) bool {
+	return !isDomainOrSubdomainBytes(hostnameFromHostPortBytes(redirectHostPort), initialHost)
+}
+
+func hostnameFromURLString(url string) []byte {
+	_, host, _ := splitHostURI(nil, s2b(url))
+	if n := bytes.LastIndexByte(host, '@'); n >= 0 {
+		host = host[n+1:]
+	}
+	return hostnameFromHostPortBytes(host)
+}
+
+func hostnameFromHostPortBytes(hostPort []byte) []byte {
+	host, _ := splitHostPortBytes(hostPort)
+	if len(host) >= 2 && host[0] == '[' && host[len(host)-1] == ']' {
+		return host[1 : len(host)-1]
+	}
+	return host
+}
+
+func isDomainOrSubdomainBytes(sub, parent []byte) bool {
+	if bytes.EqualFold(sub, parent) {
+		return true
+	}
+	if len(sub) <= len(parent) || bytes.IndexByte(sub, ':') >= 0 || bytes.IndexByte(sub, '%') >= 0 {
+		return false
+	}
+	if !bytes.EqualFold(sub[len(sub)-len(parent):], parent) {
+		return false
+	}
+	return sub[len(sub)-len(parent)-1] == '.'
+}
+
+func splitHostPortBytes(hostPort []byte) ([]byte, []byte) {
+	if len(hostPort) == 0 {
+		return hostPort, nil
+	}
+
+	if hostPort[0] == '[' {
+		n := bytes.LastIndexByte(hostPort, ']')
+		if n >= 0 && n+1 < len(hostPort) && hostPort[n+1] == ':' {
+			return hostPort[:n+1], hostPort[n+2:]
+		}
+		return hostPort, nil
+	}
+
+	n := bytes.LastIndexByte(hostPort, ':')
+	if n < 0 || bytes.IndexByte(hostPort[:n], ':') >= 0 {
+		return hostPort, nil
+	}
+	return hostPort[:n], hostPort[n+1:]
 }
 
 // StatusCodeIsRedirect returns true if the status code indicates a redirect.
@@ -1215,7 +1584,7 @@ func AcquireRequest() *Request {
 	if v == nil {
 		return &Request{}
 	}
-	return v.(*Request)
+	return v.(*Request) //nolint:forcetypeassert
 }
 
 // ReleaseRequest returns req acquired via AcquireRequest to request pool.
@@ -1223,6 +1592,8 @@ func AcquireRequest() *Request {
 // It is forbidden accessing req and/or its' members after returning
 // it to request pool.
 func ReleaseRequest(req *Request) {
+	req.KeepBodyBuffer = false
+	req.keepBodyBuffer = false
 	req.Reset()
 	requestPool.Put(req)
 }
@@ -1237,7 +1608,7 @@ func AcquireResponse() *Response {
 	if v == nil {
 		return &Response{}
 	}
-	return v.(*Response)
+	return v.(*Response) //nolint:forcetypeassert
 }
 
 // ReleaseResponse return resp acquired via AcquireResponse to response pool.
@@ -1245,6 +1616,8 @@ func AcquireResponse() *Response {
 // It is forbidden accessing resp and/or its' members after returning
 // it to response pool.
 func ReleaseResponse(resp *Response) {
+	resp.KeepBodyBuffer = false
+	resp.keepBodyBuffer = false
 	resp.Reset()
 	responsePool.Put(resp)
 }
@@ -1396,9 +1769,16 @@ func (c *HostClient) Do(req *Request, resp *Response) error {
 		if attempts >= maxAttempts {
 			break
 		}
-		if c.RetryIfErr != nil {
+		switch {
+		case c.RetryIfErrUpstream != nil:
+			upstream := ""
+			if resp != nil && resp.RemoteAddr() != nil {
+				upstream = resp.RemoteAddr().String()
+			}
+			resetTimeout, retry = c.RetryIfErrUpstream(req, attempts, err, upstream)
+		case c.RetryIfErr != nil:
 			resetTimeout, retry = c.RetryIfErr(req, attempts, err)
-		} else {
+		default:
 			retry = retryFunc(req)
 		}
 		if !retry {
@@ -1429,13 +1809,22 @@ func (c *HostClient) PendingRequests() int {
 }
 
 func isIdempotent(req *Request) bool {
-	return req.Header.IsGet() || req.Header.IsHead() || req.Header.IsPut()
+	return req.Header.IsGet() || req.Header.IsHead() || req.Header.IsPut() || req.Header.IsQuery()
 }
 
 func (c *HostClient) do(req *Request, resp *Response) (bool, error) {
 	if resp == nil {
 		resp = AcquireResponse()
 		defer ReleaseResponse(resp)
+
+		retry, err := c.doNonNilReqResp(req, resp)
+		if err != nil {
+			return retry, err
+		}
+		if err = closeOrDrainResponseBody(resp, responseBodyDrainSize(c.MaxResponseBodySize)); err != nil {
+			return true, err
+		}
+		return retry, nil
 	}
 
 	return c.doNonNilReqResp(req, resp)
@@ -1461,17 +1850,23 @@ func (c *HostClient) doNonNilReqResp(req *Request, resp *Response) (bool, error)
 		return false, ErrHostClientRedirectToDifferentScheme
 	}
 
-	atomic.StoreUint32(&c.lastUseTime, uint32(time.Now().Unix()-startTimeUnix)) // #nosec G115
+	// The time only changes once a second, and storing it unchanged would
+	// still make every other CPU running a request fetch its cache line again.
+	if now := uint32(time.Now().Unix() - startTimeUnix); atomic.LoadUint32(&c.lastUseTime) != now { // #nosec G115
+		atomic.StoreUint32(&c.lastUseTime, now)
+	}
 
 	// Free up resources occupied by response before sending the request,
 	// so the GC may reclaim these resources (e.g. response body).
 
-	// backing up SkipBody in case it was set explicitly
+	// Preserve response options that may have been set explicitly.
 	customSkipBody := resp.SkipBody
-	customStreamBody := resp.StreamBody || c.StreamResponseBody
+	customStreamBody := !req.forceResponseBodyBuffering && (resp.StreamBody || c.StreamResponseBody)
+	customNoDefaultContentType := resp.Header.noDefaultContentType
 	resp.Reset()
 	resp.SkipBody = customSkipBody
 	resp.StreamBody = customStreamBody
+	resp.Header.noDefaultContentType = customNoDefaultContentType
 
 	req.URI().DisablePathNormalizing = c.DisablePathNormalizing
 
@@ -1502,7 +1897,7 @@ var (
 	//
 	// Increase the allowed number of connections per host if you
 	// see this error.
-	ErrNoFreeConns = errors.New("no free connections available to host")
+	ErrNoFreeConns = errors.New("fasthttp: no free connections available to host")
 
 	// ErrConnectionClosed may be returned from client methods if the server
 	// closes connection before returning the first response byte.
@@ -1511,21 +1906,21 @@ var (
 	// 'Connection: close' response header before closing the connection
 	// or add 'Connection: close' request header before sending requests
 	// to broken server.
-	ErrConnectionClosed = errors.New("the server closed connection before returning the first response byte. " +
-		"Make sure the server returns 'Connection: close' response header before closing the connection")
+	ErrConnectionClosed = errors.New("fasthttp: the server closed connection before returning the first response byte. " +
+		"make sure the server returns 'connection: close' response header before closing the connection")
 
 	// ErrConnPoolStrategyNotImpl is returned when HostClient.ConnPoolStrategy is not implement yet.
 	// If you see this error, then you need to check your HostClient configuration.
-	ErrConnPoolStrategyNotImpl = errors.New("connection pool strategy is not implement")
+	ErrConnPoolStrategyNotImpl = errors.New("fasthttp: connection pool strategy is not implement")
 )
 
 type timeoutError struct{}
 
 func (e *timeoutError) Error() string {
-	return "timeout"
+	return "fasthttp: timeout"
 }
 
-// Only implement the Timeout() function of the net.Error interface.
+// Timeout implements the Timeout behavior of the net.Error interface.
 // This allows for checks like:
 //
 //	if x, ok := err.(interface{ Timeout() bool }); ok && x.Timeout() {
@@ -1539,8 +1934,32 @@ var ErrTimeout = &timeoutError{}
 // SetMaxConns sets up the maximum number of connections which may be established to all hosts listed in Addr.
 func (c *HostClient) SetMaxConns(newMaxConns int) {
 	c.connsLock.Lock()
+	defer c.connsLock.Unlock()
 	c.MaxConns = newMaxConns
-	c.connsLock.Unlock()
+	// Grown capacity must reach requests already parked in the wait queue.
+	for c.connsCount < c.maxConnsLocked() && c.serveWaiterLocked() {
+		c.connsCount++
+	}
+}
+
+// maxConnsLocked is MaxConns with its default applied. connsLock must be held.
+func (c *HostClient) maxConnsLocked() int {
+	if c.MaxConns <= 0 {
+		return DefaultMaxConnsPerHost
+	}
+	return c.MaxConns
+}
+
+// serveWaiterLocked hands a connection slot to the next parked waiter and
+// reports whether one took it. connsLock must be held.
+func (c *HostClient) serveWaiterLocked() bool {
+	for q := c.connsWait; q != nil && q.len() > 0; {
+		if w := q.popFront(); w.waiting() {
+			go c.dialConnFor(w)
+			return true
+		}
+	}
+	return false
 }
 
 func (c *HostClient) AcquireConn(reqTimeout time.Duration, connectionClose bool) (cc *clientConn, err error) {
@@ -1551,11 +1970,7 @@ func (c *HostClient) AcquireConn(reqTimeout time.Duration, connectionClose bool)
 	c.connsLock.Lock()
 	n = len(c.conns)
 	if n == 0 {
-		maxConns := c.MaxConns
-		if maxConns <= 0 {
-			maxConns = DefaultMaxConnsPerHost
-		}
-		if c.connsCount < maxConns {
+		if c.connsCount < c.maxConnsLocked() {
 			c.connsCount++
 			createConn = true
 			if !c.connsCleanerRun && !connectionClose {
@@ -1617,13 +2032,12 @@ func (c *HostClient) AcquireConn(reqTimeout time.Duration, connectionClose bool)
 			}
 		}()
 
-		c.queueForIdle(w)
+		c.queueForIdle(w, connectionClose)
 
 		select {
 		case <-w.ready:
 			return w.conn, w.err
 		case <-tc.C:
-			c.connsWait.failedWaiters.Add(1)
 			if timeoutOverridden {
 				return nil, ErrTimeout
 			}
@@ -1645,14 +2059,55 @@ func (c *HostClient) AcquireConn(reqTimeout time.Duration, connectionClose bool)
 	return cc, nil
 }
 
-func (c *HostClient) queueForIdle(w *wantConn) {
+func (c *HostClient) queueForIdle(w *wantConn, connectionClose bool) {
 	c.connsLock.Lock()
-	defer c.connsLock.Unlock()
+	if n := len(c.conns); n > 0 {
+		var cc *clientConn
+		switch c.ConnPoolStrategy {
+		case LIFO:
+			n--
+			cc = c.conns[n]
+			c.conns[n] = nil
+			c.conns = c.conns[:n]
+		case FIFO:
+			cc = c.conns[0]
+			copy(c.conns, c.conns[1:])
+			c.conns[n-1] = nil
+			c.conns = c.conns[:n-1]
+		default:
+			c.connsLock.Unlock()
+			w.tryDeliver(nil, ErrConnPoolStrategyNotImpl)
+			return
+		}
+		c.connsLock.Unlock()
+		w.tryDeliver(cc, nil)
+		return
+	}
+	// A connection may have been closed since AcquireConn checked the pool and
+	// the connection count, freeing capacity without adding an idle connection.
+	// Reserve the freed slot and dial a replacement connection for w. The conns
+	// cleaner may have exited after observing connsCount == 0 before the slot
+	// was reserved, so restart it as well.
+	if c.connsCount < c.maxConnsLocked() {
+		c.connsCount++
+		startCleaner := false
+		if !c.connsCleanerRun && !connectionClose {
+			c.connsCleanerRun = true
+			startCleaner = true
+		}
+		c.connsLock.Unlock()
+		if startCleaner {
+			go c.connsCleaner()
+		}
+		go c.dialConnFor(w)
+		return
+	}
 	if c.connsWait == nil {
 		c.connsWait = &wantConnQueue{}
 	}
 	c.connsWait.clearFront()
 	c.connsWait.pushBack(w)
+	c.connsLock.Unlock()
 }
 
 func (c *HostClient) dialConnFor(w *wantConn) {
@@ -1760,19 +2215,13 @@ func (c *HostClient) decConnsCount() {
 
 	c.connsLock.Lock()
 	defer c.connsLock.Unlock()
-	dialed := false
-	if q := c.connsWait; q != nil && q.len() > 0 {
-		for q.len() > 0 {
-			w := q.popFront()
-			if w.waiting() {
-				go c.dialConnFor(w)
-				dialed = true
-				break
-			}
-			c.connsWait.failedWaiters.Add(-1)
-		}
+	if c.connsCount > c.maxConnsLocked() {
+		// The limit shrank while this slot was held; retire it so the count
+		// converges on the new cap instead of handing it to a waiter.
+		c.connsCount--
+		return
 	}
-	if !dialed {
+	if !c.serveWaiterLocked() {
 		c.connsCount--
 	}
 }
@@ -1785,14 +2234,24 @@ func (c *HostClient) ConnsCount() int {
 	return c.connsCount
 }
 
+// IdleConnsCount returns idle connection count of HostClient.
+func (c *HostClient) IdleConnsCount() int {
+	c.connsLock.Lock()
+	defer c.connsLock.Unlock()
+
+	return len(c.conns)
+}
+
 func acquireClientConn(conn net.Conn) *clientConn {
 	v := clientConnPool.Get()
 	if v == nil {
 		v = &clientConn{}
 	}
-	cc := v.(*clientConn)
+	cc := v.(*clientConn) //nolint:forcetypeassert
 	cc.c = conn
 	cc.createdTime = time.Now()
+	cc.readDeadlineSet = true
+	cc.writeDeadlineSet = true
 	return cc
 }
 
@@ -1805,40 +2264,54 @@ func releaseClientConn(cc *clientConn) {
 var clientConnPool sync.Pool
 
 func (c *HostClient) ReleaseConn(cc *clientConn) {
-	cc.lastUseTime = time.Now()
-	if c.MaxConnWaitTimeout <= 0 {
-		c.connsLock.Lock()
-		c.conns = append(c.conns, cc)
-		c.connsLock.Unlock()
-		return
-	}
+	// The caller may have changed the deadlines through cc.Conn().
+	cc.readDeadlineSet = true
+	cc.writeDeadlineSet = true
+	c.releaseConn(cc)
+}
 
-	// try to deliver an idle connection to a *wantConn
+func (c *HostClient) releaseConn(cc *clientConn) {
+	cc.lastUseTime = time.Now()
+	startCleaner := false
 	c.connsLock.Lock()
-	defer c.connsLock.Unlock()
-	delivered := false
-	if q := c.connsWait; q != nil && q.len() > 0 {
-		for q.len() > 0 {
-			w := q.popFront()
-			if w.waiting() {
-				delivered = w.tryDeliver(cc, nil)
-				// This is the last resort to hand over conCount sema.
-				// We must ensure that there are no valid waiters in connsWait
-				// when we exit this loop.
-				//
-				// We did not apply the same looping pattern in the decConnsCount
-				// method because it needs to create a new time-spent connection,
-				// and the decConnsCount call chain will inevitably reach this point.
-				// When MaxConnWaitTimeout>0.
-				if delivered {
-					break
+	if c.MaxConnWaitTimeout <= 0 {
+		c.conns = append(c.conns, cc)
+	} else {
+		// try to deliver an idle connection to a *wantConn
+		delivered := false
+		if q := c.connsWait; q != nil {
+			for q.len() > 0 {
+				w := q.popFront()
+				if w.waiting() {
+					delivered = w.tryDeliver(cc, nil)
+					// This is the last resort to hand over conCount sema.
+					// We must ensure that there are no valid waiters in connsWait
+					// when we exit this loop.
+					//
+					// We did not apply the same looping pattern in the decConnsCount
+					// method because it needs to create a new time-spent connection,
+					// and the decConnsCount call chain will inevitably reach this point.
+					// When MaxConnWaitTimeout>0.
+					if delivered {
+						break
+					}
 				}
 			}
-			c.connsWait.failedWaiters.Add(-1)
+		}
+		if !delivered {
+			c.conns = append(c.conns, cc)
 		}
 	}
-	if !delivered {
-		c.conns = append(c.conns, cc)
+	// A connection may be pooled while the conns cleaner is not running, for
+	// example a replacement dialed for a waiter that timed out and cancelled.
+	// Keep the cleaner running so pooled connections are closed once idle.
+	if len(c.conns) > 0 && !c.connsCleanerRun {
+		c.connsCleanerRun = true
+		startCleaner = true
+	}
+	c.connsLock.Unlock()
+	if startCleaner {
+		go c.connsCleaner()
 	}
 }
 
@@ -1846,25 +2319,18 @@ func (c *HostClient) AcquireWriter(conn net.Conn) *bufio.Writer {
 	var v any
 	if c.clientWriterPool != nil {
 		v = c.clientWriterPool.Get()
-		if v == nil {
-			n := c.WriteBufferSize
-			if n <= 0 {
-				n = defaultWriteBufferSize
-			}
-			return bufio.NewWriterSize(conn, n)
-		}
 	} else {
 		v = c.writerPool.Get()
-		if v == nil {
-			n := c.WriteBufferSize
-			if n <= 0 {
-				n = defaultWriteBufferSize
-			}
-			return bufio.NewWriterSize(conn, n)
+	}
+	if v == nil {
+		n := c.WriteBufferSize
+		if n <= 0 {
+			n = defaultWriteBufferSize
 		}
+		return bufio.NewWriterSize(conn, n)
 	}
 
-	bw := v.(*bufio.Writer)
+	bw := v.(*bufio.Writer) //nolint:forcetypeassert
 	bw.Reset(conn)
 	return bw
 }
@@ -1881,25 +2347,18 @@ func (c *HostClient) AcquireReader(conn net.Conn) *bufio.Reader {
 	var v any
 	if c.clientReaderPool != nil {
 		v = c.clientReaderPool.Get()
-		if v == nil {
-			n := c.ReadBufferSize
-			if n <= 0 {
-				n = defaultReadBufferSize
-			}
-			return bufio.NewReaderSize(conn, n)
-		}
 	} else {
 		v = c.readerPool.Get()
-		if v == nil {
-			n := c.ReadBufferSize
-			if n <= 0 {
-				n = defaultReadBufferSize
-			}
-			return bufio.NewReaderSize(conn, n)
+	}
+	if v == nil {
+		n := c.ReadBufferSize
+		if n <= 0 {
+			n = defaultReadBufferSize
 		}
+		return bufio.NewReaderSize(conn, n)
 	}
 
-	br := v.(*bufio.Reader)
+	br := v.(*bufio.Reader) //nolint:forcetypeassert
 	br.Reset(conn)
 	return br
 }
@@ -1912,7 +2371,7 @@ func (c *HostClient) ReleaseReader(br *bufio.Reader) {
 	}
 }
 
-func newClientTLSConfig(c *tls.Config, addr string) *tls.Config {
+func newClientTLSConfig(c *tls.Config, addr string) (*tls.Config, error) {
 	if c == nil {
 		c = &tls.Config{}
 	} else {
@@ -1920,25 +2379,27 @@ func newClientTLSConfig(c *tls.Config, addr string) *tls.Config {
 	}
 
 	if c.ServerName == "" {
-		serverName := tlsServerName(addr)
-		if serverName == "*" {
-			c.InsecureSkipVerify = true
-		} else {
-			c.ServerName = serverName
+		serverName, err := tlsServerName(addr)
+		if err != nil {
+			if c.InsecureSkipVerify {
+				return c, nil
+			}
+			return nil, fmt.Errorf("cannot determine tls server name from addr %q: %w", addr, err)
 		}
+		c.ServerName = serverName
 	}
-	return c
+	return c, nil
 }
 
-func tlsServerName(addr string) string {
+func tlsServerName(addr string) (string, error) {
 	if !strings.Contains(addr, ":") {
-		return addr
+		return addr, nil
 	}
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
-		return "*"
+		return "", err
 	}
-	return host
+	return host, nil
 }
 
 func (c *HostClient) nextAddr() string {
@@ -1976,7 +2437,14 @@ func (c *HostClient) dialHostHard(dialTimeout time.Duration) (conn net.Conn, err
 	deadline := time.Now().Add(timeout)
 	for n > 0 {
 		addr := c.nextAddr()
-		tlsConfig := c.cachedTLSConfig(addr)
+		var tlsConfig *tls.Config
+		if c.IsTLS {
+			tlsConfig, err = c.cachedTLSConfig(addr)
+			if err != nil {
+				n--
+				continue
+			}
+		}
 		conn, err = dialAddr(addr, c.Dial, c.DialTimeout, c.DialDualStack, c.IsTLS, tlsConfig, dialTimeout, c.WriteTimeout)
 		if err == nil {
 			return conn, nil
@@ -1989,27 +2457,28 @@ func (c *HostClient) dialHostHard(dialTimeout time.Duration) (conn net.Conn, err
 	return nil, err
 }
 
-func (c *HostClient) cachedTLSConfig(addr string) *tls.Config {
-	if !c.IsTLS {
-		return nil
-	}
-
+func (c *HostClient) cachedTLSConfig(addr string) (*tls.Config, error) {
 	c.tlsConfigMapLock.Lock()
 	if c.tlsConfigMap == nil {
 		c.tlsConfigMap = make(map[string]*tls.Config)
 	}
 	cfg := c.tlsConfigMap[addr]
 	if cfg == nil {
-		cfg = newClientTLSConfig(c.TLSConfig, addr)
+		var err error
+		cfg, err = newClientTLSConfig(c.TLSConfig, addr)
+		if err != nil {
+			c.tlsConfigMapLock.Unlock()
+			return nil, err
+		}
 		c.tlsConfigMap[addr] = cfg
 	}
 	c.tlsConfigMapLock.Unlock()
 
-	return cfg
+	return cfg, nil
 }
 
 // ErrTLSHandshakeTimeout indicates there is a timeout from tls handshake.
-var ErrTLSHandshakeTimeout = errors.New("tls handshake timed out")
+var ErrTLSHandshakeTimeout = errors.New("fasthttp: tls handshake timed out")
 
 func tlsClientHandshake(rawConn net.Conn, tlsConfig *tls.Config, deadline time.Time) (_ net.Conn, retErr error) {
 	defer func() {
@@ -2046,7 +2515,7 @@ func dialAddr(
 		return nil, err
 	}
 	if conn == nil {
-		return nil, errors.New("dialling unsuccessful. Please report this bug")
+		return nil, errors.New("dialling unsuccessful: please report this bug")
 	}
 
 	// We assume that any conn that has the Handshake() method is a TLS conn already.
@@ -2091,6 +2560,13 @@ func AddMissingPort(addr string, isTLS bool) string {
 	addrLen := len(addr)
 	if addrLen == 0 {
 		return addr
+	}
+
+	// An empty port ("host:", "[::1]:") is a missing one, see RFC 3986, section 3.2.3.
+	// An unbracketed IPv6 address such as "::" has more than one colon and is kept as is.
+	if addrLen > 1 && addr[addrLen-1] == ':' && (addr[addrLen-2] == ']' || strings.IndexByte(addr, ':') == addrLen-1) {
+		addr = addr[:addrLen-1]
+		addrLen--
 	}
 
 	isIP6 := addr[0] == '['
@@ -2190,17 +2666,11 @@ type wantConnQueue struct {
 	head    []*wantConn
 	tail    []*wantConn
 	headPos int
-	// failedWaiters is the number of waiters in the head or tail queue,
-	// but is invalid.
-	// These state waiters cannot truly be considered as waiters; the current
-	// implementation does not immediately remove them when they become
-	// invalid but instead only marks them.
-	failedWaiters atomic.Int64
 }
 
 // len returns the number of items in the queue.
 func (q *wantConnQueue) len() int {
-	return len(q.head) - q.headPos + len(q.tail) - int(q.failedWaiters.Load())
+	return len(q.head) - q.headPos + len(q.tail)
 }
 
 // pushBack adds w to the back of the queue.
@@ -2244,7 +2714,6 @@ func (q *wantConnQueue) clearFront() (cleaned bool) {
 			return cleaned
 		}
 		q.popFront()
-		q.failedWaiters.Add(-1)
 		cleaned = true
 	}
 }
@@ -2261,6 +2730,11 @@ func (q *wantConnQueue) clearFront() (cleaned bool) {
 //
 // It is safe calling PipelineClient methods from concurrently running
 // goroutines.
+//
+// PipelineClient buffers complete response bodies without a size limit. If
+// Response.StreamBody is set, BodyStream reads from that buffered body; it
+// doesn't stream from the network. Use Client or HostClient with a positive
+// MaxResponseBodySize when requesting untrusted servers.
 type PipelineClient struct {
 	noCopy noCopy
 
@@ -2329,6 +2803,16 @@ type PipelineClient struct {
 	// By default request write timeout is unlimited.
 	WriteTimeout time.Duration
 
+	// Maximum response body size. The client returns ErrBodyTooLarge if
+	// this limit is greater than 0 and the response body exceeds it.
+	//
+	// A value less than or equal to zero disables the limit (the default).
+	// Set a positive limit when requesting untrusted servers.
+	//
+	// This limit also applies when Response.StreamBody is enabled, because
+	// PipelineClient buffers each body before reading the next response.
+	MaxResponseBodySize int
+
 	connClientsLock sync.Mutex
 
 	// NoDefaultUserAgentHeader when set to true, causes the default
@@ -2385,10 +2869,9 @@ type pipelineConnClient struct {
 
 	Dial      DialFunc
 	TLSConfig *tls.Config
-	chW       chan *pipelineWork
-	chR       chan *pipelineWork
 
 	tlsConfig *tls.Config
+	chs       *pipelineConnChannels
 
 	Addr                string
 	Name                string
@@ -2399,6 +2882,7 @@ type pipelineConnClient struct {
 	WriteBufferSize     int
 	ReadTimeout         time.Duration
 	WriteTimeout        time.Duration
+	MaxResponseBodySize int
 
 	chLock sync.Mutex
 
@@ -2408,6 +2892,12 @@ type pipelineConnClient struct {
 	DisableHeaderNamesNormalizing bool
 	DisablePathNormalizing        bool
 	IsTLS                         bool
+}
+
+type pipelineConnChannels struct {
+	chW   chan *pipelineWork
+	chR   chan *pipelineWork
+	users int
 }
 
 type pipelineWork struct {
@@ -2436,6 +2926,10 @@ type pipelineWork struct {
 //
 // It is recommended obtaining req and resp via AcquireRequest
 // and AcquireResponse in performance-critical code.
+//
+// When KeepBodyBuffer is enabled on req or resp, body data may be copied
+// to preserve caller buffer ownership across timeouts, so enabling
+// KeepBodyBuffer is not necessarily faster for this method.
 func (c *PipelineClient) DoTimeout(req *Request, resp *Response, timeout time.Duration) error {
 	return c.DoDeadline(req, resp, time.Now().Add(timeout))
 }
@@ -2455,17 +2949,25 @@ func (c *PipelineClient) DoTimeout(req *Request, resp *Response, timeout time.Du
 //
 // It is recommended obtaining req and resp via AcquireRequest
 // and AcquireResponse in performance-critical code.
+//
+// When KeepBodyBuffer is enabled on req or resp, body data may be copied
+// to preserve caller buffer ownership across timeouts, so enabling
+// KeepBodyBuffer is not necessarily faster for this method.
 func (c *PipelineClient) DoDeadline(req *Request, resp *Response, deadline time.Time) error {
 	return c.getConnClient().DoDeadline(req, resp, deadline)
 }
 
 func (c *pipelineConnClient) DoDeadline(req *Request, resp *Response, deadline time.Time) error {
-	c.init()
-
 	timeout := time.Until(deadline)
 	if timeout <= 0 {
 		return ErrTimeout
 	}
+	if err := c.ensureTLSConfig(); err != nil {
+		return err
+	}
+
+	chs := c.acquirePipelineConnChannels()
+	defer c.releasePipelineConnChannels(chs)
 
 	if c.DisablePathNormalizing {
 		req.URI().DisablePathNormalizing = true
@@ -2484,21 +2986,47 @@ func (c *pipelineConnClient) DoDeadline(req *Request, resp *Response, deadline t
 
 	w := c.acquirePipelineWork(timeout)
 	w.respCopy.Header.disableNormalizing = c.DisableHeaderNamesNormalizing
+	streamBody := resp != nil && resp.StreamBody
+	w.respCopy.StreamBody = streamBody
+	// The reader goroutine only sees respCopy, so it needs the caller's
+	// SkipBody too. copyToSkipBody copies it back to resp afterwards.
+	w.respCopy.SkipBody = resp != nil && resp.SkipBody
 	w.req = &w.reqCopy
 	w.resp = &w.respCopy
 
 	// Make a copy of the request in order to avoid data races on timeouts
 	req.copyToSkipBody(&w.reqCopy)
-	swapRequestBody(req, &w.reqCopy)
+	switch {
+	case req.onlyMultipartForm() && req.bodyStream == nil && req.bodyRaw == nil:
+		// The caller owns the form's temporary files and can remove them after a timeout.
+		if err := WriteMultipartForm(w.reqCopy.bodyBuffer(), req.multipartForm, req.multipartFormBoundary); err != nil {
+			c.releasePipelineWork(w)
+			return err
+		}
+		w.reqCopy.Header.SetMultipartFormBoundary(req.multipartFormBoundary)
+	case req.KeepBodyBuffer && req.body != nil:
+		if req.bodyStream != nil {
+			w.reqCopy.bodyStream = req.bodyStream
+			req.bodyStream = nil
+			if rs, ok := w.reqCopy.bodyStream.(*requestStream); ok {
+				rs.header = &w.reqCopy.Header
+				rs.clonePrefetchedBytes()
+			}
+		} else {
+			w.reqCopy.SetBody(req.bodyBytes())
+		}
+	default:
+		swapRequestBody(req, &w.reqCopy)
+	}
 
 	// Put the request to outgoing queue
 	select {
-	case c.chW <- w:
+	case chs.chW <- w:
 		// Fast path: len(c.ch) < cap(c.ch)
 	default:
 		// Slow path
 		select {
-		case c.chW <- w:
+		case chs.chW <- w:
 		case <-w.t.C:
 			c.releasePipelineWork(w)
 			return ErrTimeout
@@ -2510,8 +3038,17 @@ func (c *pipelineConnClient) DoDeadline(req *Request, resp *Response, deadline t
 	select {
 	case <-w.done:
 		if resp != nil {
-			w.respCopy.copyToSkipBody(resp)
-			swapResponseBody(resp, &w.respCopy)
+			if resp.KeepBodyBuffer && resp.body != nil {
+				w.respCopy.copyToSkipBody(resp)
+				resp.SetBody(w.respCopy.bodyBytes())
+				if streamBody && !resp.mustSkipBody() && !req.Header.IsHead() {
+					resp.bodyStream = bytes.NewReader(resp.bodyBytes())
+				}
+			} else {
+				w.respCopy.copyToSkipBody(resp)
+				swapResponseBody(resp, &w.respCopy)
+			}
+			resp.StreamBody = streamBody
 		}
 		err = w.err
 		c.releasePipelineWork(w)
@@ -2525,12 +3062,14 @@ func (c *pipelineConnClient) DoDeadline(req *Request, resp *Response, deadline t
 func (c *pipelineConnClient) acquirePipelineWork(timeout time.Duration) (w *pipelineWork) {
 	v := c.workPool.Get()
 	if v != nil {
-		w = v.(*pipelineWork)
+		w = v.(*pipelineWork) //nolint:forcetypeassert
 	} else {
 		w = &pipelineWork{
 			done: make(chan struct{}, 1),
 		}
 	}
+	w.reqCopy.KeepBodyBuffer = false
+	w.respCopy.KeepBodyBuffer = false
 	if timeout > 0 {
 		if w.t == nil {
 			w.t = time.NewTimer(timeout)
@@ -2548,6 +3087,8 @@ func (c *pipelineConnClient) releasePipelineWork(w *pipelineWork) {
 	if w.t != nil {
 		w.t.Stop()
 	}
+	w.reqCopy.KeepBodyBuffer = false
+	w.respCopy.KeepBodyBuffer = false
 	w.reqCopy.Reset()
 	w.respCopy.Reset()
 	w.req = nil
@@ -2572,7 +3113,12 @@ func (c *PipelineClient) Do(req *Request, resp *Response) error {
 }
 
 func (c *pipelineConnClient) Do(req *Request, resp *Response) error {
-	c.init()
+	if err := c.ensureTLSConfig(); err != nil {
+		return err
+	}
+
+	chs := c.acquirePipelineConnChannels()
+	defer c.releasePipelineConnChannels(chs)
 
 	if c.DisablePathNormalizing {
 		req.URI().DisablePathNormalizing = true
@@ -2600,17 +3146,17 @@ func (c *pipelineConnClient) Do(req *Request, resp *Response) error {
 
 	// Put the request to outgoing queue
 	select {
-	case c.chW <- w:
+	case chs.chW <- w:
 	default:
 		// Try substituting the oldest w with the current one.
 		select {
-		case wOld := <-c.chW:
+		case wOld := <-chs.chW:
 			wOld.err = ErrPipelineOverflow
 			wOld.done <- struct{}{}
 		default:
 		}
 		select {
-		case c.chW <- w:
+		case chs.chW <- w:
 		default:
 			c.releasePipelineWork(w)
 			return ErrPipelineOverflow
@@ -2684,6 +3230,7 @@ func (c *PipelineClient) newConnClient() *pipelineConnClient {
 		WriteBufferSize:               c.WriteBufferSize,
 		ReadTimeout:                   c.ReadTimeout,
 		WriteTimeout:                  c.WriteTimeout,
+		MaxResponseBodySize:           c.MaxResponseBodySize,
 		Logger:                        c.Logger,
 	}
 	c.connClients = append(c.connClients, cc)
@@ -2692,68 +3239,106 @@ func (c *PipelineClient) newConnClient() *pipelineConnClient {
 
 // ErrPipelineOverflow may be returned from PipelineClient.Do*
 // if the requests' queue is overflowed.
-var ErrPipelineOverflow = errors.New("pipelined requests' queue has been overflowed. Increase MaxConns and/or MaxPendingRequests")
+var ErrPipelineOverflow = errors.New("fasthttp: pipelined requests' queue has been overflowed. " +
+	"increase maxconns and/or maxpendingrequests")
 
 // DefaultMaxPendingRequests is the default value
 // for PipelineClient.MaxPendingRequests.
 const DefaultMaxPendingRequests = 1024
 
-func (c *pipelineConnClient) init() {
+func (c *pipelineConnClient) acquirePipelineConnChannels() *pipelineConnChannels {
 	c.chLock.Lock()
-	if c.chR == nil {
+	chs := c.chs
+	if chs == nil {
 		maxPendingRequests := c.MaxPendingRequests
 		if maxPendingRequests <= 0 {
 			maxPendingRequests = DefaultMaxPendingRequests
 		}
-		c.chR = make(chan *pipelineWork, maxPendingRequests)
-		if c.chW == nil {
-			c.chW = make(chan *pipelineWork, maxPendingRequests)
+		chs = &pipelineConnChannels{
+			chR: make(chan *pipelineWork, maxPendingRequests),
+			chW: make(chan *pipelineWork, maxPendingRequests),
 		}
-		go func() {
-			// Keep restarting the worker if it fails (connection errors for example).
-			for {
-				if err := c.worker(); err != nil {
-					c.logger().Printf("error in PipelineClient(%q): %v", c.Addr, err)
-					if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-						// Throttle client reconnections on timeout errors
-						time.Sleep(time.Second)
-					}
-				} else {
-					c.chLock.Lock()
-					stop := len(c.chR) == 0 && len(c.chW) == 0
-					if !stop {
-						c.chR = nil
-						c.chW = nil
-					}
-					c.chLock.Unlock()
-
-					if stop {
-						break
-					}
-				}
-			}
-		}()
+		c.chs = chs
+		go c.pipelineWorker(chs)
 	}
+	chs.users++
+	c.chLock.Unlock()
+	return chs
+}
+
+func (c *pipelineConnClient) releasePipelineConnChannels(chs *pipelineConnChannels) {
+	c.chLock.Lock()
+	chs.users--
 	c.chLock.Unlock()
 }
 
-func (c *pipelineConnClient) worker() error {
-	tlsConfig := c.cachedTLSConfig()
+func (c *pipelineConnClient) pipelineWorker(chs *pipelineConnChannels) {
+	// Keep restarting the worker if it fails (connection errors for example).
+	for {
+		if c.tryRetirePipelineConnChannels(chs) {
+			return
+		}
+		connected, err := c.worker(chs)
+		if err != nil {
+			c.logger().Printf("error in PipelineClient(%q): %v", c.Addr, err)
+		}
+		if c.tryRetirePipelineConnChannels(chs) {
+			return
+		}
+		if netErr, ok := err.(net.Error); !connected || (ok && netErr.Timeout()) {
+			// Throttle all connection establishment failures and timeouts.
+			// Reconnect promptly after other errors on an established connection.
+			time.Sleep(time.Second)
+		}
+	}
+}
+
+func (c *pipelineConnClient) tryRetirePipelineConnChannels(chs *pipelineConnChannels) bool {
+	c.chLock.Lock()
+	stop := c.chs == chs && chs.users == 0 && len(chs.chR) == 0
+	if stop {
+		c.chs = nil
+	}
+	c.chLock.Unlock()
+	if stop {
+		// The reader and writer have stopped, and no callers are using these
+		// channels. Any remaining outgoing requests were abandoned on timeout.
+		// New callers acquire new channels. Reset work outside chLock, since
+		// closing a request body stream may call back into the client.
+		for len(chs.chW) > 0 {
+			c.releasePipelineWork(<-chs.chW)
+		}
+	}
+	return stop
+}
+
+// worker returns whether a connection was established and the worker's error.
+func (c *pipelineConnClient) worker(chs *pipelineConnChannels) (bool, error) {
+	var tlsConfig *tls.Config
+	if c.IsTLS {
+		var err error
+		tlsConfig, err = c.cachedTLSConfig()
+		if err != nil {
+			return false, err
+		}
+	}
 	conn, err := dialAddr(c.Addr, c.Dial, nil, c.DialDualStack, c.IsTLS, tlsConfig, 0, c.WriteTimeout)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	// Start reader and writer
+	// Start reader and writer. After sending CONNECT the writer waits on
+	// connectCh until the reader knows the connection is still HTTP.
+	connectCh := make(chan struct{}, 1)
 	stopW := make(chan struct{})
 	doneW := make(chan error)
 	go func() {
-		doneW <- c.writer(conn, stopW)
+		doneW <- c.writer(conn, stopW, chs, connectCh)
 	}()
 	stopR := make(chan struct{})
 	doneR := make(chan error)
 	go func() {
-		doneR <- c.reader(conn, stopR)
+		doneR <- c.reader(conn, stopR, chs, connectCh)
 	}()
 
 	// Wait until reader and writer are stopped
@@ -2769,40 +3354,51 @@ func (c *pipelineConnClient) worker() error {
 	}
 
 	// Notify pending readers
-	for len(c.chR) > 0 {
-		w := <-c.chR
+	for len(chs.chR) > 0 {
+		w := <-chs.chR
 		w.err = errPipelineConnStopped
 		w.done <- struct{}{}
 	}
 
-	return err
+	return true, err
 }
 
-func (c *pipelineConnClient) cachedTLSConfig() *tls.Config {
-	if !c.IsTLS {
-		return nil
-	}
-
+func (c *pipelineConnClient) cachedTLSConfig() (*tls.Config, error) {
 	c.tlsConfigLock.Lock()
 	cfg := c.tlsConfig
 	if cfg == nil {
-		cfg = newClientTLSConfig(c.TLSConfig, c.Addr)
+		var err error
+		cfg, err = newClientTLSConfig(c.TLSConfig, c.Addr)
+		if err != nil {
+			c.tlsConfigLock.Unlock()
+			return nil, err
+		}
 		c.tlsConfig = cfg
 	}
 	c.tlsConfigLock.Unlock()
 
-	return cfg
+	return cfg, nil
 }
 
-func (c *pipelineConnClient) writer(conn net.Conn, stopCh <-chan struct{}) error {
+func (c *pipelineConnClient) ensureTLSConfig() error {
+	if !c.IsTLS {
+		return nil
+	}
+	_, err := c.cachedTLSConfig()
+	return err
+}
+
+func (c *pipelineConnClient) writer(
+	conn net.Conn, stopCh <-chan struct{}, chs *pipelineConnChannels, connectCh <-chan struct{},
+) error {
 	writeBufferSize := c.WriteBufferSize
 	if writeBufferSize <= 0 {
 		writeBufferSize = defaultWriteBufferSize
 	}
 	bw := bufio.NewWriterSize(conn, writeBufferSize)
 	defer bw.Flush()
-	chR := c.chR
-	chW := c.chW
+	chR := chs.chR
+	chW := chs.chW
 	writeTimeout := c.WriteTimeout
 
 	maxIdleConnDuration := c.MaxIdleConnDuration
@@ -2832,7 +3428,10 @@ func (c *pipelineConnClient) writer(conn net.Conn, stopCh <-chan struct{}) error
 			select {
 			case w = <-chW:
 			case <-stopTimer.C:
-				return nil
+				if c.canStopPipelineConn(chs) {
+					return nil
+				}
+				goto againChW
 			case <-stopCh:
 				return nil
 			case <-flushTimerCh:
@@ -2851,6 +3450,9 @@ func (c *pipelineConnClient) writer(conn net.Conn, stopCh <-chan struct{}) error
 		}
 
 		w.resp.ParseNetConn(conn)
+		// w.req belongs to the caller once w reaches the reader, so check it
+		// now.
+		isConnect := w.req.Header.IsConnect()
 
 		if writeTimeout > 0 {
 			// Set Deadline every time, since golang has fixed the performance issue
@@ -2898,16 +3500,41 @@ func (c *pipelineConnClient) writer(conn net.Conn, stopCh <-chan struct{}) error
 				goto againChR
 			}
 		}
+
+		if isConnect {
+			// A 2xx response turns the connection into a tunnel, so nothing
+			// may follow CONNECT until its response is known. Otherwise
+			// queued requests, credentials included, would reach the tunnel
+			// target.
+			if err = bw.Flush(); err != nil {
+				return err
+			}
+			flushTimerCh = nil
+			select {
+			case <-connectCh:
+			case <-stopCh:
+				return nil
+			}
+		}
 	}
 }
 
-func (c *pipelineConnClient) reader(conn net.Conn, stopCh <-chan struct{}) error {
+func (c *pipelineConnClient) canStopPipelineConn(chs *pipelineConnChannels) bool {
+	c.chLock.Lock()
+	canStop := c.chs == chs && chs.users == 0
+	c.chLock.Unlock()
+	return canStop && len(chs.chR) == 0 && len(chs.chW) == 0
+}
+
+func (c *pipelineConnClient) reader(
+	conn net.Conn, stopCh <-chan struct{}, chs *pipelineConnChannels, connectCh chan<- struct{},
+) error {
 	readBufferSize := c.ReadBufferSize
 	if readBufferSize <= 0 {
 		readBufferSize = defaultReadBufferSize
 	}
 	br := bufio.NewReaderSize(conn, readBufferSize)
-	chR := c.chR
+	chR := chs.chR
 	readTimeout := c.ReadTimeout
 
 	var (
@@ -2937,13 +3564,56 @@ func (c *pipelineConnClient) reader(conn net.Conn, stopCh <-chan struct{}) error
 				return err
 			}
 		}
-		if err = w.resp.Read(br); err != nil {
+		// A response to HEAD carries no body no matter what Content-Length
+		// or Transfer-Encoding announce (RFC 9112 section 6.3), and neither
+		// does a 2xx response to CONNECT. Reading one here would consume the
+		// following pipelined responses as the body, the same reason
+		// transport.RoundTrip skips it.
+		isConnect := w.req.Header.IsConnect()
+		// PipelineClient must consume each response body before reading the
+		// next response from the shared connection. Preserve StreamBody's
+		// reader API with a buffered stream instead of leaving bytes in br.
+		streamBody := w.resp.StreamBody
+		w.resp.StreamBody = false
+		err = w.resp.readLimitBody(br, c.MaxResponseBodySize, w.req.Header.IsHead(), isConnect)
+		w.resp.StreamBody = streamBody
+		// A body skipped by the caller still has to be consumed: left on the
+		// connection, it would be read as the start of the next pipelined
+		// response. Drain it without buffering it.
+		if err == nil && w.resp.SkipBody {
+			err = w.resp.discardBody(br, c.MaxResponseBodySize)
+		}
+		if err == nil && streamBody && !w.resp.mustSkipBody() {
+			w.resp.bodyStream = bytes.NewReader(w.resp.bodyBytes())
+		}
+		if err != nil {
 			w.err = err
 			w.done <- struct{}{}
 			return err
 		}
+		if w.resp.StatusCode() == StatusSwitchingProtocols {
+			// Stop the writer before handing the response to the caller.
+			// Bytes after the 101 belong to the upgraded protocol.
+			conn.Close()
+			w.done <- struct{}{}
+			return nil
+		}
 
+		// After a 2xx response to CONNECT the connection is a tunnel, so no
+		// further pipelined response can be read from it. Check before
+		// signaling done: w may be reused as soon as the caller wakes up.
+		//
+		// The writer waits after sending CONNECT. Let it go on only if the
+		// connection is still HTTP; for a tunnel the worker stops it, and the
+		// queued requests are sent on a new connection.
+		tunnel := w.resp.isConnectTunnel()
+		if isConnect && !tunnel {
+			connectCh <- struct{}{}
+		}
 		w.done <- struct{}{}
+		if tunnel {
+			return nil
+		}
 	}
 }
 
@@ -2974,10 +3644,11 @@ func (c *PipelineClient) PendingRequests() int {
 }
 
 func (c *pipelineConnClient) PendingRequests() int {
-	c.init()
+	chs := c.acquirePipelineConnChannels()
+	defer c.releasePipelineConnChannels(chs)
 
 	c.chLock.Lock()
-	n := len(c.chR) + len(c.chW)
+	n := len(chs.chR) + len(chs.chW)
 	c.chLock.Unlock()
 	return n
 }
@@ -2987,6 +3658,57 @@ var errPipelineConnStopped = errors.New("pipeline connection has been stopped")
 var DefaultTransport RoundTripper = &transport{}
 
 type transport struct{}
+
+// clientStreamBody serializes reads and keeps pooled response resources alive
+// until an in-flight Read has returned. interrupt must unblock network reads
+// without releasing the connection wrapper or reader pools; release performs
+// that cleanup afterward.
+type clientStreamBody struct {
+	reader    io.Reader
+	interrupt func()
+	release   func(bool)
+	closed    atomic.Bool
+	fullyRead bool
+	readLock  sync.Mutex
+	closeOnce sync.Once
+}
+
+func (s *clientStreamBody) Read(p []byte) (int, error) {
+	if s.closed.Load() {
+		return 0, io.ErrClosedPipe
+	}
+
+	s.readLock.Lock()
+	defer s.readLock.Unlock()
+	if s.closed.Load() {
+		return 0, io.ErrClosedPipe
+	}
+
+	n, err := s.reader.Read(p)
+	if errors.Is(err, io.EOF) {
+		s.fullyRead = true
+	}
+	return n, err
+}
+
+func (s *clientStreamBody) CloseWithError(err error) error {
+	s.closeOnce.Do(func() {
+		s.closed.Store(true)
+		locked := s.readLock.TryLock()
+		discard := err != nil || !locked
+		if discard || !s.fullyRead {
+			discard = true
+			s.interrupt()
+		}
+		if !locked {
+			// The interrupt lets a blocked network Read release readLock.
+			s.readLock.Lock()
+		}
+		defer s.readLock.Unlock()
+		s.release(discard)
+	})
+	return nil
+}
 
 func (t *transport) RoundTrip(hc *HostClient, req *Request, resp *Response) (retry bool, err error) {
 	customSkipBody := resp.SkipBody
@@ -3013,9 +3735,12 @@ func (t *transport) RoundTrip(hc *HostClient, req *Request, resp *Response) (ret
 		}
 	}
 
-	if err = conn.SetWriteDeadline(writeDeadline); err != nil {
-		hc.CloseConn(cc)
-		return true, err
+	if !writeDeadline.IsZero() || cc.writeDeadlineSet {
+		if err = conn.SetWriteDeadline(writeDeadline); err != nil {
+			hc.CloseConn(cc)
+			return true, err
+		}
+		cc.writeDeadlineSet = !writeDeadline.IsZero()
 	}
 
 	resetConnection := false
@@ -3054,20 +3779,21 @@ func (t *transport) RoundTrip(hc *HostClient, req *Request, resp *Response) (ret
 		}
 	}
 
-	if err = conn.SetReadDeadline(readDeadline); err != nil {
-		hc.CloseConn(cc)
-		return true, err
+	if !readDeadline.IsZero() || cc.readDeadlineSet {
+		if err = conn.SetReadDeadline(readDeadline); err != nil {
+			hc.CloseConn(cc)
+			return true, err
+		}
+		cc.readDeadlineSet = !readDeadline.IsZero()
 	}
 
-	if customSkipBody || req.Header.IsHead() {
-		resp.SkipBody = true
-	}
+	isHead := req.Header.IsHead()
 	if hc.DisableHeaderNamesNormalizing {
 		resp.Header.DisableNormalizing()
 	}
 
 	br := hc.AcquireReader(conn)
-	err = resp.ReadLimitBody(br, hc.MaxResponseBodySize)
+	err = resp.readLimitBody(br, hc.MaxResponseBodySize, isHead, req.Header.IsConnect())
 	if err != nil {
 		hc.ReleaseReader(br)
 		hc.CloseConn(cc)
@@ -3076,21 +3802,40 @@ func (t *transport) RoundTrip(hc *HostClient, req *Request, resp *Response) (ret
 		return needRetry, err
 	}
 
-	closeConn := resetConnection || req.ConnectionClose() || resp.ConnectionClose()
+	closeConn := resetConnection || req.ConnectionClose() || resp.ConnectionClose() ||
+		resp.StatusCode() == StatusSwitchingProtocols || resp.isConnectTunnel()
+	if customSkipBody && !isHead && !resp.Header.mustSkipContentLength() && resp.Header.ContentLength() != 0 {
+		// The body of this response was left unread on the connection,
+		// so the next response read from it would start inside that body.
+		closeConn = true
+	}
 	if customStreamBody && resp.bodyStream != nil {
-		rbs := resp.bodyStream
-		resp.bodyStream = newCloseReaderWithError(rbs, func(wErr error) error {
-			hc.ReleaseReader(br)
-			if r, ok := rbs.(*requestStream); ok {
-				releaseRequestStream(r)
-			}
-			if closeConn || resp.ConnectionClose() || wErr != nil {
+		// releaseConn runs when the caller closes the body stream, so it has to
+		// re-check resp.ConnectionClose(): a caller may only decide that the
+		// connection is unusable while consuming the streamed body.
+		releaseConn := func(discard bool) {
+			if closeConn || discard || resp.ConnectionClose() {
 				hc.CloseConn(cc)
 			} else {
-				hc.ReleaseConn(cc)
+				hc.releaseConn(cc)
 			}
-			return nil
-		})
+		}
+		// ReadLimitBody always creates a network-backed requestStream when
+		// StreamBody is enabled. A Read may still be in flight when the caller
+		// closes, so interrupt it and wait before pooling anything.
+		rs := resp.bodyStream.(*requestStream) //nolint:forcetypeassert
+		resp.bodyStream = &clientStreamBody{
+			reader:    rs,
+			fullyRead: rs.contentLength == 0,
+			interrupt: func() {
+				_ = conn.Close()
+			},
+			release: func(discard bool) {
+				hc.ReleaseReader(br)
+				releaseRequestStream(rs)
+				releaseConn(discard)
+			},
+		}
 		return false, nil
 	}
 	hc.ReleaseReader(br)
@@ -3098,7 +3843,7 @@ func (t *transport) RoundTrip(hc *HostClient, req *Request, resp *Response) (ret
 	if closeConn {
 		hc.CloseConn(cc)
 	} else {
-		hc.ReleaseConn(cc)
+		hc.releaseConn(cc)
 	}
 	return false, nil
 }

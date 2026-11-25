@@ -18,14 +18,14 @@ const (
 
 func enableDeferAccept(fd int) error {
 	if err := unix.SetsockoptInt(fd, unix.IPPROTO_TCP, unix.TCP_DEFER_ACCEPT, 1); err != nil {
-		return fmt.Errorf("cannot enable TCP_DEFER_ACCEPT: %s", err)
+		return fmt.Errorf("cannot enable tcp_defer_accept: %s", err)
 	}
 	return nil
 }
 
 func enableFastOpen(fd int) error {
 	if err := unix.SetsockoptInt(fd, unix.SOL_TCP, tcpFastOpen, fastOpenQlen); err != nil {
-		return fmt.Errorf("cannot enable TCP_FASTOPEN(qlen=%d): %s", fastOpenQlen, err)
+		return fmt.Errorf("cannot enable tcp_fastopen(qlen=%d): %s", fastOpenQlen, err)
 	}
 	return nil
 }
@@ -56,10 +56,10 @@ func soMaxConn() (int, error) {
 	return n, nil
 }
 
-func kernelVersion() (major, minor int) {
+func kernelVersion() (int, int) {
 	var uname unix.Utsname
 	if err := unix.Uname(&uname); err != nil {
-		return
+		return 0, 0
 	}
 
 	rl := uname.Release
@@ -72,7 +72,7 @@ func kernelVersion() (major, minor int) {
 		} else {
 			// Note that we're assuming N.N.N here.  If we see anything else we are likely to
 			// mis-parse it.
-			values[vi] = value
+			values[vi] = value // #nosec G602
 			vi++
 			if vi >= len(values) {
 				break
@@ -85,9 +85,9 @@ func kernelVersion() (major, minor int) {
 	case 1:
 		return values[0], 0
 	case 2:
-		return values[0], values[1]
+		return values[0], values[1] // #nosec G602
 	}
-	return
+	return 0, 0
 }
 
 // Linux stores the backlog as:

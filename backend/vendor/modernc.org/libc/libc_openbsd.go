@@ -8,11 +8,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"math"
+	mbits "math/bits"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
-	"runtime/debug"
 	"strings"
 	gotime "time"
 	"unsafe"
@@ -39,17 +39,28 @@ import (
 )
 
 var (
-	startTime    = gotime.Now() // For clock(3)
 	in6_addr_any in.In6_addr
 )
+
+type Tsize_t = types.Size_t
 
 type syscallErrno = unix.Errno
 
 // // Keep these outside of the var block otherwise go generate will miss them.
-var X__stderrp = Xstdout
+var X__stderrp = Xstderr
 var X__stdinp = Xstdin
 var X__stdoutp = Xstdout
 var X__sF [3]stdio.FILE
+
+// OpenBSD 8.0 <stdio.h> no longer declares __sF. stdin, stdout and stderr are
+// ((struct __sFILE *)__stdin), __stdout and __stderr, arrays of an opaque
+// struct __sFstub, so transpiled code passes their addresses as the FILE *.
+// file.sF maps them to __sF[0], __sF[1] and __sF[2]: code compiled against the
+// old or the new headers, and Xstdin, Xstdout and Xstderr, all share the same
+// three streams.
+var X__stdin stdio.FILE
+var X__stdout stdio.FILE
+var X__stderr stdio.FILE
 var X_tolower_tab_ uintptr
 var X_toupper_tab_ uintptr
 
@@ -103,18 +114,71 @@ func X__runes_for_locale(t *TLS, l locale_t, p uintptr) uintptr {
 
 type file uintptr
 
-func (f file) fd() int32      { return int32((*stdio.FILE)(unsafe.Pointer(f)).F_file) }
-func (f file) setFd(fd int32) { (*stdio.FILE)(unsafe.Pointer(f)).F_file = int16(fd) }
+// sF returns the element of __sF that f stands for if f is __stdin, __stdout
+// or __stderr, and f otherwise.
+func (f file) sF() file {
+	switch uintptr(f) {
+	case uintptr(unsafe.Pointer(&X__stdin)):
+		return file(unsafe.Pointer(&X__sF[0]))
+	case uintptr(unsafe.Pointer(&X__stdout)):
+		return file(unsafe.Pointer(&X__sF[1]))
+	case uintptr(unsafe.Pointer(&X__stderr)):
+		return file(unsafe.Pointer(&X__sF[2]))
+	}
+	return f
+}
+
+func (f file) fd() int32      { return int32((*stdio.FILE)(unsafe.Pointer(f.sF())).F_file) }
+func (f file) setFd(fd int32) { (*stdio.FILE)(unsafe.Pointer(f.sF())).F_file = int16(fd) }
+
+// id returns the address that identifies f, see stdio_unbuffered.go.
+func (f file) id() uintptr { return uintptr(f.sF()) }
+
+// fileEOF and fileErr are the FILE _flags bits of the system stdio.h, __SEOF
+// and __SERR. Its feof, ferror and clearerr macros, and their _unlocked forms,
+// read and clear these bits in transpiled code, so the functions must use them too.
+const (
+	fileEOF = 0x20 // __SEOF
+	fileErr = 0x40 // __SERR
+)
 
 func (f file) err() bool {
-	return (*stdio.FILE)(unsafe.Pointer(f)).F_flags&1 != 0
+	return (*stdio.FILE)(unsafe.Pointer(f.sF())).F_flags&fileErr != 0
 }
 
 func (f file) setErr() {
-	(*stdio.FILE)(unsafe.Pointer(f)).F_flags |= 1
+	(*stdio.FILE)(unsafe.Pointer(f.sF())).F_flags |= fileErr
+}
+
+func (f file) eof() bool {
+	return (*stdio.FILE)(unsafe.Pointer(f.sF())).F_flags&fileEOF != 0
+}
+
+func (f file) setEOF() {
+	(*stdio.FILE)(unsafe.Pointer(f.sF())).F_flags |= fileEOF
+}
+
+func (f file) clearErr() {
+	(*stdio.FILE)(unsafe.Pointer(f.sF())).F_flags &^= fileErr | fileEOF
+}
+
+func (f file) clearEOF() {
+	(*stdio.FILE)(unsafe.Pointer(f.sF())).F_flags &^= fileEOF
+}
+
+// sysRead reads up to n bytes into the C memory at p from the descriptor of f.
+// It uses unix.Read: OpenBSD has no syscall(2) for unix.Syscall to go through.
+func (f file) sysRead(p uintptr, n int) (int, error) {
+	m, err := unix.Read(int(f.fd()), unsafe.Slice((*byte)(unsafe.Pointer(p)), n))
+	if err != nil {
+		return 0, err
+	}
+
+	return m, nil
 }
 
 func (f file) close(t *TLS) int32 {
+	f = f.sF()
 	fd := f.fd()
 	r := Xclose(t, fd)
 	switch fd {
@@ -172,7 +236,7 @@ func Xfprintf(t *TLS, stream, format, args uintptr) int32 {
 	if __ccgo_strace {
 		trc("t=%v args=%v, (%v:)", t, args, origin(2))
 	}
-	n, _ := fwrite(int32((*stdio.FILE)(unsafe.Pointer(stream)).F_file), printf(format, args))
+	n, _ := fwrite(file(stream).fd(), printf(format, args))
 	return int32(n)
 }
 
@@ -197,20 +261,6 @@ func Xgetrusage(t *TLS, who int32, usage uintptr) int32 {
 	}
 	*(*unix.Rusage)(unsafe.Pointer(usage)) = ru
 	return 0
-}
-
-// int fgetc(FILE *stream);
-func Xfgetc(t *TLS, stream uintptr) int32 {
-	if __ccgo_strace {
-		trc("t=%v stream=%v, (%v:)", t, stream, origin(2))
-	}
-	fd := int((*stdio.FILE)(unsafe.Pointer(stream)).F_file)
-	var buf [1]byte
-	if n, _ := unix.Read(fd, buf[:]); n != 0 {
-		return int32(buf[0])
-	}
-
-	return stdio.EOF
 }
 
 // int lstat(const char *pathname, struct stat *statbuf);
@@ -248,36 +298,23 @@ func Xchdir(t *TLS, path uintptr) int32 {
 var localtime time.Tm
 
 // struct tm *localtime(const time_t *timep);
-func Xlocaltime(_ *TLS, timep uintptr) uintptr {
-	loc := getLocalLocation()
-	ut := *(*time.Time_t)(unsafe.Pointer(timep))
-	t := gotime.Unix(int64(ut), 0).In(loc)
-	localtime.Ftm_sec = int32(t.Second())
-	localtime.Ftm_min = int32(t.Minute())
-	localtime.Ftm_hour = int32(t.Hour())
-	localtime.Ftm_mday = int32(t.Day())
-	localtime.Ftm_mon = int32(t.Month() - 1)
-	localtime.Ftm_year = int32(t.Year() - 1900)
-	localtime.Ftm_wday = int32(t.Weekday())
-	localtime.Ftm_yday = int32(t.YearDay())
-	localtime.Ftm_isdst = Bool32(isTimeDST(t))
+func Xlocaltime(t *TLS, timep uintptr) uintptr {
+	if !localtimeTm(t, int64(*(*time.Time_t)(unsafe.Pointer(timep))), &localtime) {
+		return 0
+	}
+
 	return uintptr(unsafe.Pointer(&localtime))
 }
 
+// setGmtoff sets tm_gmtoff, a long, which is 32 bits wide on some of the targets of this OS.
+func setGmtoff[T ~int32 | ~int64](p *T, off int) { *p = T(off) }
+
 // struct tm *localtime_r(const time_t *timep, struct tm *result);
-func Xlocaltime_r(_ *TLS, timep, result uintptr) uintptr {
-	loc := getLocalLocation()
-	ut := *(*time.Time_t)(unsafe.Pointer(timep))
-	t := gotime.Unix(int64(ut), 0).In(loc)
-	(*time.Tm)(unsafe.Pointer(result)).Ftm_sec = int32(t.Second())
-	(*time.Tm)(unsafe.Pointer(result)).Ftm_min = int32(t.Minute())
-	(*time.Tm)(unsafe.Pointer(result)).Ftm_hour = int32(t.Hour())
-	(*time.Tm)(unsafe.Pointer(result)).Ftm_mday = int32(t.Day())
-	(*time.Tm)(unsafe.Pointer(result)).Ftm_mon = int32(t.Month() - 1)
-	(*time.Tm)(unsafe.Pointer(result)).Ftm_year = int32(t.Year() - 1900)
-	(*time.Tm)(unsafe.Pointer(result)).Ftm_wday = int32(t.Weekday())
-	(*time.Tm)(unsafe.Pointer(result)).Ftm_yday = int32(t.YearDay())
-	(*time.Tm)(unsafe.Pointer(result)).Ftm_isdst = Bool32(isTimeDST(t))
+func Xlocaltime_r(t *TLS, timep, result uintptr) uintptr {
+	if !localtimeTm(t, int64(*(*time.Time_t)(unsafe.Pointer(timep))), (*time.Tm)(unsafe.Pointer(result))) {
+		return 0
+	}
+
 	return result
 }
 
@@ -347,6 +384,28 @@ func Xfsync(t *TLS, fd int32) int32 {
 	// if dmesgs {
 	// 	dmesg("%v: %d: ok", origin(1), fd)
 	// }
+	return 0
+}
+
+// int fdatasync(int fd);
+//
+// OpenBSD has no fdatasync system call: its libc implements fdatasync as a
+// jump to fsync (checked on OpenBSD 7.8), and only libc may make system calls
+// there, so this does the same.
+func Xfdatasync(t *TLS, fd int32) int32 {
+	if __ccgo_strace {
+		trc("t=%v fd=%v, (%v:)", t, fd, origin(2))
+	}
+	if noFsync {
+		// Simulate -DSQLITE_NO_SYNC for sqlite3 testfixture, see function full_sync in sqlite3.c
+		return Xfstat(t, fd, uintptr(unsafe.Pointer(&fsyncStatbuf)))
+	}
+
+	if err := unix.Fsync(int(fd)); err != nil {
+		t.setErrno(err)
+		return -1
+	}
+
 	return 0
 }
 
@@ -910,28 +969,6 @@ func Xgetpid(t *TLS) int32 {
 	return int32(os.Getpid())
 }
 
-// int system(const char *command);
-func Xsystem(t *TLS, command uintptr) int32 {
-	if __ccgo_strace {
-		trc("t=%v command=%v, (%v:)", t, command, origin(2))
-	}
-	s := GoString(command)
-	if command == 0 {
-		panic(todo(""))
-	}
-
-	cmd := exec.Command("sh", "-c", s)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil {
-		ps := err.(*exec.ExitError)
-		return int32(ps.ExitCode())
-	}
-
-	return 0
-}
-
 // int setvbuf(FILE *stream, char *buf, int mode, size_t size);
 func Xsetvbuf(t *TLS, stream, buf uintptr, mode int32, size types.Size_t) int32 {
 	if __ccgo_strace {
@@ -969,7 +1006,23 @@ func Xfileno(t *TLS, stream uintptr) int32 {
 	if __ccgo_strace {
 		trc("t=%v stream=%v, (%v:)", t, stream, origin(2))
 	}
-	panic(todo(""))
+	if stream == 0 {
+		if dmesgs {
+			dmesg("%v: FAIL", origin(1))
+		}
+		t.setErrno(errno.EBADF)
+		return -1
+	}
+
+	if fd := file(stream).fd(); fd >= 0 {
+		return fd
+	}
+
+	if dmesgs {
+		dmesg("%v: FAIL", origin(1))
+	}
+	t.setErrno(errno.EBADF)
+	return -1
 }
 
 func newCFtsent(t *TLS, info int, path string, stat *unix.Stat_t, err syscallErrno) uintptr {
@@ -1168,20 +1221,6 @@ func Xtzset(t *TLS) {
 	//TODO
 }
 
-var strerrorBuf [100]byte
-
-// char *strerror(int errnum);
-func Xstrerror(t *TLS, errnum int32) uintptr {
-	if __ccgo_strace {
-		trc("t=%v errnum=%v, (%v:)", t, errnum, origin(2))
-	}
-	if dmesgs {
-		dmesg("%v: %v\n%s", origin(1), errnum, debug.Stack())
-	}
-	copy(strerrorBuf[:], fmt.Sprintf("strerror(%d)\x00", errnum))
-	return uintptr(unsafe.Pointer(&strerrorBuf[0]))
-}
-
 // void *dlopen(const char *filename, int flags);
 func Xdlopen(t *TLS, filename uintptr, flags int32) uintptr {
 	if __ccgo_strace {
@@ -1215,19 +1254,15 @@ func Xdlsym(t *TLS, handle, symbol uintptr) uintptr {
 }
 
 // void perror(const char *s);
-func Xperror(t *TLS, s uintptr) {
+func Xperror(tls *TLS, msg uintptr) {
 	if __ccgo_strace {
-		trc("t=%v s=%v, (%v:)", t, s, origin(2))
+		trc("tls=%v msg=%v, (%v:)", tls, msg, origin(2))
 	}
-	panic(todo(""))
-}
-
-// int pclose(FILE *stream);
-func Xpclose(t *TLS, stream uintptr) int32 {
-	if __ccgo_strace {
-		trc("t=%v stream=%v, (%v:)", t, stream, origin(2))
+	if msg != 0 && *(*int8)(unsafe.Pointer(msg)) != 0 {
+		fmt.Fprintf(os.Stderr, "%s: ", GoString(msg))
 	}
-	panic(todo(""))
+	errstr := Xstrerror(tls, *(*int32)(unsafe.Pointer(X__errno_location(tls))))
+	fmt.Fprintf(os.Stderr, "%s\n", GoString(errstr))
 }
 
 var gai_strerrorBuf [100]byte
@@ -1292,28 +1327,12 @@ func Xfork(t *TLS) int32 {
 
 var emptyStr = [1]byte{}
 
-// char *setlocale(int category, const char *locale);
-func Xsetlocale(t *TLS, category int32, locale uintptr) uintptr {
-	if __ccgo_strace {
-		trc("t=%v category=%v locale=%v, (%v:)", t, category, locale, origin(2))
-	}
-	return uintptr(unsafe.Pointer(&emptyStr)) //TODO
-}
-
 // char *nl_langinfo(nl_item item);
 func Xnl_langinfo(t *TLS, item langinfo.Nl_item) uintptr {
 	if __ccgo_strace {
 		trc("t=%v item=%v, (%v:)", t, item, origin(2))
 	}
 	return uintptr(unsafe.Pointer(&emptyStr)) //TODO
-}
-
-// FILE *popen(const char *command, const char *type);
-func Xpopen(t *TLS, command, type1 uintptr) uintptr {
-	if __ccgo_strace {
-		trc("t=%v type1=%v, (%v:)", t, type1, origin(2))
-	}
-	panic(todo(""))
 }
 
 // char *realpath(const char *path, char *resolved_path);
@@ -1366,20 +1385,30 @@ func Xabort(t *TLS) {
 	if __ccgo_strace {
 		trc("t=%v, (%v:)", t, origin(2))
 	}
-	panic(todo("")) //TODO
-	// if dmesgs {
-	// 	dmesg("%v:", origin(1))
-	// }
-	// p := Xcalloc(t, 1, types.Size_t(unsafe.Sizeof(signal.Sigaction{})))
-	// if p == 0 {
-	// 	panic("OOM")
-	// }
-
-	// (*signal.Sigaction)(unsafe.Pointer(p)).F__sigaction_u.F__sa_handler = signal.SIG_DFL
-	// Xsigaction(t, signal.SIGABRT, p, 0)
-	// Xfree(t, p)
-	// unix.Kill(unix.Getpid(), unix.Signal(signal.SIGABRT))
-	// panic(todo("unrechable"))
+	if dmesgs {
+		dmesg("%v:", origin(1))
+	}
+	// OpenBSD's Xabort was a stub, so C abort(3) didn't terminate by signal —
+	// callers such as SQLite's crash tests (writecrash.test) require the process to be
+	// killed BY A SIGNAL, so Tcl's exec reports "child killed: ..." rather than a Go
+	// panic's "child process exited abnormally".
+	//
+	// A faithful SIGABRT-based abort() is not reachable from pure-Go libc on openbsd:
+	//   - libc's own Xsigaction is an unimplemented stub, and openbsd's pinsyscalls(2)
+	//     makes the raw sys_sigaction / getthrid / thrkill syscalls return ENOSYS
+	//     through the generic indirect syscall path (only libc.so's pinned call sites
+	//     may issue them; verified: sigaction -> errno 78). So SIGABRT's disposition
+	//     cannot be reset to SIG_DFL, which means the Go runtime always catches a
+	//     delivered SIGABRT, prints a crash trace, and exits status 2 — again reported
+	//     as "exited abnormally", not "child killed".
+	//   - The only signal that cannot be caught, blocked or ignored is SIGKILL. It
+	//     terminates the process immediately and unconditionally by signal (no race, no
+	//     trace, no "SIGABRT" string leaking into the harness output). This is the best
+	//     abnormal-termination available here and is exactly what abort()'s callers in
+	//     the crash tests need. unix.Kill routes through libc.so, so unlike the raw
+	//     syscalls above it is not defeated by pinsyscalls.
+	unix.Kill(unix.Getpid(), unix.SIGKILL)
+	panic(todo("unrechable"))
 }
 
 // int fflush(FILE *stream);
@@ -1390,35 +1419,18 @@ func Xfflush(t *TLS, stream uintptr) int32 {
 	return 0 //TODO
 }
 
-// size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
-func Xfread(t *TLS, ptr uintptr, size, nmemb types.Size_t, stream uintptr) types.Size_t {
-	if __ccgo_strace {
-		trc("t=%v ptr=%+v nmemb=%d stream=%v, (%v:)", t, unsafe.Slice((*byte)(unsafe.Pointer(ptr)), nmemb), nmemb, *(*int32)(unsafe.Pointer(stream)), origin(2))
-	}
-	buf := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), nmemb*size)
-	m, err := unix.Read(int(file(stream).fd()), buf)
-	if err != nil {
-		file(stream).setErr()
-		return 0
-	}
-
-	if dmesgs {
-		// 	// dmesg("%v: %d %#x x %#x: %#x\n%s", origin(1), file(stream).fd(), size, nmemb, types.Size_t(m)/size, hex.Dump(GoBytes(ptr, int(m))))
-		dmesg("%v: %d %#x x %#x: %#x", origin(1), file(stream).fd(), size, nmemb, types.Size_t(m)/size)
-	}
-	return types.Size_t(m) / size
-}
-
 // size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
 func Xfwrite(t *TLS, ptr uintptr, size, nmemb types.Size_t, stream uintptr) types.Size_t {
 	if __ccgo_strace {
 		trc("t=%v ptr=%v nmemb=%v stream=%v, (%v:)", t, ptr, nmemb, stream, origin(2))
 	}
-	buf := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), nmemb*size)
-	m, err := unix.Write(int(file(stream).fd()), buf)
-	if err != nil {
-		file(stream).setErr()
+	if size == 0 || nmemb == 0 {
 		return 0
+	}
+	m, err := writeAll(int(file(stream).fd()), unsafe.Slice((*byte)(unsafe.Pointer(ptr)), size*nmemb))
+	if err != nil {
+		t.setErrno(err)
+		file(stream).setErr()
 	}
 
 	// if dmesgs {
@@ -1426,14 +1438,6 @@ func Xfwrite(t *TLS, ptr uintptr, size, nmemb types.Size_t, stream uintptr) type
 	// 	dmesg("%v: %d %#x x %#x: %#x", origin(1), file(stream).fd(), size, nmemb, types.Size_t(m)/size)
 	// }
 	return types.Size_t(m) / size
-}
-
-// int fclose(FILE *stream);
-func Xfclose(t *TLS, stream uintptr) int32 {
-	if __ccgo_strace {
-		trc("t=%v stream=%v, (%v:)", t, stream, origin(2))
-	}
-	return file(stream).close(t)
 }
 
 // int fputc(int c, FILE *stream);
@@ -1448,64 +1452,12 @@ func Xfputc(t *TLS, c int32, stream uintptr) int32 {
 	return int32(byte(c))
 }
 
-// int fseek(FILE *stream, long offset, int whence);
-func Xfseek(t *TLS, stream uintptr, offset long, whence int32) int32 {
-	if __ccgo_strace {
-		trc("t=%v stream=%v offset=%v whence=%v, (%v:)", t, stream, offset, whence, origin(2))
-	}
-	if n := Xlseek(t, int32(file(stream).fd()), types.Off_t(offset), whence); n < 0 {
-		// if dmesgs {
-		// 	dmesg("%v: fd %v, off %#x, whence %v: %v", origin(1), file(stream).fd(), offset, whenceStr(whence), n)
-		// }
-		file(stream).setErr()
-		return -1
-	}
-
-	// if dmesgs {
-	// 	dmesg("%v: fd %v, off %#x, whence %v: ok", origin(1), file(stream).fd(), offset, whenceStr(whence))
-	// }
-	return 0
-}
-
-// long ftell(FILE *stream);
-func Xftell(t *TLS, stream uintptr) long {
-	if __ccgo_strace {
-		trc("t=%v stream=%v, (%v:)", t, stream, origin(2))
-	}
-	n := Xlseek(t, file(stream).fd(), 0, stdio.SEEK_CUR)
-	if n < 0 {
-		file(stream).setErr()
-		return -1
-	}
-
-	// if dmesgs {
-	// 	dmesg("%v: fd %v, n %#x: ok %#x", origin(1), file(stream).fd(), n, long(n))
-	// }
-	return long(n)
-}
-
 // int ferror(FILE *stream);
 func Xferror(t *TLS, stream uintptr) int32 {
 	if __ccgo_strace {
 		trc("t=%v stream=%v, (%v:)", t, stream, origin(2))
 	}
 	return Bool32(file(stream).err())
-}
-
-// int ungetc(int c, FILE *stream);
-func Xungetc(t *TLS, c int32, stream uintptr) int32 {
-	if __ccgo_strace {
-		trc("t=%v c=%v stream=%v, (%v:)", t, c, stream, origin(2))
-	}
-	panic(todo(""))
-}
-
-// int fscanf(FILE *stream, const char *format, ...);
-func Xfscanf(t *TLS, stream, format, va uintptr) int32 {
-	if __ccgo_strace {
-		trc("t=%v va=%v, (%v:)", t, va, origin(2))
-	}
-	panic(todo(""))
 }
 
 // int fputs(const char *s, FILE *stream);
@@ -1530,7 +1482,9 @@ func Xgetservbyname(t *TLS, name, proto uintptr) uintptr {
 	}
 	var protoent *gonetdb.Protoent
 	if proto != 0 {
-		protoent = gonetdb.GetProtoByName(GoString(proto))
+		if protoent = gonetdb.GetProtoByName(GoString(proto)); protoent == nil {
+			return 0
+		}
 	}
 	servent := gonetdb.GetServByName(GoString(name), protoent)
 	if servent == nil {
@@ -1540,68 +1494,47 @@ func Xgetservbyname(t *TLS, name, proto uintptr) uintptr {
 		return 0
 	}
 
-	Xfree(t, (*netdb.Servent)(unsafe.Pointer(&getservbynameStaticResult)).Fs_name)
-	if v := (*netdb.Servent)(unsafe.Pointer(&getservbynameStaticResult)).Fs_aliases; v != 0 {
-		for {
-			p := *(*uintptr)(unsafe.Pointer(v))
-			if p == 0 {
-				break
-			}
-
-			Xfree(t, p)
-			v += unsafe.Sizeof(uintptr(0))
+	// The result is static storage that owns its strings and the aliases
+	// array until the next call frees them, even after a failed call.
+	r := &getservbynameStaticResult
+	Xfree(t, r.Fs_name)
+	if v := r.Fs_aliases; v != 0 {
+		for p := v; *(*uintptr)(unsafe.Pointer(p)) != 0; p += unsafe.Sizeof(uintptr(0)) {
+			Xfree(t, *(*uintptr)(unsafe.Pointer(p)))
 		}
 		Xfree(t, v)
 	}
-	Xfree(t, (*netdb.Servent)(unsafe.Pointer(&getservbynameStaticResult)).Fs_proto)
-	cname, err := CString(servent.Name)
-	if err != nil {
-		getservbynameStaticResult = netdb.Servent{}
+	Xfree(t, r.Fs_proto)
+	*r = netdb.Servent{}
+	var err error
+	if r.Fs_name, err = CString(servent.Name); err != nil {
 		return 0
 	}
 
-	var protoname uintptr
-	if protoent != nil {
-		if protoname, err = CString(protoent.Name); err != nil {
-			Xfree(t, cname)
-			getservbynameStaticResult = netdb.Servent{}
-			return 0
-		}
+	if r.Fs_aliases = Xcalloc(t, types.Size_t(len(servent.Aliases)+1), types.Size_t(unsafe.Sizeof(uintptr(0)))); r.Fs_aliases == 0 {
+		return 0
 	}
-	var a []uintptr
-	for _, v := range servent.Aliases {
-		cs, err := CString(v)
+
+	for i, v := range servent.Aliases {
+		p, err := CString(v)
 		if err != nil {
-			for _, v := range a {
-				Xfree(t, v)
-			}
 			return 0
 		}
 
-		a = append(a, cs)
-	}
-	v := Xcalloc(t, types.Size_t(len(a)+1), types.Size_t(unsafe.Sizeof(uintptr(0))))
-	if v == 0 {
-		Xfree(t, cname)
-		Xfree(t, protoname)
-		for _, v := range a {
-			Xfree(t, v)
-		}
-		getservbynameStaticResult = netdb.Servent{}
-		return 0
-	}
-	for _, p := range a {
-		*(*uintptr)(unsafe.Pointer(v)) = p
-		v += unsafe.Sizeof(uintptr(0))
+		*(*uintptr)(unsafe.Pointer(r.Fs_aliases + uintptr(i)*unsafe.Sizeof(uintptr(0)))) = p
 	}
 
-	getservbynameStaticResult = netdb.Servent{
-		Fs_name:    cname,
-		Fs_aliases: v,
-		Fs_port:    int32(servent.Port),
-		Fs_proto:   protoname,
+	// servent.Protocol is nil only for a protocol missing from /etc/protocols.
+	var protoname string
+	if servent.Protocol != nil {
+		protoname = servent.Protocol.Name
 	}
-	return uintptr(unsafe.Pointer(&getservbynameStaticResult))
+	if r.Fs_proto, err = CString(protoname); err != nil {
+		return 0
+	}
+
+	r.Fs_port = int32(Xhtons(t, uint16(servent.Port)))
+	return uintptr(unsafe.Pointer(r))
 }
 
 func Xreaddir64(t *TLS, dir uintptr) uintptr {
@@ -1657,22 +1590,6 @@ func fcntlCmdStr(cmd int32) string {
 	}
 }
 
-// int setenv(const char *name, const char *value, int overwrite);
-func Xsetenv(t *TLS, name, value uintptr, overwrite int32) int32 {
-	if __ccgo_strace {
-		trc("t=%v value=%v overwrite=%v, (%v:)", t, value, overwrite, origin(2))
-	}
-	panic(todo(""))
-}
-
-// int unsetenv(const char *name);
-func Xunsetenv(t *TLS, name uintptr) int32 {
-	if __ccgo_strace {
-		trc("t=%v name=%v, (%v:)", t, name, origin(2))
-	}
-	panic(todo(""))
-}
-
 // int pause(void);
 func Xpause(t *TLS) int32 {
 	if __ccgo_strace {
@@ -1721,6 +1638,9 @@ func X__swbuf(t *TLS, n int32, file uintptr) int32 {
 	if __ccgo_strace {
 		trc("t=%v n=%v file=%v, (%v:)", t, n, file, origin(2))
 	}
+	// The putc_unlocked macro calls __swbuf once --_w went negative. As in
+	// __srget, put _w back to 0 so it cannot wrap.
+	(*stdio.FILE)(unsafe.Pointer(file)).F_w = 0
 	return Xfputc(t, n, file) //TODO improve performance, use a real buffer.
 }
 
@@ -1748,31 +1668,49 @@ func Xreaddir(t *TLS, dir uintptr) uintptr {
 	if __ccgo_strace {
 		trc("t=%v dir=%v, (%v:)", t, dir, origin(2))
 	}
-	if (*darwinDir)(unsafe.Pointer(dir)).eof {
-		return 0
-	}
+	for {
+		if (*darwinDir)(unsafe.Pointer(dir)).eof {
+			return 0
+		}
 
-	if (*darwinDir)(unsafe.Pointer(dir)).l == (*darwinDir)(unsafe.Pointer(dir)).h {
-		n, err := unix.Getdirentries((*darwinDir)(unsafe.Pointer(dir)).fd, (*darwinDir)(unsafe.Pointer(dir)).buf[:], nil)
-		// trc("must read: %v %v", n, err)
-		if n == 0 {
-			if err != nil && err != io.EOF {
-				if dmesgs {
-					dmesg("%v: %v FAIL", origin(1), err)
+		if (*darwinDir)(unsafe.Pointer(dir)).l == (*darwinDir)(unsafe.Pointer(dir)).h {
+			n, err := unix.Getdirentries((*darwinDir)(unsafe.Pointer(dir)).fd, (*darwinDir)(unsafe.Pointer(dir)).buf[:], nil)
+			// trc("must read: %v %v", n, err)
+			if n == 0 {
+				if err != nil && err != io.EOF {
+					if dmesgs {
+						dmesg("%v: %v FAIL", origin(1), err)
+					}
+					t.setErrno(err)
 				}
-				t.setErrno(err)
+				(*darwinDir)(unsafe.Pointer(dir)).eof = true
+				return 0
 			}
+
+			(*darwinDir)(unsafe.Pointer(dir)).l = 0
+			(*darwinDir)(unsafe.Pointer(dir)).h = n
+			// trc("new l %v, h %v", (*darwinDir)(unsafe.Pointer(dir)).l, (*darwinDir)(unsafe.Pointer(dir)).h)
+		}
+		de := dir + unsafe.Offsetof(darwinDir{}.buf) + uintptr((*darwinDir)(unsafe.Pointer(dir)).l)
+		reclen := int((*unix.Dirent)(unsafe.Pointer(de)).Reclen)
+		if reclen <= 0 || (*darwinDir)(unsafe.Pointer(dir)).l+reclen > (*darwinDir)(unsafe.Pointer(dir)).h {
+			// Malformed record, do not spin on it. Same as the bogus pointer/reclen
+			// checks in OpenBSD's _readdir_unlocked().
 			(*darwinDir)(unsafe.Pointer(dir)).eof = true
 			return 0
 		}
 
-		(*darwinDir)(unsafe.Pointer(dir)).l = 0
-		(*darwinDir)(unsafe.Pointer(dir)).h = n
-		// trc("new l %v, h %v", (*darwinDir)(unsafe.Pointer(dir)).l, (*darwinDir)(unsafe.Pointer(dir)).h)
+		(*darwinDir)(unsafe.Pointer(dir)).l += reclen
+		// getdirentries(2) reports entries of deleted files with d_fileno set to
+		// zero, readdir(3) must not return them. On FFS such a record survives an
+		// unlink whenever it is the first one in a directory block, so a directory
+		// larger than one block will otherwise show ghost entries.
+		if (*unix.Dirent)(unsafe.Pointer(de)).Fileno == 0 {
+			continue
+		}
+
+		return de
 	}
-	de := dir + unsafe.Offsetof(darwinDir{}.buf) + uintptr((*darwinDir)(unsafe.Pointer(dir)).l)
-	(*darwinDir)(unsafe.Pointer(dir)).l += int((*unix.Dirent)(unsafe.Pointer(de)).Reclen)
-	return de
 }
 
 type darwinDir struct {
@@ -1886,31 +1824,22 @@ func Xmmap(t *TLS, addr uintptr, length types.Size_t, prot, flags, fd int32, off
 		return uintptr(unsafe.Pointer(&data[0]))
 	}
 
-	// On 2021-12-23, a new syscall for mmap was introduced:
-	//
-	// 	49	STD NOLOCK	{ void *sys_mmap(void *addr, size_t len, int prot, \
-	// 			    int flags, int fd, off_t pos); }
-	//  src: https://github.com/golang/go/issues/59661
-	if __ccgo_strace {
-		trc("Xmmap with addr %d (%v:)", addr, origin(2))
-	}
-
-	panic(todo(""))
-
-	const unix_SYS_MMAP = 49
-
-	// Cannot avoid the syscall here, addr sometimes matter.
-	data, _, err := unix.RawSyscall6(unix_SYS_MMAP, addr, uintptr(length), uintptr(prot), uintptr(flags), uintptr(fd), uintptr(offset))
+	// addr != 0 (MAP_FIXED): cannot use unix.Mmap (it chooses the address), so do
+	// the raw syscall. openbsd mmap(2) (SYS_MMAP=197) takes a `long PAD` before
+	// off_t, and on 32-bit (openbsd/386) off_t spans two argument words, so pass
+	// offset>>32 as the high word; it is read on 32-bit and ignored on 64-bit.
+	// Matches golang.org/x/sys/unix's own per-arch openbsd mmap.
+	data, _, err := unix.Syscall9(unix.SYS_MMAP, addr, uintptr(length), uintptr(prot), uintptr(flags), uintptr(fd), 0, uintptr(offset), uintptr(offset>>32), 0)
 	if err != 0 {
-		//if dmesgs {
-		dmesg("%v: %v FAIL", origin(1), err)
-		//}
+		if dmesgs {
+			dmesg("%v: %v FAIL", origin(1), err)
+		}
 		t.setErrno(err)
 		return ^uintptr(0) // (void*)-1
 	}
 
 	if dmesgs {
-		dmesg("%v: addr %#0x, length %#x0, prot %#0x, flags %#0x, fd %d, offset %#0x returns %#0x", origin(1), addr, length, prot, flags, fd, offset, data)
+		dmesg("%v: %#x", origin(1), data)
 	}
 	return data
 }
@@ -1934,32 +1863,6 @@ func X__ccgo_getMutexType(tls *TLS, m uintptr) int32 { /* pthread_mutex_lock.c:3
 		trc("tls=%v m=%v, (%v:)", tls, m, origin(2))
 	}
 	return (*(*int32)(unsafe.Pointer((m /* &.__u */ /* &.__i */))) & 15)
-}
-
-func X__ccgo_pthreadAttrGetDetachState(tls *TLS, a uintptr) int32 { /* pthread_attr_get.c:3:5: */
-	if __ccgo_strace {
-		trc("tls=%v a=%v, (%v:)", tls, a, origin(2))
-	}
-	return *(*int32)(unsafe.Pointer((a /* &.__u */ /* &.__i */) + 6*4))
-}
-
-func Xpthread_attr_getdetachstate(tls *TLS, a uintptr, state uintptr) int32 { /* pthread_attr_get.c:7:5: */
-	if __ccgo_strace {
-		trc("tls=%v a=%v state=%v, (%v:)", tls, a, state, origin(2))
-	}
-	*(*int32)(unsafe.Pointer(state)) = *(*int32)(unsafe.Pointer((a /* &.__u */ /* &.__i */) + 6*4))
-	return 0
-}
-
-func Xpthread_attr_setdetachstate(tls *TLS, a uintptr, state int32) int32 { /* pthread_attr_setdetachstate.c:3:5: */
-	if __ccgo_strace {
-		trc("tls=%v a=%v state=%v, (%v:)", tls, a, state, origin(2))
-	}
-	if uint32(state) > 1 {
-		return 22
-	}
-	*(*int32)(unsafe.Pointer((a /* &.__u */ /* &.__i */) + 6*4)) = state
-	return 0
 }
 
 func Xpthread_mutexattr_destroy(tls *TLS, a uintptr) int32 { /* pthread_mutexattr_destroy.c:3:5: */
@@ -2006,6 +1909,10 @@ func X__srget(t *TLS, stream uintptr) int32 {
 	if __ccgo_strace {
 		trc("t=%v stream=%v, (%v:)", t, stream, origin(2))
 	}
+	// The getc_unlocked macro calls __srget once --_r went negative. Input is not
+	// buffered here, so put _r back to 0: else it counts down on every call and
+	// after 2^31 of them wraps, and the macro reads through the NULL _p.
+	(*stdio.FILE)(unsafe.Pointer(stream)).F_r = 0
 	return Xgetc(t, stream)
 }
 
@@ -2047,11 +1954,7 @@ func Xpthread_mutex_init(t *TLS, pMutex, pAttr uintptr) int32 {
 	if pAttr != 0 {
 		typ = int(X__ccgo_pthreadMutexattrGettype(t, pAttr))
 	}
-	mutexesMu.Lock()
-
-	defer mutexesMu.Unlock()
-
-	mutexes[pMutex] = newMutex(typ)
+	setMutex(pMutex, newMutex(typ))
 	return 0
 }
 
@@ -2341,19 +2244,6 @@ func Xchmod(t *TLS, pathname uintptr, mode types.Mode_t) int32 {
 		dmesg("%v: %q %#o: ok", origin(1), GoString(pathname), mode)
 	}
 	return 0
-}
-
-// time_t time(time_t *tloc);
-func Xtime(t *TLS, tloc uintptr) time.Time_t {
-	if __ccgo_strace {
-		trc("t=%v tloc=%v, (%v:)", t, tloc, origin(2))
-	}
-	panic(todo(""))
-	// n := time.Now().UTC().Unix()
-	// if tloc != 0 {
-	// 	*(*types.Time_t)(unsafe.Pointer(tloc)) = types.Time_t(n)
-	// }
-	// return types.Time_t(n)
 }
 
 // int utimes(const char *filename, const struct timeval times[2]);
@@ -2833,14 +2723,6 @@ func Xrewinddir(tls *TLS, f uintptr) {
 	Xfseek(tls, f, 0, stdio.SEEK_SET)
 }
 
-// clock_t clock(void);
-func Xclock(t *TLS) time.Clock_t {
-	if __ccgo_strace {
-		trc("t=%v, (%v:)", t, origin(2))
-	}
-	return time.Clock_t(gotime.Since(startTime) * gotime.Duration(time.CLOCKS_PER_SEC) / gotime.Second)
-}
-
 // ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags);
 func Xrecvmsg(t *TLS, sockfd int32, msg uintptr, flags int32) types.Ssize_t {
 	if __ccgo_strace {
@@ -2857,4 +2739,29 @@ func Xrecvmsg(t *TLS, sockfd int32, msg uintptr, flags int32) types.Ssize_t {
 	copy((*RawMem)(unsafe.Pointer(msg))[:n:n], buf[:])
 
 	return types.Ssize_t(n)
+}
+
+func AtomicLoadNUint8(ptr uintptr, memorder int32) uint8 {
+	return byte(a_load_8(ptr))
+}
+
+func X__builtin_ctz(t *TLS, n uint32) int32 {
+	return int32(mbits.TrailingZeros32(n))
+}
+
+func X__signbit(tls *TLS, x float64) (r int32) {
+	return int32(math.Float64bits(x) >> 63)
+}
+
+// ftw, see ftw_bsd.go.
+const (
+	ftwMaxFDs      = 64   // OPEN_MAX of <sys/syslimits.h>, the largest nfds ftw accepts
+	ftwFollowLinks = true // ftw follows symbolic links below the root
+)
+
+// tmSetZone sets the zone fields of tm for a time in the zone abbreviated name,
+// off seconds east of UTC.
+func tmSetZone(tm *time.Tm, name string, off int) {
+	setGmtoff(&tm.Ftm_gmtoff, off)
+	tm.Ftm_zone = tzAbbrev(name)
 }

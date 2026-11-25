@@ -101,17 +101,12 @@ type pipeConn struct {
 	wCh chan *byteBuffer
 	pc  *PipeConns
 
-	readDeadlineTimer  *time.Timer
-	writeDeadlineTimer *time.Timer
-
-	readDeadlineCh  <-chan time.Time
-	writeDeadlineCh <-chan time.Time
-
 	bb []byte
 
-	addrLock sync.RWMutex
+	readDeadline  pipeDeadline
+	writeDeadline pipeDeadline
 
-	readDeadlineChLock sync.Mutex
+	addrLock sync.RWMutex
 }
 
 func (c *pipeConn) Write(p []byte) (int, error) {
@@ -121,7 +116,7 @@ func (c *pipeConn) Write(p []byte) (int, error) {
 	select {
 	case <-c.pc.stopCh:
 		releaseByteBuffer(b)
-		return 0, errConnectionClosed
+		return 0, ErrConnectionClosed
 	default:
 	}
 
@@ -130,16 +125,20 @@ func (c *pipeConn) Write(p []byte) (int, error) {
 	default:
 		select {
 		case c.wCh <- b:
-		case <-c.writeDeadlineCh:
-			c.writeDeadlineCh = closedDeadlineCh
+		case <-c.writeDeadline.wait():
+			releaseByteBuffer(b)
 			return 0, ErrTimeout
 		case <-c.pc.stopCh:
 			releaseByteBuffer(b)
-			return 0, errConnectionClosed
+			return 0, ErrConnectionClosed
 		}
 	}
 
 	return len(p), nil
+}
+
+func (c *pipeConn) WriteString(s string) (int, error) {
+	return c.Write(s2b(s))
 }
 
 func (c *pipeConn) Read(p []byte) (int, error) {
@@ -183,15 +182,9 @@ func (c *pipeConn) readNextByteBuffer(mayBlock bool) error {
 		if !mayBlock {
 			return errWouldBlock
 		}
-		c.readDeadlineChLock.Lock()
-		readDeadlineCh := c.readDeadlineCh
-		c.readDeadlineChLock.Unlock()
 		select {
 		case c.b = <-c.rCh:
-		case <-readDeadlineCh:
-			c.readDeadlineChLock.Lock()
-			c.readDeadlineCh = closedDeadlineCh
-			c.readDeadlineChLock.Unlock()
+		case <-c.readDeadline.wait():
 			// rCh may contain data when deadline is reached.
 			// Read the data before returning ErrTimeout.
 			select {
@@ -214,18 +207,18 @@ func (c *pipeConn) readNextByteBuffer(mayBlock bool) error {
 	return nil
 }
 
-var (
-	errWouldBlock       = errors.New("would block")
-	errConnectionClosed = errors.New("connection closed")
-)
+var errWouldBlock = errors.New("would block")
+
+// ErrConnectionClosed indicates that the underlying connection is closed. It could mean that the client has disconnected.
+var ErrConnectionClosed = errors.New("fasthttputil: connection closed")
 
 type timeoutError struct{}
 
 func (e *timeoutError) Error() string {
-	return "timeout"
+	return "fasthttputil: timeout"
 }
 
-// Only implement the Timeout() function of the net.Error interface.
+// Timeout implements the Timeout method of the net.Error interface.
 // This allows for checks like:
 //
 //	if x, ok := err.(interface{ Timeout() bool }); ok && x.Timeout() {
@@ -269,47 +262,90 @@ func (c *pipeConn) SetDeadline(deadline time.Time) error {
 }
 
 func (c *pipeConn) SetReadDeadline(deadline time.Time) error {
-	if c.readDeadlineTimer == nil {
-		c.readDeadlineTimer = time.NewTimer(time.Hour)
-	}
-	readDeadlineCh := updateTimer(c.readDeadlineTimer, deadline)
-	c.readDeadlineChLock.Lock()
-	c.readDeadlineCh = readDeadlineCh
-	c.readDeadlineChLock.Unlock()
+	c.readDeadline.set(deadline)
 	return nil
 }
 
 func (c *pipeConn) SetWriteDeadline(deadline time.Time) error {
-	if c.writeDeadlineTimer == nil {
-		c.writeDeadlineTimer = time.NewTimer(time.Hour)
-	}
-	c.writeDeadlineCh = updateTimer(c.writeDeadlineTimer, deadline)
+	c.writeDeadline.set(deadline)
 	return nil
 }
 
-func updateTimer(t *time.Timer, deadline time.Time) <-chan time.Time {
-	if !t.Stop() {
-		select {
-		case <-t.C:
-		default:
-		}
-	}
-	if deadline.IsZero() {
-		return nil
-	}
-	d := time.Until(deadline)
-	if d <= 0 {
-		return closedDeadlineCh
-	}
-	t.Reset(d)
-	return t.C
+// pipeDeadline works like the one behind net.Pipe: wait returns a channel
+// that is closed once the deadline has passed, so that pending operations
+// wake up, and a later deadline replaces a closed channel with an open one.
+// The channel is made when an operation first blocks or a deadline is first
+// set, and the timer is kept while its channel is open.
+type pipeDeadline struct {
+	timer  *time.Timer   // Closes cancel when it fires.
+	cancel chan struct{} // nil until needed.
+	armed  bool          // Scheduled; cleared by set once it has synchronized with the timer.
+	mu     sync.Mutex
 }
 
-var closedDeadlineCh = func() <-chan time.Time {
-	ch := make(chan time.Time)
+func (d *pipeDeadline) set(t time.Time) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d.armed {
+		d.armed = false
+		if !d.timer.Stop() {
+			<-d.cancel // The timer fired; wait for it to close cancel.
+		}
+	}
+	if d.cancel != nil && isClosedChan(d.cancel) {
+		d.cancel, d.timer = nil, nil // The timer is bound to the closed channel.
+	}
+	if t.IsZero() {
+		return
+	}
+	dur := time.Until(t)
+	if dur <= 0 {
+		if d.cancel == nil {
+			d.cancel = closedChan
+		} else {
+			close(d.cancel)
+			d.timer = nil
+		}
+		return
+	}
+	if d.cancel == nil {
+		d.cancel = make(chan struct{})
+	}
+	if d.timer == nil {
+		// The timer holds only the channel, so a closed pipe is not kept
+		// alive until the deadline.
+		cancel := d.cancel
+		d.timer = time.AfterFunc(dur, func() { close(cancel) })
+	} else {
+		d.timer.Reset(dur)
+	}
+	d.armed = true
+}
+
+func (d *pipeDeadline) wait() chan struct{} {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.cancel == nil {
+		d.cancel = make(chan struct{})
+	}
+	return d.cancel
+}
+
+var closedChan = func() chan struct{} {
+	ch := make(chan struct{})
 	close(ch)
 	return ch
 }()
+
+func isClosedChan(c <-chan struct{}) bool {
+	select {
+	case <-c:
+		return true
+	default:
+		return false
+	}
+}
 
 type pipeAddr int
 
@@ -326,7 +362,7 @@ type byteBuffer struct {
 }
 
 func acquireByteBuffer() *byteBuffer {
-	return byteBufferPool.Get().(*byteBuffer)
+	return byteBufferPool.Get().(*byteBuffer) //nolint:forcetypeassert
 }
 
 func releaseByteBuffer(b *byteBuffer) {

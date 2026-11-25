@@ -1,4 +1,4 @@
-// Copyright 2020 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -12,7 +12,6 @@
 // limitations under the License.
 
 //go:build !windows
-// +build !windows
 
 package procfs
 
@@ -24,13 +23,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/prometheus/procfs/internal/util"
+	"github.com/prometheus/procfs/internal/parsers"
 )
 
-var (
-	// Match the header line before each mapped zone in `/proc/pid/smaps`.
-	procSMapsHeaderLine = regexp.MustCompile(`^[a-f0-9].*$`)
-)
+// Match the header line before each mapped zone in `/proc/pid/smaps`.
+var procSMapsHeaderLine = regexp.MustCompile(`^[a-f0-9].*$`)
 
 type ProcSMapsRollup struct {
 	// Amount of the mapping that is currently resident in RAM.
@@ -61,7 +58,7 @@ type ProcSMapsRollup struct {
 // If smaps_rollup does not exists (require kernel >= 4.15), the content of /proc/pid/smaps will
 // we read and summed.
 func (p Proc) ProcSMapsRollup() (ProcSMapsRollup, error) {
-	data, err := util.ReadFileNoStat(p.path("smaps_rollup"))
+	data, err := parsers.ReadFileNoStat(p.path("smaps_rollup"))
 	if err != nil && os.IsNotExist(err) {
 		return p.procSMapsRollupManual()
 	}

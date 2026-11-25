@@ -27,7 +27,7 @@ func NewFunc(f func(ctx any)) func(ctx any) bool {
 	funcWorkCh := make(chan *funcWork, runtime.GOMAXPROCS(-1)*2048)
 	onceInit := func() {
 		n := runtime.GOMAXPROCS(-1)
-		for i := 0; i < n; i++ {
+		for range n {
 			go funcWorker(funcWorkCh, f)
 		}
 	}
@@ -64,7 +64,7 @@ func getFuncWork() *funcWork {
 			done: make(chan struct{}, 1),
 		}
 	}
-	return v.(*funcWork)
+	return v.(*funcWork) //nolint:forcetypeassert
 }
 
 func putFuncWork(fw *funcWork) {

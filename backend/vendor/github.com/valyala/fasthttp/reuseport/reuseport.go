@@ -1,4 +1,4 @@
-//go:build !windows && !aix
+//go:build !windows && !aix && !solaris
 
 // Package reuseport provides TCP net.Listener with SO_REUSEPORT support.
 //
@@ -30,7 +30,7 @@ import (
 // ErrNoReusePort error is returned if the system doesn't support SO_REUSEPORT.
 func Listen(network, addr string) (net.Listener, error) {
 	ln, err := cfg.NewListener(network, addr)
-	if err != nil && strings.Contains(err.Error(), "SO_REUSEPORT") {
+	if err != nil && strings.Contains(err.Error(), "so_reuseport") {
 		return nil, &ErrNoReusePort{err: err}
 	}
 	return ln, err

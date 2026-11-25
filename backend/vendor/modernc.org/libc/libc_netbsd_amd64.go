@@ -12,7 +12,6 @@ import (
 	"modernc.org/libc/fcntl"
 	"modernc.org/libc/fts"
 	"modernc.org/libc/sys/types"
-	"modernc.org/libc/time"
 	"modernc.org/libc/utime"
 )
 
@@ -235,19 +234,6 @@ func Xchmod(t *TLS, pathname uintptr, mode types.Mode_t) int32 {
 		dmesg("%v: %q %#o: ok", origin(1), GoString(pathname), mode)
 	}
 	return 0
-}
-
-// time_t time(time_t *tloc);
-func Xtime(t *TLS, tloc uintptr) time.Time_t {
-	if __ccgo_strace {
-		trc("t=%v tloc=%v, (%v:)", t, tloc, origin(2))
-	}
-	panic(todo(""))
-	// n := time.Now().UTC().Unix()
-	// if tloc != 0 {
-	// 	*(*types.Time_t)(unsafe.Pointer(tloc)) = types.Time_t(n)
-	// }
-	// return types.Time_t(n)
 }
 
 // int utimes(const char *filename, const struct timeval times[2]);
@@ -707,4 +693,24 @@ func Xopendir(t *TLS, name uintptr) uintptr {
 	(*darwinDir)(unsafe.Pointer(p)).l = 0
 	(*darwinDir)(unsafe.Pointer(p)).eof = false
 	return p
+}
+
+func AtomicLoadPInt8(addr uintptr) (val int8) {
+	return int8(a_load_8(addr))
+}
+
+func AtomicLoadPInt16(addr uintptr) (val int16) {
+	return int16(a_load_16(addr))
+}
+
+func AtomicLoadPUint8(addr uintptr) byte {
+	return byte(a_load_8(addr))
+}
+
+func AtomicLoadPUint16(addr uintptr) uint16 {
+	return uint16(a_load_16(addr))
+}
+
+func AtomicLoadNUint8(ptr uintptr, memorder int32) uint8 {
+	return byte(a_load_8(ptr))
 }

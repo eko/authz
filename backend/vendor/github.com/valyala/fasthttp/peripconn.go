@@ -4,19 +4,23 @@ import (
 	"crypto/tls"
 	"net"
 	"sync"
+	"sync/atomic"
 )
 
+// perIPKey identifies the client a connection comes from. Every address is
+// held in its 16-byte form, so an IPv4 peer and the IPv4-mapped form of the
+// same address are one client.
+type perIPKey [16]byte
+
 type perIPConnCounter struct {
-	perIPConnPool    sync.Pool
-	perIPTLSConnPool sync.Pool
-	m                map[uint32]int
-	lock             sync.Mutex
+	m    map[perIPKey]int
+	lock sync.Mutex
 }
 
-func (cc *perIPConnCounter) Register(ip uint32) int {
+func (cc *perIPConnCounter) Register(ip perIPKey) int {
 	cc.lock.Lock()
 	if cc.m == nil {
-		cc.m = make(map[uint32]int)
+		cc.m = make(map[perIPKey]int)
 	}
 	n := cc.m[ip] + 1
 	cc.m[ip] = n
@@ -24,27 +28,30 @@ func (cc *perIPConnCounter) Register(ip uint32) int {
 	return n
 }
 
-func (cc *perIPConnCounter) Unregister(ip uint32) {
+func (cc *perIPConnCounter) Unregister(ip perIPKey) {
 	cc.lock.Lock()
 	defer cc.lock.Unlock()
 	if cc.m == nil {
 		// developer safeguard
 		panic("BUG: perIPConnCounter.Register() wasn't called")
 	}
-	n := cc.m[ip] - 1
-	if n < 0 {
-		n = 0
+	// Drop the entry, otherwise the map keeps a key per distinct client IP forever.
+	if n := cc.m[ip] - 1; n > 0 {
+		cc.m[ip] = n
+	} else {
+		delete(cc.m, ip)
 	}
-	cc.m[ip] = n
 }
 
+// A per-IP wrapper is not recycled: Shutdown closes the connection from
+// another goroutine while the serving one may still use the wrapper.
 type perIPConn struct {
 	net.Conn
 
 	perIPConnCounter *perIPConnCounter
 
-	ip   uint32
-	lock sync.Mutex
+	ip     perIPKey
+	closed atomic.Bool
 }
 
 type perIPTLSConn struct {
@@ -52,97 +59,61 @@ type perIPTLSConn struct {
 
 	perIPConnCounter *perIPConnCounter
 
-	ip   uint32
-	lock sync.Mutex
+	ip     perIPKey
+	closed atomic.Bool
 }
 
-func acquirePerIPConn(conn net.Conn, ip uint32, counter *perIPConnCounter) net.Conn {
+func newPerIPConn(conn net.Conn, ip perIPKey, counter *perIPConnCounter) net.Conn {
 	if tlsConn, ok := conn.(*tls.Conn); ok {
-		v := counter.perIPTLSConnPool.Get()
-		if v == nil {
-			return &perIPTLSConn{
-				perIPConnCounter: counter,
-				Conn:             tlsConn,
-				ip:               ip,
-			}
-		}
-		c := v.(*perIPTLSConn)
-		c.Conn = tlsConn
-		c.ip = ip
-		return c
-	}
-
-	v := counter.perIPConnPool.Get()
-	if v == nil {
-		return &perIPConn{
+		return &perIPTLSConn{
 			perIPConnCounter: counter,
-			Conn:             conn,
+			Conn:             tlsConn,
 			ip:               ip,
 		}
 	}
-	c := v.(*perIPConn)
-	c.Conn = conn
-	c.ip = ip
-	return c
+	return &perIPConn{
+		perIPConnCounter: counter,
+		Conn:             conn,
+		ip:               ip,
+	}
 }
 
 func (c *perIPConn) Close() error {
-	c.lock.Lock()
-	cc := c.Conn
-	c.Conn = nil
-	c.lock.Unlock()
-
-	if cc == nil {
+	if c.closed.Swap(true) {
 		return nil
 	}
-
-	err := cc.Close()
+	err := c.Conn.Close()
 	c.perIPConnCounter.Unregister(c.ip)
-	c.perIPConnCounter.perIPConnPool.Put(c)
 	return err
 }
 
 func (c *perIPTLSConn) Close() error {
-	c.lock.Lock()
-	cc := c.Conn
-	c.Conn = nil
-	c.lock.Unlock()
-
-	if cc == nil {
+	if c.closed.Swap(true) {
 		return nil
 	}
-
-	err := cc.Close()
+	err := c.Conn.Close()
 	c.perIPConnCounter.Unregister(c.ip)
-	c.perIPConnCounter.perIPTLSConnPool.Put(c)
 	return err
 }
 
-func getUint32IP(c net.Conn) uint32 {
-	return ip2uint32(getConnIP4(c))
+// getPerIPKey returns the counter key for the client c comes from. ok is
+// false when the peer has no IP address to key on, which leaves the
+// connection uncounted.
+func getPerIPKey(c net.Conn) (key perIPKey, ok bool) {
+	ip := getConnIP(c).To16()
+	if ip == nil {
+		return key, false
+	}
+	copy(key[:], ip)
+	return key, true
 }
 
-func getConnIP4(c net.Conn) net.IP {
-	addr := c.RemoteAddr()
-	ipAddr, ok := addr.(*net.TCPAddr)
+// getConnIP returns the IP the connection comes from, or nil when its peer
+// has no IP address.
+func getConnIP(c net.Conn) net.IP {
+	ipAddr, ok := c.RemoteAddr().(*net.TCPAddr)
 	if !ok {
-		return net.IPv4zero
+		return nil
 	}
-	return ipAddr.IP.To4()
-}
-
-func ip2uint32(ip net.IP) uint32 {
-	if len(ip) != 4 {
-		return 0
-	}
-	return uint32(ip[0])<<24 | uint32(ip[1])<<16 | uint32(ip[2])<<8 | uint32(ip[3])
-}
-
-func uint322ip(ip uint32) net.IP {
-	b := make([]byte, 4)
-	b[0] = byte(ip >> 24)
-	b[1] = byte(ip >> 16)
-	b[2] = byte(ip >> 8)
-	b[3] = byte(ip)
-	return b
+	return ipAddr.IP
 }

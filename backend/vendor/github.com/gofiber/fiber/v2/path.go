@@ -7,6 +7,7 @@
 package fiber
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -114,7 +115,19 @@ var (
 	parameterConstraintDataSeparatorChars = []byte{paramConstraintDataSeparator}
 )
 
-// RoutePatternMatch checks if a given path matches a Fiber route pattern.
+// RoutePatternMatch reports whether the given request path would match the
+// provided Fiber route pattern using the same rules as the router. This can be
+// handy in tests or tooling where you need to verify patterns without
+// registering them on an App instance.
+//
+// An optional Config may be passed to control matching behavior such as
+// case-sensitivity or strict routing. When no configuration is supplied the
+// default Config is used.
+//
+// Example:
+//
+//	match := fiber.RoutePatternMatch("/api/v1/users", "/api/:version/*")
+//	// match == true
 func RoutePatternMatch(path, pattern string, cfg ...Config) bool {
 	// See logic in (*Route).match and (*App).register
 	var ctxParams [maxParams]string
@@ -177,6 +190,7 @@ func RoutePatternMatch(path, pattern string, cfg ...Config) bool {
 // this information is needed later when assigning the requests to the declared routes
 func parseRoute(pattern string) routeParser {
 	parser := routeParser{}
+	originalPattern := pattern
 
 	part := ""
 	for len(pattern) > 0 {
@@ -201,6 +215,12 @@ func parseRoute(pattern string) routeParser {
 		parser.segs[len(parser.segs)-1].IsLast = true
 	}
 	parser.segs = addParameterMetaInfo(parser.segs)
+
+	// Check if the route has too many parameters
+	if len(parser.params) > maxParams {
+		panic(fmt.Sprintf("Route '%s' has %d parameters, which exceeds the maximum of %d",
+			originalPattern, len(parser.params), maxParams))
+	}
 
 	return parser
 }

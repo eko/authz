@@ -7,12 +7,19 @@
 package libc // import "modernc.org/libc"
 
 import (
+	"math"
+	"math/bits"
+
 	"modernc.org/libc/errno"
 	"modernc.org/libc/sys/types"
 	"modernc.org/memory"
 )
 
-const memgrind = false
+const (
+	// allocaBump selects the alloca(3) bump region, see allocaChunk.
+	allocaBump = true
+	memgrind   = false
+)
 
 var (
 	allocator memory.Allocator
@@ -47,7 +54,12 @@ func Xcalloc(t *TLS, n, size types.Size_t) uintptr {
 	if __ccgo_strace {
 		trc("t=%v n=%v size=%v, (%v:)", t, n, size, origin(2))
 	}
-	rq := int(n * size)
+	hi, rq0 := bits.Mul(uint(n), uint(size))
+	if hi != 0 || rq0 > math.MaxInt {
+		t.setErrno(errno.ENOMEM)
+		return 0
+	}
+	rq := int(rq0)
 	if rq == 0 {
 		rq = 1
 	}
@@ -140,6 +152,19 @@ func MemStat() MemAllocatorStat {
 		Bytes:  allocator.Bytes,
 		Mmaps:  allocator.Mmaps,
 	}
+}
+
+// MemTrim returns to the OS the empty pages the allocator retains for reuse.
+// Pages that still hold a live block stay mapped.
+//
+// MemTrim is never necessary for correctness. It trades a smaller resident set
+// now for the cost of mapping the pages again later.
+func MemTrim() error {
+	allocMu.Lock()
+
+	defer allocMu.Unlock()
+
+	return allocator.Trim()
 }
 
 // MemAuditStart locks the memory allocator, initializes and enables memory

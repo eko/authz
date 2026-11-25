@@ -36,7 +36,7 @@ func init() {
 	}
 }
 
-func zDecompress(src []byte, dst *bytes.Buffer) (int, error) {
+func zDecompress(src []byte, dst *bytes.Buffer, limit int) (int, error) {
 	br := bytes.NewReader(src)
 	var zr io.ReadCloser
 	var err error
@@ -52,8 +52,18 @@ func zDecompress(src []byte, dst *bytes.Buffer) (int, error) {
 		}
 	}
 
-	n, _ := dst.ReadFrom(zr) // ignore err because zr.Close() will return it again.
-	err = zr.Close()         // zr.Close() may return chuecksum error.
+	var reader io.Reader = zr
+	if limit > 0 {
+		reader = io.LimitReader(zr, int64(limit)+1)
+	}
+	n, readErr := dst.ReadFrom(reader)
+	err = zr.Close()
+	if readErr != nil {
+		err = readErr
+	}
+	if limit > 0 && n > int64(limit) {
+		err = ErrPktTooLarge
+	}
 	zrPool.Put(zr)
 	return int(n), err
 }
@@ -84,9 +94,13 @@ func (c *compIO) reset() {
 	c.buff.Reset()
 }
 
-func (c *compIO) readNext(need int, r readerFunc) ([]byte, error) {
+func (c *compIO) readNext(need int) ([]byte, error) {
+	return c.readNextLimit(need, 0)
+}
+
+func (c *compIO) readNextLimit(need, limit int) ([]byte, error) {
 	for c.buff.Len() < need {
-		if err := c.readCompressedPacket(r); err != nil {
+		if err := c.readCompressedPacket(limit); err != nil {
 			return nil, err
 		}
 	}
@@ -94,8 +108,8 @@ func (c *compIO) readNext(need int, r readerFunc) ([]byte, error) {
 	return data[:need:need], nil // prevent caller writes into c.buff
 }
 
-func (c *compIO) readCompressedPacket(r readerFunc) error {
-	header, err := c.mc.buf.readNext(7, r) // size of compressed header
+func (c *compIO) readCompressedPacket(limit int) error {
+	header, err := c.mc.readNext(7)
 	if err != nil {
 		return err
 	}
@@ -103,8 +117,18 @@ func (c *compIO) readCompressedPacket(r readerFunc) error {
 
 	// compressed header structure
 	comprLength := getUint24(header[0:3])
-	compressionSequence := uint8(header[3])
+	compressionSequence := header[3]
 	uncompressedLength := getUint24(header[4:7])
+	if limit > 0 {
+		decodedLength := uncompressedLength
+		if decodedLength == 0 {
+			decodedLength = comprLength
+		}
+		// Bound wire input separately from accumulated decoded output.
+		if comprLength > limit || c.buff.Len()+decodedLength > limit {
+			return ErrPktTooLarge
+		}
+	}
 	if debug {
 		fmt.Printf("uncompress cmplen=%v uncomplen=%v pkt_cmp_seq=%v expected_cmp_seq=%v\n",
 			comprLength, uncompressedLength, compressionSequence, c.mc.sequence)
@@ -113,14 +137,13 @@ func (c *compIO) readCompressedPacket(r readerFunc) error {
 	// Server may return error packet (e.g. 1153 Got a packet bigger than 'max_allowed_packet' bytes)
 	// before receiving all packets from client. In this case, seqnr is younger than expected.
 	// NOTE: Both of mariadbclient and mysqlclient do not check seqnr. Only server checks it.
-	if debug && compressionSequence != c.mc.sequence {
+	if debug && compressionSequence != c.mc.compressSequence {
 		fmt.Printf("WARN: unexpected cmpress seq nr: expected %v, got %v",
-			c.mc.sequence, compressionSequence)
+			c.mc.compressSequence, compressionSequence)
 	}
-	c.mc.sequence = compressionSequence + 1
-	c.mc.compressSequence = c.mc.sequence
+	c.mc.compressSequence = compressionSequence + 1
 
-	comprData, err := c.mc.buf.readNext(comprLength, r)
+	comprData, err := c.mc.readNext(comprLength)
 	if err != nil {
 		return err
 	}
@@ -134,7 +157,11 @@ func (c *compIO) readCompressedPacket(r readerFunc) error {
 
 	// use existing capacity in bytesBuf if possible
 	c.buff.Grow(uncompressedLength)
-	nread, err := zDecompress(comprData, &c.buff)
+	decodeLimit := limit
+	if decodeLimit > 0 {
+		decodeLimit -= c.buff.Len()
+	}
+	nread, err := zDecompress(comprData, &c.buff, decodeLimit)
 	if err != nil {
 		return err
 	}
@@ -200,7 +227,7 @@ func (c *compIO) writeCompressedPacket(data []byte, uncompressedLen int) (int, e
 	comprLength := len(data) - 7
 	if debug {
 		fmt.Printf(
-			"writeCompressedPacket: comprLength=%v, uncompressedLen=%v, seq=%v",
+			"writeCompressedPacket: comprLength=%v, uncompressedLen=%v, seq=%v\n",
 			comprLength, uncompressedLen, mc.compressSequence)
 	}
 

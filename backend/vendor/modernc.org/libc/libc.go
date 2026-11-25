@@ -4,9 +4,9 @@
 
 //go:build !linux || mips64le
 
-// go.generate echo package libc > ccgo.go
-//
-//go:generate go fmt -l -s -w ./...
+///go.generate echo package libc > ccgo.go
+///go:generate go fmt -l -s -w ./...
+
 package libc // import "modernc.org/libc"
 
 //TODO use O_RDONLY etc. from fcntl header
@@ -15,6 +15,7 @@ package libc // import "modernc.org/libc"
 
 import (
 	"bufio"
+	"bytes"
 	crand "crypto/rand"
 	"fmt"
 	"math"
@@ -23,7 +24,6 @@ import (
 	"os"
 	"runtime"
 	"runtime/debug"
-	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -52,8 +52,6 @@ var (
 	allocMu            sync.Mutex
 	environInitialized bool
 	isWindows          bool
-	ungetcMu           sync.Mutex
-	ungetc             = map[uintptr]byte{}
 )
 
 // Keep these outside of the var block otherwise go generate will miss them.
@@ -155,8 +153,8 @@ func exit(t *TLS, status int32, audit bool) {
 		CoverCReport(buf)
 		buf.Flush()
 	}
-	for _, v := range atExit {
-		v()
+	for i := len(atExit) - 1; i >= 0; i-- {
+		atExit[i]()
 	}
 	if audit {
 		t.Close()
@@ -206,14 +204,6 @@ func Xsetbuf(t *TLS, stream, buf uintptr) {
 		trc("t=%v buf=%v, (%v:)", t, buf, origin(2))
 	}
 	//TODO panic(todo(""))
-}
-
-// size_t confstr(int name, char *buf, size_t len);
-func Xconfstr(t *TLS, name int32, buf uintptr, len types.Size_t) types.Size_t {
-	if __ccgo_strace {
-		trc("t=%v name=%v buf=%v len=%v, (%v:)", t, name, buf, len, origin(2))
-	}
-	panic(todo(""))
 }
 
 // int puts(const char *s);
@@ -288,6 +278,10 @@ func X__builtin_clzl(t *TLS, n ulong) int32 {
 	if __ccgo_strace {
 		trc("t=%v n=%v, (%v:)", t, n, origin(2))
 	}
+	if unsafe.Sizeof(n) == 4 {
+		return int32(mbits.LeadingZeros32(uint32(n)))
+	}
+
 	return int32(mbits.LeadingZeros64(uint64(n)))
 }
 
@@ -531,6 +525,14 @@ func X__builtin_popcountl(t *TLS, x ulong) int32 {
 	return int32(mbits.OnesCount64(uint64(x)))
 }
 
+// int __builtin_popcountll (unsigned long long)
+func X__builtin_popcountll(t *TLS, x uint64) int32 {
+	if __ccgo_strace {
+		trc("t=%v x=%v, (%v:)", t, x, origin(2))
+	}
+	return int32(mbits.OnesCount64(uint64(x)))
+}
+
 // char * __builtin___strcpy_chk (char *dest, const char *src, size_t os);
 func X__builtin___strcpy_chk(t *TLS, dest, src uintptr, os types.Size_t) uintptr {
 	if __ccgo_strace {
@@ -728,8 +730,6 @@ func X__builtin_object_size(t *TLS, p uintptr, typ int32) types.Size_t {
 	}
 }
 
-var atomicLoadStore16 sync.Mutex
-
 func AtomicStoreNUint8(ptr uintptr, val uint8, memorder int32) {
 	a_store_8(ptr, val)
 }
@@ -765,15 +765,7 @@ func Xqsort(t *TLS, base uintptr, nmemb, size types.Size_t, compar uintptr) {
 	if __ccgo_strace {
 		trc("t=%v base=%v size=%v compar=%v, (%v:)", t, base, size, compar, origin(2))
 	}
-	sort.Sort(&sorter{
-		len:  int(nmemb),
-		base: base,
-		sz:   uintptr(size),
-		f: (*struct {
-			f func(*TLS, uintptr, uintptr) int32
-		})(unsafe.Pointer(&struct{ uintptr }{compar})).f,
-		t: t,
-	})
+	qsort(t, base, uintptr(nmemb), uintptr(size), compar)
 }
 
 // void __assert_fail(const char * assertion, const char * file, unsigned int line, const char * function);
@@ -949,6 +941,15 @@ func X__builtin___vsnprintf_chk(t *TLS, str uintptr, maxlen types.Size_t, flag i
 	return Xsnprintf(t, str, maxlen, format, args)
 }
 
+// int __builtin___vsprintf_chk(char *s, int flag, size_t os, const char *format, va_list ap);
+func X__builtin___vsprintf_chk(t *TLS, s uintptr, flag int32, os types.Size_t, format, args uintptr) (r int32) {
+	if __ccgo_strace {
+		trc("t=%v s=%v flag=%v os=%v args=%v, (%v:)", t, s, flag, os, args, origin(2))
+		defer func() { trc("-> %v", r) }()
+	}
+	return Xvsprintf(t, s, format, args)
+}
+
 // int abs(int j);
 func Xabs(t *TLS, j int32) int32 {
 	if __ccgo_strace {
@@ -982,6 +983,36 @@ func Xllabs(tls *TLS, a int64) int64 {
 	}
 
 	return -a
+}
+
+// Tdiv_t is C's div_t.
+type Tdiv_t = struct {
+	Fquot int32
+	Frem  int32
+}
+
+// Tldiv_t is C's ldiv_t.
+type Tldiv_t = struct {
+	Fquot long
+	Frem  long
+}
+
+// div_t div(int num, int den);
+func Xdiv(tls *TLS, num, den int32) (r Tdiv_t) {
+	if __ccgo_strace {
+		trc("tls=%v num=%v den=%v, (%v:)", tls, num, den, origin(2))
+		defer func() { trc("-> %v", r) }()
+	}
+	return Tdiv_t{Fquot: num / den, Frem: num % den}
+}
+
+// ldiv_t ldiv(long num, long den);
+func Xldiv(tls *TLS, num, den long) (r Tldiv_t) {
+	if __ccgo_strace {
+		trc("tls=%v num=%v den=%v, (%v:)", tls, num, den, origin(2))
+		defer func() { trc("-> %v", r) }()
+	}
+	return Tldiv_t{Fquot: num / den, Frem: num % den}
 }
 
 func X__builtin_isnan(t *TLS, x float64) int32 {
@@ -1321,6 +1352,237 @@ func X__builtin_round(t *TLS, x float64) float64 {
 	return math.Round(x)
 }
 
+// See https://gitlab.com/cznic/libc/-/issues/56 for the functions below.
+
+// double erf(double x)
+func Xerf(t *TLS, x float64) float64 {
+	if __ccgo_strace {
+		trc("t=%v x=%v, (%v:)", t, x, origin(2))
+	}
+	return math.Erf(x)
+}
+
+// double erfc(double x)
+func Xerfc(t *TLS, x float64) float64 {
+	if __ccgo_strace {
+		trc("t=%v x=%v, (%v:)", t, x, origin(2))
+	}
+	return math.Erfc(x)
+}
+
+// double exp2(double x)
+func Xexp2(t *TLS, x float64) float64 {
+	if __ccgo_strace {
+		trc("t=%v x=%v, (%v:)", t, x, origin(2))
+	}
+	return math.Exp2(x)
+}
+
+// double fdim(double x, double y)
+func Xfdim(t *TLS, x, y float64) float64 {
+	if __ccgo_strace {
+		trc("t=%v x=%v y=%v, (%v:)", t, x, y, origin(2))
+	}
+	if math.IsNaN(x) || math.IsNaN(y) {
+		return math.NaN()
+	}
+
+	if x > y {
+		return x - y
+	}
+
+	return 0
+}
+
+// double fma(double x, double y, double z)
+func Xfma(t *TLS, x, y, z float64) float64 {
+	if __ccgo_strace {
+		trc("t=%v x=%v y=%v z=%v, (%v:)", t, x, y, z, origin(2))
+	}
+	return math.FMA(x, y, z)
+}
+
+func X__builtin_fma(t *TLS, x, y, z float64) float64 {
+	return Xfma(t, x, y, z)
+}
+
+// int ilogb(double x)
+func Xilogb(t *TLS, x float64) int32 {
+	if __ccgo_strace {
+		trc("t=%v x=%v, (%v:)", t, x, origin(2))
+	}
+	switch {
+	case math.IsNaN(x), x == 0:
+		return math.MinInt32 // FP_ILOGBNAN, FP_ILOGB0
+	case math.IsInf(x, 0):
+		return math.MaxInt32
+	}
+
+	return int32(math.Ilogb(x))
+}
+
+// double lgamma(double x)
+//
+// The sign of gamma(x) is not reported, this port has no signgam.
+func Xlgamma(t *TLS, x float64) float64 {
+	if __ccgo_strace {
+		trc("t=%v x=%v, (%v:)", t, x, origin(2))
+	}
+	r, _ := math.Lgamma(x)
+	return r
+}
+
+// double logb(double x)
+func Xlogb(t *TLS, x float64) float64 {
+	if __ccgo_strace {
+		trc("t=%v x=%v, (%v:)", t, x, origin(2))
+	}
+	return math.Logb(x)
+}
+
+// double nextafter(double x, double y)
+func Xnextafter(t *TLS, x, y float64) float64 {
+	if __ccgo_strace {
+		trc("t=%v x=%v y=%v, (%v:)", t, x, y, origin(2))
+	}
+	return math.Nextafter(x, y)
+}
+
+// float nextafterf(float x, float y)
+func Xnextafterf(t *TLS, x, y float32) float32 {
+	if __ccgo_strace {
+		trc("t=%v x=%v y=%v, (%v:)", t, x, y, origin(2))
+	}
+	return math.Nextafter32(x, y)
+}
+
+// double nexttoward(double x, long double y)
+func Xnexttoward(t *TLS, x, y float64) float64 {
+	if __ccgo_strace {
+		trc("t=%v x=%v y=%v, (%v:)", t, x, y, origin(2))
+	}
+	return math.Nextafter(x, y)
+}
+
+// double remainder(double x, double y)
+func Xremainder(t *TLS, x, y float64) float64 {
+	if __ccgo_strace {
+		trc("t=%v x=%v y=%v, (%v:)", t, x, y, origin(2))
+	}
+	return math.Remainder(x, y)
+}
+
+// double remquo(double x, double y, int *quo)
+//
+// Transliterated from musl src/math/remquo.c.
+func Xremquo(t *TLS, x, y float64, quo uintptr) float64 {
+	if __ccgo_strace {
+		trc("t=%v x=%v y=%v quo=%v, (%v:)", t, x, y, quo, origin(2))
+	}
+	ux := math.Float64bits(x)
+	uy := math.Float64bits(y)
+	ex := int(ux >> 52 & 0x7ff)
+	ey := int(uy >> 52 & 0x7ff)
+	sx := ux >> 63
+	sy := uy >> 63
+	var q uint32
+	var i uint64
+	uxi := ux
+
+	*(*int32)(unsafe.Pointer(quo)) = 0
+	if uy<<1 == 0 || math.IsNaN(y) || ex == 0x7ff {
+		return (x * y) / (x * y)
+	}
+
+	if ux<<1 == 0 {
+		return x
+	}
+
+	// normalize x and y
+	if ex == 0 {
+		for i = uxi << 12; i>>63 == 0; i <<= 1 {
+			ex--
+		}
+		uxi <<= uint(-ex + 1)
+	} else {
+		uxi &= ^uint64(0) >> 12
+		uxi |= 1 << 52
+	}
+	if ey == 0 {
+		for i = uy << 12; i>>63 == 0; i <<= 1 {
+			ey--
+		}
+		uy <<= uint(-ey + 1)
+	} else {
+		uy &= ^uint64(0) >> 12
+		uy |= 1 << 52
+	}
+
+	if ex < ey {
+		if ex+1 != ey {
+			return x
+		}
+	} else {
+		// x mod y
+		for ; ex > ey; ex-- {
+			i = uxi - uy
+			if i>>63 == 0 {
+				uxi = i
+				q++
+			}
+			uxi <<= 1
+			q <<= 1
+		}
+		i = uxi - uy
+		if i>>63 == 0 {
+			uxi = i
+			q++
+		}
+		if uxi == 0 {
+			ex = -60
+		} else {
+			for ; uxi>>52 == 0; uxi <<= 1 {
+				ex--
+			}
+		}
+	}
+
+	// scale result and decide between |x| and |x|-|y|
+	if ex > 0 {
+		uxi -= 1 << 52
+		uxi |= uint64(ex) << 52
+	} else {
+		uxi >>= uint(-ex + 1)
+	}
+	x = math.Float64frombits(uxi)
+	if sy != 0 {
+		y = -y
+	}
+	if ex == ey || (ex+1 == ey && (2*x > y || (2*x == y && q%2 != 0))) {
+		x -= y
+		q++
+	}
+	q &= 0x7fffffff
+	if sx^sy != 0 {
+		*(*int32)(unsafe.Pointer(quo)) = -int32(q)
+	} else {
+		*(*int32)(unsafe.Pointer(quo)) = int32(q)
+	}
+	if sx != 0 {
+		return -x
+	}
+
+	return x
+}
+
+// double tgamma(double x)
+func Xtgamma(t *TLS, x float64) float64 {
+	if __ccgo_strace {
+		trc("t=%v x=%v, (%v:)", t, x, origin(2))
+	}
+	return math.Gamma(x)
+}
+
 func X__builtin_roundf(t *TLS, x float32) float32 {
 	if __ccgo_strace {
 		trc("t=%v x=%v, (%v:)", t, x, origin(2))
@@ -1483,18 +1745,11 @@ func Xstrncpy(t *TLS, dest, src uintptr, n types.Size_t) (r uintptr) {
 		trc("t=%v src=%v n=%v, (%v:)", t, src, n, origin(2))
 		defer func() { trc("-> %v", r) }()
 	}
-	r = dest
-	for c := *(*int8)(unsafe.Pointer(src)); c != 0 && n > 0; n-- {
-		*(*int8)(unsafe.Pointer(dest)) = c
-		dest++
-		src++
-		c = *(*int8)(unsafe.Pointer(src))
-	}
-	for ; uintptr(n) > 0; n-- {
-		*(*int8)(unsafe.Pointer(dest)) = 0
-		dest++
-	}
-	return r
+	k := strnlen(src, n)
+	d := unsafe.Slice((*byte)(unsafe.Pointer(dest)), n)
+	copy(d, unsafe.Slice((*byte)(unsafe.Pointer(src)), k))
+	clear(d[k:])
+	return dest
 }
 
 // char * __builtin___strncpy_chk (char *dest, const char *src, size_t n, size_t os);
@@ -1524,22 +1779,6 @@ func Xstrcmp(t *TLS, s1, s2 uintptr) int32 {
 			return int32(ch1) - int32(ch2)
 		}
 	}
-}
-
-// size_t strlen(const char *s)
-func Xstrlen(t *TLS, s uintptr) (r types.Size_t) {
-	if __ccgo_strace {
-		trc("t=%v s=%v, (%v:)", t, s, origin(2))
-		defer func() { trc("-> %v", r) }()
-	}
-	if s == 0 {
-		return 0
-	}
-
-	for ; *(*int8)(unsafe.Pointer(s)) != 0; s++ {
-		r++
-	}
-	return r
 }
 
 // char *strcat(char *dest, const char *src)
@@ -1601,15 +1840,19 @@ func Xstrcpy(t *TLS, dest, src uintptr) (r uintptr) {
 		defer func() { trc("-> %v", r) }()
 	}
 	r = dest
-	// src0 := src
-	for ; ; dest++ {
-		c := *(*int8)(unsafe.Pointer(src))
-		src++
-		*(*int8)(unsafe.Pointer(dest)) = c
+	// Short strings are cheaper to copy bytewise than to scan twice.
+	for i := 0; i < 16; i++ {
+		c := *(*byte)(unsafe.Pointer(src + uintptr(i)))
+		*(*byte)(unsafe.Pointer(dest + uintptr(i))) = c
 		if c == 0 {
 			return r
 		}
 	}
+	dest += 16
+	src += 16
+	n := strlen(src) + 1
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(dest)), n), unsafe.Slice((*byte)(unsafe.Pointer(src)), n))
+	return r
 }
 
 // char *strchr(const char *s, int c)
@@ -1617,18 +1860,25 @@ func Xstrchr(t *TLS, s uintptr, c int32) uintptr {
 	if __ccgo_strace {
 		trc("t=%v s=%v c=%v, (%v:)", t, s, c, origin(2))
 	}
-	for {
-		ch2 := *(*byte)(unsafe.Pointer(s))
-		if ch2 == byte(c) {
+	// Short strings are cheaper to scan bytewise than twice.
+	for i := 0; i < 16; i++ {
+		ch := *(*byte)(unsafe.Pointer(s))
+		if ch == byte(c) {
 			return s
 		}
 
-		if ch2 == 0 {
+		if ch == 0 {
 			return 0
 		}
 
 		s++
 	}
+	// The scan includes the NUL so that c == 0 finds the terminator.
+	if i := bytes.IndexByte(unsafe.Slice((*byte)(unsafe.Pointer(s)), strlen(s)+1), byte(c)); i >= 0 {
+		return s + uintptr(i)
+	}
+
+	return 0
 }
 
 // char *strrchr(const char *s, int c)
@@ -1637,17 +1887,12 @@ func Xstrrchr(t *TLS, s uintptr, c int32) (r uintptr) {
 		trc("t=%v s=%v c=%v, (%v:)", t, s, c, origin(2))
 		defer func() { trc("-> %v", r) }()
 	}
-	for {
-		ch2 := *(*byte)(unsafe.Pointer(s))
-		if ch2 == 0 {
-			return r
-		}
-
-		if ch2 == byte(c) {
-			r = s
-		}
-		s++
+	// the terminating NUL is part of the string and matches c == 0
+	n := Xstrlen(t, s)
+	if i := bytes.LastIndexByte(unsafe.Slice((*byte)(unsafe.Pointer(s)), n+1), byte(c)); i >= 0 {
+		return s + uintptr(i)
 	}
+	return 0
 }
 
 // void *memset(void *s, int c, size_t n)
@@ -1755,20 +2000,7 @@ func Xmemcmp(t *TLS, s1, s2 uintptr, n types.Size_t) int32 {
 	if __ccgo_strace {
 		trc("t=%v s2=%v n=%v, (%v:)", t, s2, n, origin(2))
 	}
-	for ; n != 0; n-- {
-		c1 := *(*byte)(unsafe.Pointer(s1))
-		s1++
-		c2 := *(*byte)(unsafe.Pointer(s2))
-		s2++
-		if c1 < c2 {
-			return -1
-		}
-
-		if c1 > c2 {
-			return 1
-		}
-	}
-	return 0
+	return memcmp(s1, s2, Tsize_t(n))
 }
 
 // void *memchr(const void *s, int c, size_t n);
@@ -1776,12 +2008,16 @@ func Xmemchr(t *TLS, s uintptr, c int32, n types.Size_t) uintptr {
 	if __ccgo_strace {
 		trc("t=%v s=%v c=%v n=%v, (%v:)", t, s, c, n, origin(2))
 	}
-	for ; n != 0; n-- {
-		if *(*byte)(unsafe.Pointer(s)) == byte(c) {
-			return s
+	// Scan in chunks that end at 4096-byte boundaries so n larger than the
+	// object (up to SIZE_MAX) never reads a page past the first match.
+	for n != 0 {
+		chunk := min(4096-s%4096, uintptr(n))
+		if i := bytes.IndexByte(unsafe.Slice((*byte)(unsafe.Pointer(s)), chunk), byte(c)); i >= 0 {
+			return s + uintptr(i)
 		}
 
-		s++
+		s += chunk
+		n -= types.Size_t(chunk)
 	}
 	return 0
 }
@@ -1826,14 +2062,9 @@ func getenv(p uintptr, nm string) uintptr {
 			return 0
 		}
 
-		s := GoString(q)
-		a := strings.SplitN(s, "=", 2)
-		if len(a) != 2 {
-			panic(todo("%q %q %q", nm, s, a))
-		}
-
-		if a[0] == nm {
-			return q + uintptr(len(nm)) + 1
+		// compare in place, the environment is scanned on every localtime call
+		if n := cstrPrefix(q, nm); n == len(nm) && *(*byte)(unsafe.Pointer(q + uintptr(n))) == '=' {
+			return q + uintptr(n) + 1
 		}
 	}
 }
@@ -1843,11 +2074,10 @@ func Xstrstr(t *TLS, haystack, needle uintptr) uintptr {
 	if __ccgo_strace {
 		trc("t=%v needle=%v, (%v:)", t, needle, origin(2))
 	}
-	hs := GoString(haystack)
-	nd := GoString(needle)
-	if i := strings.Index(hs, nd); i >= 0 {
-		r := haystack + uintptr(i)
-		return r
+	hs := unsafe.Slice((*byte)(unsafe.Pointer(haystack)), strlen(haystack))
+	nd := unsafe.Slice((*byte)(unsafe.Pointer(needle)), strlen(needle))
+	if i := bytes.Index(hs, nd); i >= 0 {
+		return haystack + uintptr(i)
 	}
 
 	return 0
@@ -1934,40 +2164,279 @@ func Xatol(t *TLS, nptr uintptr) long {
 	}
 }
 
+// cstrPrefix returns the length of the common prefix of the C string p and s.
+func cstrPrefix(p uintptr, s string) int {
+	var i int
+	for i < len(s) && *(*byte)(unsafe.Pointer(p + uintptr(i))) == s[i] {
+		i++
+	}
+	return i
+}
+
+type tzLocation struct {
+	tz  string
+	loc *gotime.Location
+}
+
+// localLocation caches the location of the last TZ value, loading it reads the zoneinfo file.
+var localLocation atomic.Pointer[tzLocation]
+
 func getLocalLocation() (loc *gotime.Location) {
-	loc = gotime.Local
-	if r := getenv(Environ(), "TZ"); r != 0 {
-		zname := GoString(r)
-		zone, off := parseZone(zname)
-		loc = gotime.FixedZone(zone, -off)
-		loc2, _ := gotime.LoadLocation(zname)
-		if loc2 != nil {
-			loc = loc2
+	r := getenv(Environ(), "TZ")
+	if r == 0 {
+		return gotime.Local
+	}
+
+	if c := localLocation.Load(); c != nil && cstrPrefix(r, c.tz) == len(c.tz) && *(*byte)(unsafe.Pointer(r + uintptr(len(c.tz)))) == 0 {
+		return c.loc
+	}
+
+	zname := GoString(r)
+	switch loc2, err := gotime.LoadLocation(strings.TrimPrefix(zname, ":")); {
+	case err == nil:
+		// Try a zone name first: parseZone exits at characters like '-' that valid names
+		// such as America/Port-au-Prince contain. POSIX lets a name follow a colon.
+		loc = loc2
+	case strings.HasPrefix(zname, ":"):
+		// A colon never starts a POSIX rule, so a name that does not load means UTC.
+		loc = gotime.UTC
+	default:
+		if l, ok := posixTZLocation(zname); ok {
+			// A POSIX rule such as EST5EDT,M3.2.0,M11.1.0, DST transitions included.
+			loc = l
+			break
+		}
+
+		// Not a rule the time package accepts: keep the standard time part, or use
+		// UTC rather than end the process over a malformed TZ.
+		if zone, off, ok := parseZone(zname); ok {
+			loc = gotime.FixedZone(zone, -off)
+		} else {
+			loc = gotime.UTC
 		}
 	}
+	localLocation.Store(&tzLocation{tz: zname, loc: loc})
 	return loc
+}
 
+// posixTZBlock is one section of a TZif version 2 file: the header, with no
+// transitions and one local time type, then that type, offset 1 s and an empty
+// name. posixTZLocation uses it for both the 32-bit and the 64-bit section.
+var posixTZBlock = []byte{
+	'T', 'Z', 'i', 'f', '2', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, // UT/local indicators
+	0, 0, 0, 0, // standard/wall indicators
+	0, 0, 0, 0, // leap seconds
+	0, 0, 0, 0, // transitions
+	0, 0, 0, 1, // local time types
+	0, 0, 0, 1, // abbreviation bytes
+	0, 0, 0, 1, 0, 0, // offset 1 s, not DST, abbreviation at 0
+	0, // empty abbreviation
+}
+
+// posixTZLocation returns a Location for a POSIX TZ rule string such as
+// "CET-1CEST,M3.5.0,M10.5.0/3". It puts s in the footer of a TZif file without
+// transitions, which the time package evaluates for every instant, so DST
+// follows the rule. It reports false if the time package does not accept s:
+// then it falls back to the sentinel local time type.
+func posixTZLocation(s string) (*gotime.Location, bool) {
+	if s == "" || strings.ContainsRune(s, '\n') {
+		return nil, false
+	}
+
+	data := append(append([]byte(nil), posixTZBlock...), posixTZBlock...)
+	data = append(append(append(data, '\n'), s...), '\n')
+	loc, err := gotime.LoadLocationFromTZData(s, data)
+	if err != nil {
+		return nil, false
+	}
+
+	if name, off := gotime.Unix(0, 0).In(loc).Zone(); name == "" && off == 1 {
+		return nil, false
+	}
+
+	return loc, true
 }
 
 // time_t mktime(struct tm *tm);
-func Xmktime(t *TLS, ptm uintptr) time.Time_t {
+//
+// mktime reads tm as a local time, with fields outside their ranges, and
+// ignores tm_wday and tm_yday. A tm_isdst > 0 says DST is in effect and 0 says
+// it is not, which picks the offset of a wall time the zone repeats or skips;
+// a negative one lets the zone decide. On success mktime sets every field of tm
+// to the normalized time, as localtime_r does. If the result does not fit
+// time_t or tm_year, it returns -1, sets EOVERFLOW and leaves tm alone.
+func Xmktime(t *TLS, ptm uintptr) (r time.Time_t) {
 	if __ccgo_strace {
 		trc("t=%v ptm=%v, (%v:)", t, ptm, origin(2))
+		defer func() { trc("-> %v", r) }()
 	}
-	loc := getLocalLocation()
-	tt := gotime.Date(
-		int((*time.Tm)(unsafe.Pointer(ptm)).Ftm_year+1900),
-		gotime.Month((*time.Tm)(unsafe.Pointer(ptm)).Ftm_mon+1),
-		int((*time.Tm)(unsafe.Pointer(ptm)).Ftm_mday),
-		int((*time.Tm)(unsafe.Pointer(ptm)).Ftm_hour),
-		int((*time.Tm)(unsafe.Pointer(ptm)).Ftm_min),
-		int((*time.Tm)(unsafe.Pointer(ptm)).Ftm_sec),
-		0,
-		loc,
-	)
-	(*time.Tm)(unsafe.Pointer(ptm)).Ftm_wday = int32(tt.Weekday())
-	(*time.Tm)(unsafe.Pointer(ptm)).Ftm_yday = int32(tt.YearDay() - 1)
-	return time.Time_t(tt.Unix())
+	u, ok := mktime(t, ptm, unsafe.Sizeof(time.Time_t(0)) == 4)
+	if !ok {
+		return -1
+	}
+
+	return time.Time_t(u)
+}
+
+// mktime does the work of mktime for a time_t of 32 bits if time32 is set, else
+// of 64 bits.
+func mktime(t *TLS, ptm uintptr, time32 bool) (int64, bool) {
+	tm := (*time.Tm)(unsafe.Pointer(ptm))
+	// time.Date would normalize the fields too, but in int, which has 32 bits on
+	// 386 and arm, where tm_year INT_MAX and the carries would wrap.
+	sec, min, hour, day := int64(tm.Ftm_sec), int64(tm.Ftm_min), int64(tm.Ftm_hour), int64(tm.Ftm_mday)
+	min, sec = min+floorDiv(sec, 60), floorMod(sec, 60)
+	hour, min = hour+floorDiv(min, 60), floorMod(min, 60)
+	day, hour = day+floorDiv(hour, 24), floorMod(hour, 24)
+	year, mon := int64(tm.Ftm_year)+1900+floorDiv(int64(tm.Ftm_mon), 12), floorMod(int64(tm.Ftm_mon), 12)
+	if c := day / tmCycleDays; c != 0 {
+		day -= c * tmCycleDays
+		year += c * tmCycleYears
+	}
+	k := tmCyclesOfYear(year)
+	tt := gotime.Date(int(year-k*tmCycleYears), gotime.Month(mon)+1, int(day), int(hour), int(min), int(sec), 0, getLocalLocation())
+	if tm.Ftm_isdst >= 0 && tt.IsDST() != (tm.Ftm_isdst > 0) {
+		tt = mktimeOtherOffset(tt, tm.Ftm_isdst > 0)
+	}
+	u := tt.Unix() + k*tmCycleSecs
+	if y := int64(tt.Year()) + k*tmCycleYears - 1900; y != int64(int32(y)) || time32 && u != int64(int32(u)) {
+		t.setErrno(errno.EOVERFLOW)
+		return -1, false
+	}
+
+	setTm(tm, tt, k)
+	return u, true
+}
+
+// Go's time.Date takes, and Time.Year returns, the year as an int, which has
+// 32 bits on 386 and arm, while mktime and localtime_r reach years up to
+// tm_year INT_MAX. Times that far away are moved by whole 400-year Gregorian
+// cycles into the years 9970 to 10369, or -6430 to -6031 for the past, and
+// moved back after. A cycle is 146097 days, a whole number of weeks, so dates,
+// weekdays and leap days repeat exactly. So does the local time: that far from
+// the zone's transitions it follows the zone's yearly rule, or its first
+// offset before them.
+const (
+	tmCycleYears = 400
+	tmCycleDays  = 146097
+	tmCycleSecs  = tmCycleDays * 86400
+	tmFarYears   = 1 << 20 // well past any zone's transitions, well within 32 bits
+	tmFarSecs    = tmFarYears * 31556952
+)
+
+// tmCyclesOfYear returns the number of cycles to move year by.
+func tmCyclesOfYear(year int64) int64 {
+	switch {
+	case year > tmFarYears:
+		return (year - 9970) / tmCycleYears
+	case year < -tmFarYears:
+		return floorDiv(year+6430, tmCycleYears)
+	}
+	return 0
+}
+
+// tmCyclesOfSecs returns the number of cycles to move the time ut, in seconds
+// since the epoch, by.
+func tmCyclesOfSecs(ut int64) int64 {
+	switch {
+	case ut > tmFarSecs:
+		return ut/tmCycleSecs - 20
+	case ut < -tmFarSecs:
+		return floorDiv(ut, tmCycleSecs) + 21
+	}
+	return 0
+}
+
+func floorDiv(a, b int64) int64 {
+	q := a / b
+	if a%b != 0 && (a < 0) != (b < 0) {
+		q--
+	}
+	return q
+}
+
+func floorMod(a, b int64) int64 { return a - floorDiv(a, b)*b }
+
+// localtimeTm writes the local time at ut seconds since the epoch to tm, as
+// localtime_r does. If the time cannot be represented, because it is outside
+// the range musl accepts or its year does not fit tm_year, it writes nothing,
+// sets EOVERFLOW unless t is nil, and returns false.
+func localtimeTm(t *TLS, ut int64, tm *time.Tm) bool {
+	const max = math.MaxInt32 * 31622400 // as musl's __secs_to_tm
+	if ut >= -max && ut <= max {
+		k := tmCyclesOfSecs(ut)
+		tt := gotime.Unix(ut-k*tmCycleSecs, 0).In(getLocalLocation())
+		if y := int64(tt.Year()) + k*tmCycleYears - 1900; y == int64(int32(y)) {
+			setTm(tm, tt, k)
+			return true
+		}
+	}
+
+	if t != nil {
+		t.setErrno(errno.EOVERFLOW)
+	}
+	return false
+}
+
+// setTm writes the broken-down time tt, k cycles later, to tm, including the
+// zone fields where this struct tm has them. The year must fit tm_year.
+func setTm(tm *time.Tm, tt gotime.Time, k int64) {
+	name, off := tt.Zone()
+	tm.Ftm_sec = int32(tt.Second())
+	tm.Ftm_min = int32(tt.Minute())
+	tm.Ftm_hour = int32(tt.Hour())
+	tm.Ftm_mday = int32(tt.Day())
+	tm.Ftm_mon = int32(tt.Month() - 1)
+	tm.Ftm_year = int32(int64(tt.Year()) + k*tmCycleYears - 1900)
+	tm.Ftm_wday = int32(tt.Weekday())
+	tm.Ftm_yday = int32(tt.YearDay() - 1)
+	tm.Ftm_isdst = Bool32(tt.IsDST())
+	tmSetZone(tm, name, off)
+}
+
+var (
+	tzAbbrevMu sync.Mutex
+	tzAbbrevs  = map[string][]byte{}
+)
+
+// tzAbbrev returns the zone abbreviation s as a C string for tm_zone. Like the
+// system libcs, it keeps one copy of each abbreviation for the life of the
+// process. The copies are Go memory that the map keeps alive.
+func tzAbbrev(s string) uintptr {
+	tzAbbrevMu.Lock()
+
+	defer tzAbbrevMu.Unlock()
+
+	b, ok := tzAbbrevs[s]
+	if !ok {
+		b = append([]byte(s), 0)
+		tzAbbrevs[s] = b
+	}
+	return uintptr(unsafe.Pointer(&b[0]))
+}
+
+// mktimeOtherOffset returns the instant at which the wall clock shows what it
+// shows at tt, read with the offset of the zone period next to tt's whose DST
+// state is dst, as musl does with its opposite offset. It returns tt if neither
+// neighboring period has that state.
+func mktimeOtherOffset(tt gotime.Time, dst bool) gotime.Time {
+	_, off := tt.Zone()
+	start, end := tt.ZoneBounds()
+	var near []gotime.Time
+	if !start.IsZero() {
+		near = append(near, start.Add(-gotime.Second))
+	}
+	if !end.IsZero() {
+		near = append(near, end)
+	}
+	for _, u := range near {
+		if u = u.In(tt.Location()); u.IsDST() == dst {
+			_, o := u.Zone()
+			return tt.Add(gotime.Duration(off-o) * gotime.Second)
+		}
+	}
+	return tt
 }
 
 // char *strpbrk(const char *s, const char *accept);
@@ -2188,6 +2657,22 @@ func AtomicStorePFloat64(addr uintptr, val float64) {
 	atomic.StoreUint64((*uint64)(unsafe.Pointer(addr)), math.Float64bits(val))
 }
 
+func AtomicStorePInt8(addr uintptr, val int8) {
+	a_store_8(addr, byte(val))
+}
+
+func AtomicStorePInt16(addr uintptr, val int16) {
+	a_store_16(addr, uint16(val))
+}
+
+func AtomicStorePUint8(addr uintptr, val uint8) {
+	a_store_8(addr, val)
+}
+
+func AtomicStorePUint16(addr uintptr, val uint16) {
+	a_store_16(addr, val)
+}
+
 func AtomicAddInt32(addr *int32, delta int32) (new int32)     { return atomic.AddInt32(addr, delta) }
 func AtomicAddInt64(addr *int64, delta int64) (new int64)     { return atomic.AddInt64(addr, delta) }
 func AtomicAddUint32(addr *uint32, delta uint32) (new uint32) { return atomic.AddUint32(addr, delta) }
@@ -2250,33 +2735,6 @@ func Xmblen(t *TLS, s uintptr, n types.Size_t) int32 {
 	panic(todo(""))
 }
 
-// ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
-func Xreadv(t *TLS, fd int32, iov uintptr, iovcnt int32) types.Ssize_t {
-	if __ccgo_strace {
-		trc("t=%v fd=%v iov=%v iovcnt=%v, (%v:)", t, fd, iov, iovcnt, origin(2))
-	}
-	panic(todo(""))
-}
-
-// int openpty(int *amaster, int *aslave, char *name,
-//
-//	const struct termios *termp,
-//	const struct winsize *winp);
-func Xopenpty(t *TLS, amaster, aslave, name, termp, winp uintptr) int32 {
-	if __ccgo_strace {
-		trc("t=%v winp=%v, (%v:)", t, winp, origin(2))
-	}
-	panic(todo(""))
-}
-
-// pid_t setsid(void);
-func Xsetsid(t *TLS) types.Pid_t {
-	if __ccgo_strace {
-		trc("t=%v, (%v:)", t, origin(2))
-	}
-	panic(todo(""))
-}
-
 // int pselect(int nfds, fd_set *readfds, fd_set *writefds,
 //
 //	fd_set *exceptfds, const struct timespec *timeout,
@@ -2284,14 +2742,6 @@ func Xsetsid(t *TLS) types.Pid_t {
 func Xpselect(t *TLS, nfds int32, readfds, writefds, exceptfds, timeout, sigmask uintptr) int32 {
 	if __ccgo_strace {
 		trc("t=%v nfds=%v sigmask=%v, (%v:)", t, nfds, sigmask, origin(2))
-	}
-	panic(todo(""))
-}
-
-// int kill(pid_t pid, int sig);
-func Xkill(t *TLS, pid types.Pid_t, sig int32) int32 {
-	if __ccgo_strace {
-		trc("t=%v pid=%v sig=%v, (%v:)", t, pid, sig, origin(2))
 	}
 	panic(todo(""))
 }
@@ -2308,14 +2758,6 @@ func Xtcsendbreak(t *TLS, fd, duration int32) int32 {
 func Xwcwidth(t *TLS, c wchar_t) int32 {
 	if __ccgo_strace {
 		trc("t=%v c=%v, (%v:)", t, c, origin(2))
-	}
-	panic(todo(""))
-}
-
-// int clock_gettime(clockid_t clk_id, struct timespec *tp);
-func Xclock_gettime(t *TLS, clk_id int32, tp uintptr) int32 {
-	if __ccgo_strace {
-		trc("t=%v clk_id=%v tp=%v, (%v:)", t, clk_id, tp, origin(2))
 	}
 	panic(todo(""))
 }
@@ -2436,11 +2878,12 @@ func X__sync_sub_and_fetch_uint32(t *TLS, p uintptr, v uint32) uint32 {
 }
 
 // int sched_yield(void);
-func Xsched_yield(t *TLS) {
+func Xsched_yield(t *TLS) int32 {
 	if __ccgo_strace {
 		trc("t=%v, (%v:)", t, origin(2))
 	}
 	runtime.Gosched()
+	return 0
 }
 
 // int getc(FILE *stream);
@@ -2449,33 +2892,6 @@ func Xgetc(t *TLS, stream uintptr) int32 {
 		trc("t=%v stream=%v, (%v:)", t, stream, origin(2))
 	}
 	return Xfgetc(t, stream)
-}
-
-// char *fgets(char *s, int size, FILE *stream);
-func Xfgets(t *TLS, s uintptr, size int32, stream uintptr) uintptr {
-	if __ccgo_strace {
-		trc("t=%v s=%v size=%v stream=%v, (%v:)", t, s, size, stream, origin(2))
-	}
-	var b []byte
-out:
-	for ; size > 0; size-- {
-		switch c := Xfgetc(t, stream); c {
-		case '\n':
-			b = append(b, byte(c))
-			break out
-		case stdio.EOF:
-			break out
-		default:
-			b = append(b, byte(c))
-		}
-	}
-	if len(b) == 0 {
-		return 0
-	}
-
-	b = append(b, 0)
-	copy((*RawMem)(unsafe.Pointer(s))[:len(b):len(b)], b)
-	return s
 }
 
 // void bzero(void *s, size_t n);
@@ -2529,10 +2945,7 @@ func X__builtin_isunordered(t *TLS, a, b float64) int32 {
 }
 
 func AtomicLoadNUint16(ptr uintptr, memorder int32) uint16 {
-	atomicLoadStore16.Lock()
-	r := *(*uint16)(unsafe.Pointer(ptr))
-	atomicLoadStore16.Unlock()
-	return r
+	return uint16(a_load_16(ptr))
 }
 
 func PreIncAtomicInt32P(p uintptr, d int32) int32 {
@@ -3577,4 +3990,43 @@ func Xcbrtl(tls *TLS, x float64) (r float64) {
 		defer func() { trc("-> %v", r) }()
 	}
 	return Xcbrt(tls, x)
+}
+
+// putenvNarrow stores the "name=value" string kv in the environment getenv
+// reads, replacing an existing entry of the same name.
+func putenvNarrow(t *TLS, kv string) {
+	x := strings.IndexByte(kv, '=')
+	if x <= 0 {
+		return
+	}
+
+	p := Environ()
+	n := 0
+	for ; ; n++ {
+		q := *(*uintptr)(unsafe.Pointer(p + uintptr(n)*uintptrSize))
+		if q == 0 {
+			break
+		}
+
+		s := GoString(q)
+		if len(s) > x && s[x] == '=' && s[:x] == kv[:x] {
+			ns := Xcalloc(t, 1, types.Size_t(len(kv)+1))
+			copy(unsafe.Slice((*byte)(unsafe.Pointer(ns)), len(kv)), kv)
+			Xfree(t, q)
+			*(*uintptr)(unsafe.Pointer(p + uintptr(n)*uintptrSize)) = ns
+			return
+		}
+	}
+
+	// Append: n entries plus the terminator become n+2 slots.
+	np := Xrealloc(t, p, types.Size_t((n+2)*int(uintptrSize)))
+	if np == 0 {
+		panic("OOM")
+	}
+
+	ns := Xcalloc(t, 1, types.Size_t(len(kv)+1))
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(ns)), len(kv)), kv)
+	*(*uintptr)(unsafe.Pointer(np + uintptr(n)*uintptrSize)) = ns
+	*(*uintptr)(unsafe.Pointer(np + uintptr(n+1)*uintptrSize)) = 0
+	Xenviron = np
 }

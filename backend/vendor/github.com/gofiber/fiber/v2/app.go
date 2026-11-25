@@ -30,7 +30,7 @@ import (
 )
 
 // Version of current fiber package
-const Version = "2.52.6"
+const Version = "2.52.16"
 
 // Handler defines a function to serve HTTP requests.
 type Handler = func(*Ctx) error
@@ -93,8 +93,6 @@ type App struct {
 	treeStack []map[string][]*Route
 	// contains the information if the route stack has been changed to build the optimized tree
 	routesRefreshed bool
-	// Amount of registered routes
-	routesCount uint32
 	// Amount of registered handlers
 	handlersCount uint32
 	// Ctx pool
@@ -1043,8 +1041,13 @@ func (app *App) ErrorHandler(ctx *Ctx, err error) error {
 		mountedPrefixParts int
 	)
 
-	for prefix, subApp := range app.mountFields.appList {
-		if prefix != "" && strings.HasPrefix(ctx.path, prefix) {
+	normalizedPath := utils.AddTrailingSlash(ctx.Path())
+
+	for _, prefix := range app.mountFields.appListKeys {
+		subApp := app.mountFields.appList[prefix]
+		normalizedPrefix := utils.AddTrailingSlash(prefix)
+
+		if prefix != "" && strings.HasPrefix(normalizedPath, normalizedPrefix) {
 			parts := len(strings.Split(prefix, "/"))
 			if mountedPrefixParts <= parts {
 				if subApp.configured.ErrorHandler != nil {

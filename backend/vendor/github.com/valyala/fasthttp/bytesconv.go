@@ -8,7 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
+	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -54,7 +56,7 @@ func AppendHTMLEscapeBytes(dst, s []byte) []byte {
 // and returns the extended dst.
 func AppendIPv4(dst []byte, ip net.IP) []byte {
 	ip = ip.To4()
-	if ip == nil {
+	if len(ip) != net.IPv4len {
 		return append(dst, "non-v4 ip passed to AppendIPv4"...)
 	}
 
@@ -68,6 +70,8 @@ func AppendIPv4(dst []byte, ip net.IP) []byte {
 
 var errEmptyIPStr = errors.New("empty ip address string")
 
+var httpDateGMT = time.FixedZone("GMT", 0)
+
 // ParseIPv4 parses ip address from ipStr into dst and returns the extended dst.
 func ParseIPv4(dst net.IP, ipStr []byte) (net.IP, error) {
 	if len(ipStr) == 0 {
@@ -80,29 +84,29 @@ func ParseIPv4(dst net.IP, ipStr []byte) (net.IP, error) {
 	dst = dst.To4() // dst is always non-nil here
 
 	b := ipStr
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		n := bytes.IndexByte(b, '.')
-		if n < 0 {
-			return dst, fmt.Errorf("cannot find dot in ipStr %q", ipStr)
+		if uint(n) >= uint(len(b)) {
+			return dst, fmt.Errorf("cannot find dot in ip string %q", ipStr)
 		}
-		v, err := ParseUint(b[:n])
+		octet, parsed, err := parseIPv4Octet(b[:n])
 		if err != nil {
-			return dst, fmt.Errorf("cannot parse ipStr %q: %w", ipStr, err)
+			if errors.Is(err, errIPv4PartTooLarge) {
+				return dst, fmt.Errorf("cannot parse ip string %q: ip part cannot exceed 255: parsed %d", ipStr, parsed)
+			}
+			return dst, fmt.Errorf("cannot parse ip string %q: %w", ipStr, err)
 		}
-		if v > 255 {
-			return dst, fmt.Errorf("cannot parse ipStr %q: ip part cannot exceed 255: parsed %d", ipStr, v)
-		}
-		dst[i] = byte(v)
+		dst[i] = octet
 		b = b[n+1:]
 	}
-	v, err := ParseUint(b)
+	octet, parsed, err := parseIPv4Octet(b)
 	if err != nil {
-		return dst, fmt.Errorf("cannot parse ipStr %q: %w", ipStr, err)
+		if errors.Is(err, errIPv4PartTooLarge) {
+			return dst, fmt.Errorf("cannot parse ip string %q: ip part cannot exceed 255: parsed %d", ipStr, parsed)
+		}
+		return dst, fmt.Errorf("cannot parse ip string %q: %w", ipStr, err)
 	}
-	if v > 255 {
-		return dst, fmt.Errorf("cannot parse ipStr %q: ip part cannot exceed 255: parsed %d", ipStr, v)
-	}
-	dst[3] = byte(v)
+	dst[3] = octet
 
 	return dst, nil
 }
@@ -110,14 +114,173 @@ func ParseIPv4(dst net.IP, ipStr []byte) (net.IP, error) {
 // AppendHTTPDate appends HTTP-compliant (RFC1123) representation of date
 // to dst and returns the extended dst.
 func AppendHTTPDate(dst []byte, date time.Time) []byte {
-	dst = date.In(time.UTC).AppendFormat(dst, time.RFC1123)
-	copy(dst[len(dst)-3:], strGMT)
-	return dst
+	date = date.UTC()
+	year, month, day := date.Date()
+	if year < 0 || year > 9999 {
+		dst = date.AppendFormat(dst, time.RFC1123)
+		copy(dst[len(dst)-3:], strGMT)
+		return dst
+	}
+	hour, minute, sec := date.Clock()
+
+	const (
+		weekdays = "SunMonTueWedThuFriSat"
+		months   = "JanFebMarAprMayJunJulAugSepOctNovDec"
+	)
+	w := 3 * int(date.Weekday())
+	m := 3 * (int(month) - 1)
+	dst = append(dst, weekdays[w:w+3]...)
+	dst = append(dst, ',', ' ')
+	dst = append2Digits(dst, day)
+	dst = append(dst, ' ')
+	dst = append(dst, months[m:m+3]...)
+	dst = append(dst, ' ')
+	dst = append2Digits(dst, year/100)
+	dst = append2Digits(dst, year%100)
+	dst = append(dst, ' ')
+	dst = append2Digits(dst, hour)
+	dst = append(dst, ':')
+	dst = append2Digits(dst, minute)
+	dst = append(dst, ':')
+	dst = append2Digits(dst, sec)
+	return append(dst, ' ', 'G', 'M', 'T')
+}
+
+func append2Digits(dst []byte, v int) []byte {
+	const digits = "0123456789"
+	return append(dst, digits[v/10], digits[v%10])
 }
 
 // ParseHTTPDate parses HTTP-compliant (RFC1123) date.
+//
+// The obsolete RFC 850 and ANSI C asctime() formats are accepted too,
+// as RFC 9110, section 5.6.7 requires.
 func ParseHTTPDate(date []byte) (time.Time, error) {
-	return time.Parse(time.RFC1123, b2s(date))
+	if t, ok := parseRFC1123DateGMT(date); ok {
+		return t, nil
+	}
+	return http.ParseTime(b2s(date))
+}
+
+func parseRFC1123DateGMT(b []byte) (time.Time, bool) {
+	// Expects "Mon, 02 Jan 2006 15:04:05 GMT".
+	if len(b) != 29 {
+		return time.Time{}, false
+	}
+	if !isWeekday3(b[0], b[1], b[2]) {
+		return time.Time{}, false
+	}
+	if b[3] != ',' || b[4] != ' ' || b[7] != ' ' || b[11] != ' ' ||
+		b[16] != ' ' || b[19] != ':' || b[22] != ':' || b[25] != ' ' {
+		return time.Time{}, false
+	}
+	if b[26] != 'G' || b[27] != 'M' || b[28] != 'T' {
+		return time.Time{}, false
+	}
+
+	day, ok := parse2Digits(b[5], b[6])
+	if !ok || day < 1 || day > 31 {
+		return time.Time{}, false
+	}
+	month, ok := parseMonth3(b[8], b[9], b[10])
+	if !ok {
+		return time.Time{}, false
+	}
+	year, ok := parse4Digits(b[12], b[13], b[14], b[15])
+	if !ok {
+		return time.Time{}, false
+	}
+	hour, ok := parse2Digits(b[17], b[18])
+	if !ok || hour > 23 {
+		return time.Time{}, false
+	}
+	minute, ok := parse2Digits(b[20], b[21])
+	if !ok || minute > 59 {
+		return time.Time{}, false
+	}
+	second, ok := parse2Digits(b[23], b[24])
+	if !ok || second > 59 {
+		return time.Time{}, false
+	}
+
+	t := time.Date(year, month, day, hour, minute, second, 0, httpDateGMT)
+	// Reject calendar-invalid dates like "31 Feb", which time.Date normalizes.
+	if t.Year() != year || t.Month() != month || t.Day() != day {
+		return time.Time{}, false
+	}
+	return t, true
+}
+
+func isWeekday3(a, b, c byte) bool {
+	a |= 0x20
+	b |= 0x20
+	c |= 0x20
+	k := uint32(a)<<16 | uint32(b)<<8 | uint32(c)
+	switch k {
+	case uint32('m')<<16 | uint32('o')<<8 | uint32('n'),
+		uint32('t')<<16 | uint32('u')<<8 | uint32('e'),
+		uint32('w')<<16 | uint32('e')<<8 | uint32('d'),
+		uint32('t')<<16 | uint32('h')<<8 | uint32('u'),
+		uint32('f')<<16 | uint32('r')<<8 | uint32('i'),
+		uint32('s')<<16 | uint32('a')<<8 | uint32('t'),
+		uint32('s')<<16 | uint32('u')<<8 | uint32('n'):
+		return true
+	default:
+		return false
+	}
+}
+
+func parse2Digits(a, b byte) (int, bool) {
+	if a < '0' || a > '9' || b < '0' || b > '9' {
+		return 0, false
+	}
+	return int(a-'0')*10 + int(b-'0'), true
+}
+
+func parse4Digits(a, b, c, d byte) (int, bool) {
+	v1, ok := parse2Digits(a, b)
+	if !ok {
+		return 0, false
+	}
+	v2, ok := parse2Digits(c, d)
+	if !ok {
+		return 0, false
+	}
+	return v1*100 + v2, true
+}
+
+func parseMonth3(a, b, c byte) (time.Month, bool) {
+	a |= 0x20
+	b |= 0x20
+	c |= 0x20
+	k := uint32(a)<<16 | uint32(b)<<8 | uint32(c)
+	switch k {
+	case uint32('j')<<16 | uint32('a')<<8 | uint32('n'):
+		return time.January, true
+	case uint32('f')<<16 | uint32('e')<<8 | uint32('b'):
+		return time.February, true
+	case uint32('m')<<16 | uint32('a')<<8 | uint32('r'):
+		return time.March, true
+	case uint32('a')<<16 | uint32('p')<<8 | uint32('r'):
+		return time.April, true
+	case uint32('m')<<16 | uint32('a')<<8 | uint32('y'):
+		return time.May, true
+	case uint32('j')<<16 | uint32('u')<<8 | uint32('n'):
+		return time.June, true
+	case uint32('j')<<16 | uint32('u')<<8 | uint32('l'):
+		return time.July, true
+	case uint32('a')<<16 | uint32('u')<<8 | uint32('g'):
+		return time.August, true
+	case uint32('s')<<16 | uint32('e')<<8 | uint32('p'):
+		return time.September, true
+	case uint32('o')<<16 | uint32('c')<<8 | uint32('t'):
+		return time.October, true
+	case uint32('n')<<16 | uint32('o')<<8 | uint32('v'):
+		return time.November, true
+	case uint32('d')<<16 | uint32('e')<<8 | uint32('c'):
+		return time.December, true
+	}
+	return 0, false
 }
 
 // AppendUint appends n to dst and returns the extended dst.
@@ -131,6 +294,10 @@ func AppendUint(dst []byte, n int) []byte {
 }
 
 // ParseUint parses uint from buf.
+//
+// A value too large for an int is an error rather than a wrapped result, so
+// ParseUint accepts exactly the unsigned decimal strings whose value fits in an
+// int on the current platform.
 func ParseUint(buf []byte) (int, error) {
 	v, n, err := parseUintBuf(buf)
 	if n != len(buf) {
@@ -141,19 +308,31 @@ func ParseUint(buf []byte) (int, error) {
 
 var (
 	errEmptyInt               = errors.New("empty integer")
-	errUnexpectedFirstChar    = errors.New("unexpected first char found. Expecting 0-9")
-	errUnexpectedTrailingChar = errors.New("unexpected trailing char found. Expecting 0-9")
+	errIPv4PartTooLarge       = errors.New("ip part cannot exceed 255")
+	errUnexpectedFirstChar    = errors.New("unexpected first char found: expecting 0-9")
+	errUnexpectedTrailingChar = errors.New("unexpected trailing char found: expecting 0-9")
 	errTooLongInt             = errors.New("too long int")
 )
 
+const (
+	// maxIntDiv10 is the largest accumulator that can still take another digit.
+	// Anything above it overflows an int when multiplied by 10.
+	maxIntDiv10 = math.MaxInt / 10
+
+	// maxSafeIntDigits is how many leading decimal digits can never overflow an
+	// int, whatever the word size: 10**18-1 fits a 64-bit int and 10**9-1 fits a
+	// 32-bit one. Go defines strconv.IntSize as 32 or 64 and nothing else.
+	// TestMaxSafeIntDigits checks both halves of that claim on the build's own
+	// int size.
+	maxSafeIntDigits = 9 * (strconv.IntSize / 32)
+)
+
 func parseUintBuf(b []byte) (int, int, error) {
-	n := len(b)
-	if n == 0 {
+	if len(b) == 0 {
 		return -1, 0, errEmptyInt
 	}
 	v := 0
-	for i := 0; i < n; i++ {
-		c := b[i]
+	for i, c := range b {
 		k := c - '0'
 		if k > 9 {
 			if i == 0 {
@@ -162,13 +341,47 @@ func parseUintBuf(b []byte) (int, int, error) {
 			return v, i, nil
 		}
 		vNew := 10*v + int(k)
-		// Test for overflow.
-		if vNew < v {
+		// Test for overflow before trusting the result. Comparing the product
+		// against the accumulator afterwards is not enough: 10*v wraps modulo
+		// the int size and can land back above v, in which case the overflow
+		// goes unnoticed and a wrong value is returned instead of an error.
+		// Once v is known to be no larger than maxIntDiv10 the product cannot
+		// exceed math.MaxInt+2, so the sign test settles the only case left.
+		// Below maxSafeIntDigits neither can happen, which keeps the whole test
+		// out of the common path.
+		if i >= maxSafeIntDigits && (v > maxIntDiv10 || vNew < 0) {
 			return -1, i, errTooLongInt
 		}
 		v = vNew
 	}
-	return v, n, nil
+	return v, len(b), nil
+}
+
+func parseIPv4Octet(b []byte) (byte, int, error) {
+	if len(b) == 0 {
+		return 0, 0, errEmptyInt
+	}
+
+	var (
+		octet  byte
+		parsed int
+	)
+	for i := range len(b) {
+		c := b[i]
+		k := c - '0'
+		if k > 9 {
+			if i == 0 {
+				return 0, parsed, errUnexpectedFirstChar
+			}
+			return 0, parsed, errUnexpectedTrailingChar
+		}
+		parsed = parsed*10 + int(k)
+		if octet > 25 || (octet == 25 && k > 5) {
+			return 0, parsed, errIPv4PartTooLarge
+		}
+		octet = octet*10 + k
+	}
+	return octet, parsed, nil
 }
 
 // ParseUfloat parses unsigned float from buf.
@@ -177,13 +390,18 @@ func ParseUfloat(buf []byte) (float64, error) {
 	// We believe that the conservative approach is to call strconv.ParseFloat.
 	// https://github.com/valyala/fasthttp/pull/1865
 	res, err := strconv.ParseFloat(b2s(buf), 64)
-	if res < 0 {
+	if math.Signbit(res) {
 		return -1, errors.New("negative input is invalid")
 	}
 	if err != nil {
 		return -1, err
 	}
-	return res, err
+	// strconv.ParseFloat also accepts "nan" and "inf", which are not
+	// unsigned floats a caller can use.
+	if math.IsNaN(res) || math.IsInf(res, 0) {
+		return -1, errors.New("NaN or infinity is invalid")
+	}
+	return res, nil
 }
 
 var (
@@ -192,7 +410,30 @@ var (
 )
 
 func readHexInt(r *bufio.Reader) (int, error) {
-	var k, i, n int
+	// Parse the buffered bytes first, so a number that ends inside them
+	// needs no ReadByte call per digit. The result, the error and the
+	// consumed bytes are the same as in the loop below.
+	b, _ := r.Peek(r.Buffered())
+	var n int
+	for i, c := range b {
+		k := int(hex2intTable[c])
+		if k == 16 {
+			if i == 0 {
+				_, _ = r.Discard(1)
+				return -1, errEmptyHexNum
+			}
+			_, _ = r.Discard(i)
+			return n, nil
+		}
+		if i >= maxHexIntChars {
+			_, _ = r.Discard(i + 1)
+			return -1, errTooLargeHexNum
+		}
+		n = (n << 4) | k
+	}
+
+	var k, i int
+	n = 0
 	for {
 		c, err := r.ReadByte()
 		if err != nil {
@@ -231,7 +472,7 @@ func writeHexInt(w *bufio.Writer, n int) error {
 	if v == nil {
 		v = make([]byte, maxHexIntChars+1)
 	}
-	buf := v.([]byte)
+	buf := v.([]byte) //nolint:forcetypeassert
 	i := len(buf) - 1
 	for {
 		buf[i] = lowerhex[n&0xf]
@@ -252,9 +493,12 @@ const (
 )
 
 func lowercaseBytes(b []byte) {
-	for i := 0; i < len(b); i++ {
-		p := &b[i]
-		*p = toLowerTable[*p]
+	for len(b) >= 8 {
+		storeWord(b, lowercaseWord(loadWord(b)))
+		b = b[8:]
+	}
+	for i := range b {
+		b[i] = toLowerTable[b[i]]
 	}
 }
 
@@ -267,7 +511,12 @@ func AppendUnquotedArg(dst, src []byte) []byte {
 
 // AppendQuotedArg appends url-encoded src to dst and returns appended dst.
 func AppendQuotedArg(dst, src []byte) []byte {
-	for _, c := range src {
+	i := 0
+	for i < len(src) && quotedArgShouldEscapeTable[src[i]] == 0 {
+		i++
+	}
+	dst = append(dst, src[:i]...)
+	for _, c := range src[i:] {
 		switch {
 		case c == ' ':
 			dst = append(dst, '+')
@@ -286,8 +535,13 @@ func appendQuotedPath(dst, src []byte) []byte {
 		return append(dst, '*')
 	}
 
-	for _, c := range src {
-		if quotedPathShouldEscapeTable[int(c)] != 0 {
+	i := 0
+	for i < len(src) && quotedPathShouldEscapeTable[src[i]] == 0 {
+		i++
+	}
+	dst = append(dst, src[:i]...)
+	for _, c := range src[i:] {
+		if quotedPathShouldEscapeTable[c] != 0 {
 			dst = append(dst, '%', upperhex[c>>4], upperhex[c&0xf])
 		} else {
 			dst = append(dst, c)

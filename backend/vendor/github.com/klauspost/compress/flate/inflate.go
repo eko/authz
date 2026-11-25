@@ -14,6 +14,8 @@ import (
 	"io"
 	"math/bits"
 	"sync"
+
+	"github.com/klauspost/compress/internal/regmask"
 )
 
 const (
@@ -152,6 +154,8 @@ func (h *huffmanDecoder) init(lengths []int) bool {
 	// guaranteed to fail later since the compressed data section must be
 	// composed of at least one symbol (the end-of-block marker).
 	if max == 0 {
+		// chunks is kept across init calls; huffSym only fails if it is zero.
+		clear(h.chunks[:])
 		return true
 	}
 
@@ -342,6 +346,11 @@ type decompressor struct {
 	final bool
 
 	flushMode flushMode
+	cb        func(InflateCheckpoint)
+	cp        InflateCheckpoint
+	hasCP     bool  // WithResumeFrom was supplied
+	uncOffset int64 // baseline uncompressed offset (from a resume checkpoint)
+	cpBuf     []byte
 }
 
 func (f *decompressor) nextBlock() {
@@ -420,11 +429,18 @@ func (f *decompressor) WriteTo(w io.Writer) (int64, error) {
 			n, err := w.Write(f.toRead)
 			total += int64(n)
 			if err != nil {
-				f.err = err
+				// f.err doubles as the end-of-stream marker, so keep a
+				// writer's io.EOF distinct from a clean end of the input.
+				f.err = noEOF(err)
+				// A later Read must not replay bytes already handed to
+				// the writer, even when the write also returned an error.
+				f.toRead = f.toRead[:0]
 				return total, err
 			}
 			if n != len(f.toRead) {
-				return total, io.ErrShortWrite
+				f.err = io.ErrShortWrite
+				f.toRead = f.toRead[:0]
+				return total, f.err
 			}
 			f.toRead = f.toRead[:0]
 		}
@@ -485,7 +501,7 @@ func (f *decompressor) readHuffman() error {
 	f.nb -= 5 + 5 + 4
 
 	// (HCLEN+4)*3 bits: code lengths in the magic codeOrder order.
-	for i := 0; i < nclen; i++ {
+	for i := range nclen {
 		for f.nb < 3 {
 			if err := f.moreBits(); err != nil {
 				return err
@@ -552,8 +568,8 @@ func (f *decompressor) readHuffman() error {
 				return err
 			}
 		}
-		rep += int(f.b & uint32(1<<(nb&regSizeMaskUint32)-1))
-		f.b >>= nb & regSizeMaskUint32
+		rep += int(f.b & uint32(1<<(nb&regmask.Shift32ByUint)-1))
+		f.b >>= nb & regmask.Shift32ByUint
 		f.nb -= nb
 		if i+rep > n {
 			if debugDecode {
@@ -606,7 +622,6 @@ func (f *decompressor) dataBlock() {
 	f.buf[2] = uint8(f.b >> 16)
 	f.buf[3] = uint8(f.b >> 24)
 
-	f.roffset += int64(offBytes)
 	f.nb, f.b = 0, 0
 
 	// Length then ones-complement of length.
@@ -676,6 +691,18 @@ func (f *decompressor) finishBlock() {
 		f.toRead = f.dict.readFlush()
 	}
 
+	if f.cb != nil {
+		bitPos := f.roffset*8 - int64(f.nb)
+		f.cpBuf = f.dict.appendWindow(f.cpBuf[:0])
+		f.cb(InflateCheckpoint{
+			UncompressedOffset: f.uncOffset + f.dict.decoded(),
+			CompressedOffset:   bitPos / 8,
+			Final:              f.final,
+			BitOffset:          uint8(bitPos & 7),
+			Window:             f.cpBuf,
+		})
+	}
+
 	f.step = nextBlock
 }
 
@@ -714,7 +741,7 @@ func (f *decompressor) moreBits() error {
 		return noEOF(err)
 	}
 	f.roffset++
-	f.b |= uint32(c) << (f.nb & regSizeMaskUint32)
+	f.b |= uint32(c) << (f.nb & regmask.Shift32ByUint)
 	f.nb += 8
 	return nil
 }
@@ -739,7 +766,7 @@ func (f *decompressor) huffSym(h *huffmanDecoder) (int, error) {
 				return 0, noEOF(err)
 			}
 			f.roffset++
-			b |= uint32(c) << (nb & regSizeMaskUint32)
+			b |= uint32(c) << (nb & regmask.Shift32ByUint)
 			nb += 8
 		}
 		chunk := h.chunks[b&(huffmanNumChunks-1)]
@@ -758,7 +785,7 @@ func (f *decompressor) huffSym(h *huffmanDecoder) (int, error) {
 				f.err = CorruptInputError(f.roffset)
 				return 0, f.err
 			}
-			f.b = b >> (n & regSizeMaskUint32)
+			f.b = b >> (n & regmask.Shift32ByUint)
 			f.nb = nb - n
 			return int(chunk >> huffmanValueShift), nil
 		}
@@ -776,7 +803,7 @@ func fixedHuffmanDecoderInit() {
 	fixedOnce.Do(func() {
 		// These come from the RFC section 3.2.6.
 		var bits [288]int
-		for i := 0; i < 144; i++ {
+		for i := range 144 {
 			bits[i] = 8
 		}
 		for i := 144; i < 256; i++ {
@@ -806,6 +833,52 @@ func (f *decompressor) Reset(r io.Reader, dict []byte) error {
 	return nil
 }
 
+// ResetCP will adjust the input to the provided checkpoint.
+// It is assumed the input stream is forwarded to cp.CompressedOffset.
+func (f *decompressor) ResetCP(r io.Reader, cp InflateCheckpoint) error {
+	*f = decompressor{
+		r:        makeReader(r),
+		bits:     f.bits,
+		codebits: f.codebits,
+		h1:       f.h1,
+		h2:       f.h2,
+		dict:     f.dict,
+		step:     nextBlock,
+		cpBuf:    f.cpBuf,
+	}
+	return f.applyCP(cp)
+}
+
+// applyCP seeds the decompressor state from a resume checkpoint:
+// loads the sliding window, sets the absolute compressed/uncompressed
+// offsets, and skips cp.BitOffset bits into the first input byte so
+// the next decode aligns with the start of a deflate block.
+func (f *decompressor) applyCP(cp InflateCheckpoint) error {
+	if cp.BitOffset > 7 {
+		f.err = CorruptInputError(cp.CompressedOffset)
+		return f.err
+	}
+	f.dict.init(maxMatchOffset, cp.Window)
+	f.roffset = cp.CompressedOffset
+	f.uncOffset = cp.UncompressedOffset
+	f.final = cp.Final
+	f.b = 0
+	f.nb = 0
+	if cp.BitOffset > 0 {
+		c, err := f.r.ReadByte()
+		if err != nil {
+			return noEOF(err)
+		}
+		f.roffset++
+		f.b = uint32(c) >> cp.BitOffset
+		f.nb = 8 - uint(cp.BitOffset)
+	}
+	if cp.Final {
+		f.err = io.EOF
+	}
+	return nil
+}
+
 type ReaderOpt func(*decompressor)
 
 // WithPartialBlock tells decompressor to return after each block,
@@ -823,6 +896,37 @@ func WithDict(dict []byte) ReaderOpt {
 	}
 }
 
+// InflateCheckpoint provides a resumable checkpoint for inflate.
+type InflateCheckpoint struct {
+	UncompressedOffset int64  // Byte offset in the decompressed stream
+	CompressedOffset   int64  // Byte offset in the compressed stream
+	Final              bool   // True if this is the final block
+	BitOffset          uint8  // 0-7 bits
+	Window             []byte // 32KB sliding window dictionary
+}
+
+// WithEobCallback will call the provided function after each block
+// with the current gzip checkpoint.
+// After returning the provided window can no longer be referenced.
+// The checkpoint after the final block has Final set and is the last one.
+// Resuming from it returns io.EOF without reading another block.
+// The callback is not retained after Reset.
+func WithEobCallback(cb func(InflateCheckpoint)) ReaderOpt {
+	return func(f *decompressor) {
+		f.cb = cb
+	}
+}
+
+// WithResumeFrom will adjust the input to the provided checkpoint.
+// It is assumed the input stream is forwarded to the provided offset.
+// The checkpoint is removed when Reset is called.
+func WithResumeFrom(cp InflateCheckpoint) ReaderOpt {
+	return func(f *decompressor) {
+		f.cp = cp
+		f.hasCP = true
+	}
+}
+
 // NewReaderOpts returns new reader with provided options
 func NewReaderOpts(r io.Reader, opts ...ReaderOpt) io.ReadCloser {
 	fixedHuffmanDecoderInit()
@@ -836,6 +940,12 @@ func NewReaderOpts(r io.Reader, opts ...ReaderOpt) io.ReadCloser {
 
 	for _, opt := range opts {
 		opt(&f)
+	}
+
+	if f.hasCP {
+		if err := f.applyCP(f.cp); err != nil {
+			f.err = err
+		}
 	}
 
 	return &f

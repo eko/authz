@@ -12,12 +12,16 @@ import (
 	"modernc.org/libc/pthread"
 )
 
+type pthreadAttr struct {
+	detachState int32
+}
+
 // int pthread_attr_init(pthread_attr_t *attr);
 func Xpthread_attr_init(t *TLS, pAttr uintptr) int32 {
 	if __ccgo_strace {
 		trc("t=%v pAttr=%v, (%v:)", t, pAttr, origin(2))
 	}
-	*(*pthread.Pthread_attr_t)(unsafe.Pointer(pAttr)) = pthread.Pthread_attr_t{}
+	*(*pthreadAttr)(unsafe.Pointer(pAttr)) = pthreadAttr{}
 	return 0
 }
 
@@ -40,11 +44,7 @@ func Xpthread_mutex_init(t *TLS, pMutex, pAttr uintptr) int32 {
 	if pAttr != 0 {
 		typ = int(X__ccgo_pthreadMutexattrGettype(t, pAttr))
 	}
-	mutexesMu.Lock()
-
-	defer mutexesMu.Unlock()
-
-	mutexes[pMutex] = newMutex(typ)
+	setMutex(pMutex, newMutex(typ))
 	return 0
 }
 

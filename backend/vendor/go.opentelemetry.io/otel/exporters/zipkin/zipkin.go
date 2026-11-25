@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package zipkin // import "go.opentelemetry.io/otel/exporters/zipkin"
+package zipkin
 
 import (
 	"bytes"
@@ -146,14 +146,14 @@ func (e *Exporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpa
 	req.Header.Set("Content-Type", "application/json")
 
 	for k, v := range e.headers {
-		if strings.ToLower(k) == "host" {
+		if strings.EqualFold(k, "host") {
 			req.Host = v
 		} else {
 			req.Header.Set(k, v)
 		}
 	}
 
-	resp, err := e.client.Do(req) // nolint:bodyclose  // False-positive.
+	resp, err := e.client.Do(req) // nolint:bodyclose,gosec  // False-positive.
 	if err != nil {
 		return e.errf("request to %s failed: %v", e.url, err)
 	}
@@ -189,24 +189,22 @@ func (e *Exporter) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func (e *Exporter) logf(format string, args ...interface{}) {
+func (e *Exporter) logf(format string, args ...any) {
 	if e.logger != emptyLogger {
 		e.logger.Info(fmt.Sprintf(format, args...))
 	}
 }
 
-func (e *Exporter) errf(format string, args ...interface{}) error {
+func (e *Exporter) errf(format string, args ...any) error {
 	e.logf(format, args...)
 	return fmt.Errorf(format, args...)
 }
 
 // MarshalLog is the marshaling function used by the logging system to represent this Exporter.
-func (e *Exporter) MarshalLog() interface{} {
+func (*Exporter) MarshalLog() any {
 	return struct {
 		Type string
-		URL  string
 	}{
 		Type: "zipkin",
-		URL:  e.url,
 	}
 }

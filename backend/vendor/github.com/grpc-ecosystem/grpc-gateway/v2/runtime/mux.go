@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"mime"
 	"net/http"
 	"net/textproto"
 	"regexp"
 	"strings"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/internal/httprule"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -43,7 +45,9 @@ const (
 	UnescapingModeDefault = UnescapingModeLegacy
 )
 
-var encodedPathSplitter = regexp.MustCompile("(/|%2F)")
+// Percent-encoding is case insensitive (RFC 3986, section 6.2.2.1), so an
+// escaped path separator has to be recognized in either spelling.
+var encodedPathSplitter = regexp.MustCompile("(/|%2[fF])")
 
 // A HandlerFunc handles a specific pair of path pattern and HTTP method.
 type HandlerFunc func(w http.ResponseWriter, r *http.Request, pathParams map[string]string)
@@ -70,8 +74,11 @@ type ServeMux struct {
 	streamErrorHandler        StreamErrorHandlerFunc
 	routingErrorHandler       RoutingErrorHandlerFunc
 	disablePathLengthFallback bool
+	disableHTTPMethodOverride bool
 	unescapingMode            UnescapingMode
 	writeContentLength        bool
+	disableChunkedEncoding    bool
+	strictDeepWildcard        bool
 }
 
 // ServeMuxOption is an option that can be given to a ServeMux on construction.
@@ -124,6 +131,29 @@ func WithMiddlewares(middlewares ...Middleware) ServeMuxOption {
 	}
 }
 
+// WithDisableChunkedEncoding disables the Transfer-Encoding: chunked header
+// for streaming responses. This is useful for streaming implementations that use
+// Content-Length, which is mutually exclusive with Transfer-Encoding:chunked.
+// Note that this option will not automatically add Content-Length headers, so it should be used with caution.
+func WithDisableChunkedEncoding() ServeMuxOption {
+	return func(mux *ServeMux) {
+		mux.disableChunkedEncoding = true
+	}
+}
+
+// WithStrictDeepWildcardMatching makes deep wildcards ("**") require at least
+// one path segment when preceded by another segment. For example,
+// "/v3/files/{path=**}" will not match "/v3/files". A trailing slash still
+// provides an empty segment, so "/v3/files/" continues to match.
+//
+// This option applies to all patterns registered with the ServeMux, including
+// generated routes and routes registered with HandlePath.
+func WithStrictDeepWildcardMatching() ServeMuxOption {
+	return func(mux *ServeMux) {
+		mux.strictDeepWildcard = true
+	}
+}
+
 // SetQueryParameterParser sets the query parameter parser, used to populate message from query parameters.
 // Configuring this will mean the generated OpenAPI output is no longer correct, and it should be
 // done with careful consideration.
@@ -138,24 +168,55 @@ type HeaderMatcherFunc func(string) (string, bool)
 
 // DefaultHeaderMatcher is used to pass http request headers to/from gRPC context. This adds permanent HTTP header
 // keys (as specified by the IANA, e.g: Accept, Cookie, Host) to the gRPC metadata with the grpcgateway- prefix. If you want to know which headers are considered permanent, you can view the isPermanentHTTPHeader function.
-// HTTP headers that start with 'Grpc-Metadata-' are mapped to gRPC metadata after removing the prefix 'Grpc-Metadata-'.
 // Other headers are not added to the gRPC metadata.
+//
+// Earlier versions also mapped HTTP headers that start with 'Grpc-Metadata-' to gRPC metadata after removing the
+// prefix. That let any HTTP client set an arbitrary metadata key, which a backend trusting a key as set by an
+// interceptor or the gateway itself could not tell apart from the real value. Use LegacyHeaderMatcher, or the
+// WithLegacyHeaderMatching option, to keep forwarding those headers.
 func DefaultHeaderMatcher(key string) (string, bool) {
-	switch key = textproto.CanonicalMIMEHeaderKey(key); {
-	case isPermanentHTTPHeader(key):
+	if key = textproto.CanonicalMIMEHeaderKey(key); isPermanentHTTPHeader(key) {
 		return MetadataPrefix + key, true
-	case strings.HasPrefix(key, MetadataHeaderPrefix):
-		return key[len(MetadataHeaderPrefix):], true
 	}
 	return "", false
 }
 
+// LegacyHeaderMatcher is the incoming header matcher earlier releases used by default. In addition to the
+// permanent HTTP headers DefaultHeaderMatcher maps, HTTP headers that start with 'Grpc-Metadata-' are mapped
+// to gRPC metadata after removing the prefix 'Grpc-Metadata-'.
+//
+// This lets any HTTP client set any metadata key the backend reads, except the ones the gateway reserves for
+// itself, so only use it when the backend does not trust a metadata key to have been set by the gateway.
+func LegacyHeaderMatcher(key string) (string, bool) {
+	switch key = textproto.CanonicalMIMEHeaderKey(key); {
+	case isPermanentHTTPHeader(key):
+		return MetadataPrefix + key, true
+	case strings.HasPrefix(key, MetadataHeaderPrefix):
+		mdKey := key[len(MetadataHeaderPrefix):]
+		// The grpcgateway- namespace is reserved for permanent HTTP headers the
+		// gateway maps itself, so refuse to forward a Grpc-Metadata- header that
+		// strips into it. Otherwise Grpc-Metadata-grpcgateway-host lets a client
+		// inject a value indistinguishable from the gateway-set grpcgateway-host.
+		if strings.HasPrefix(strings.ToLower(mdKey), MetadataPrefix) {
+			return "", false
+		}
+		return mdKey, true
+	}
+	return "", false
+}
+
+// WithLegacyHeaderMatching returns a ServeMuxOption that restores LegacyHeaderMatcher as the incoming header
+// matcher, so HTTP headers that start with 'Grpc-Metadata-' are forwarded as gRPC metadata again.
+func WithLegacyHeaderMatching() ServeMuxOption {
+	return WithIncomingHeaderMatcher(LegacyHeaderMatcher)
+}
+
 func defaultOutgoingHeaderMatcher(key string) (string, bool) {
-	return fmt.Sprintf("%s%s", MetadataHeaderPrefix, key), true
+	return MetadataHeaderPrefix + key, true
 }
 
 func defaultOutgoingTrailerMatcher(key string) (string, bool) {
-	return fmt.Sprintf("%s%s", MetadataTrailerPrefix, key), true
+	return MetadataTrailerPrefix + key, true
 }
 
 // WithIncomingHeaderMatcher returns a ServeMuxOption representing a headerMatcher for incoming request to gateway.
@@ -259,6 +320,19 @@ func WithDisablePathLengthFallback() ServeMuxOption {
 	}
 }
 
+// WithDisableHTTPMethodOverride returns a ServeMuxOption that disables the
+// X-HTTP-Method-Override header handling.
+//
+// When this option is used, the mux will no longer allow POST requests with
+// the X-HTTP-Method-Override header to override the HTTP method. The path
+// length fallback (POST with application/x-www-form-urlencoded falling back
+// to a matching GET handler) is not affected by this option.
+func WithDisableHTTPMethodOverride() ServeMuxOption {
+	return func(serveMux *ServeMux) {
+		serveMux.disableHTTPMethodOverride = true
+	}
+}
+
 // WithWriteContentLength returns a ServeMuxOption to enable writing content length on non-streaming responses
 func WithWriteContentLength() ServeMuxOption {
 	return func(serveMux *ServeMux) {
@@ -281,12 +355,19 @@ func WithHealthEndpointAt(healthCheckClient grpc_health_v1.HealthClient, endpoin
 			http.MethodGet, endpointPath, func(w http.ResponseWriter, r *http.Request, _ map[string]string,
 			) {
 				_, outboundMarshaler := MarshalerForRequest(s, r)
-
-				resp, err := healthCheckClient.Check(r.Context(), &grpc_health_v1.HealthCheckRequest{
-					Service: r.URL.Query().Get("service"),
-				})
+				annotatedContext, err := AnnotateContext(r.Context(), s, r, grpc_health_v1.Health_Check_FullMethodName, WithHTTPPathPattern(endpointPath))
 				if err != nil {
 					s.errorHandler(r.Context(), s, outboundMarshaler, w, r, err)
+					return
+				}
+
+				var md ServerMetadata
+				resp, err := healthCheckClient.Check(annotatedContext, &grpc_health_v1.HealthCheckRequest{
+					Service: r.URL.Query().Get("service"),
+				}, grpc.Header(&md.HeaderMD), grpc.Trailer(&md.TrailerMD))
+				annotatedContext = NewServerMetadataContext(annotatedContext, md)
+				if err != nil {
+					s.errorHandler(annotatedContext, s, outboundMarshaler, w, r, err)
 					return
 				}
 
@@ -300,7 +381,7 @@ func WithHealthEndpointAt(healthCheckClient grpc_health_v1.HealthClient, endpoin
 						err = status.Error(codes.NotFound, resp.String())
 					}
 
-					s.errorHandler(r.Context(), s, outboundMarshaler, w, r, err)
+					s.errorHandler(annotatedContext, s, outboundMarshaler, w, r, err)
 					return
 				}
 
@@ -343,15 +424,28 @@ func NewServeMux(opts ...ServeMuxOption) *ServeMux {
 		serveMux.outgoingTrailerMatcher = defaultOutgoingTrailerMatcher
 	}
 
+	// Options such as WithHealthEndpointAt register handlers while the options
+	// are still being applied, so they were wrapped with only the middlewares
+	// configured before them. Rewrap them now that all middlewares are known.
+	if len(serveMux.middlewares) > 0 {
+		chain := chainMiddlewares(serveMux.middlewares)
+		for _, handlers := range serveMux.handlers {
+			for i := range handlers {
+				handlers[i].h = chain(handlers[i].raw)
+			}
+		}
+	}
+
 	return serveMux
 }
 
 // Handle associates "h" to the pair of HTTP method and path pattern.
 func (s *ServeMux) Handle(meth string, pat Pattern, h HandlerFunc) {
+	raw := h
 	if len(s.middlewares) > 0 {
 		h = chainMiddlewares(s.middlewares)(h)
 	}
-	s.handlers[meth] = append([]handler{{pat: pat, h: h}}, s.handlers[meth]...)
+	s.handlers[meth] = append([]handler{{pat: pat, h: h, raw: raw}}, s.handlers[meth]...)
 }
 
 // HandlePath allows users to configure custom path handlers.
@@ -382,11 +476,22 @@ func (s *ServeMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO(v3): remove UnescapingModeLegacy
-	if s.unescapingMode != UnescapingModeLegacy && r.URL.RawPath != "" {
-		path = r.URL.RawPath
+	unescapingMode := s.unescapingMode
+	if unescapingMode != UnescapingModeLegacy {
+		if r.URL.RawPath != "" {
+			path = r.URL.RawPath
+		} else {
+			// net/url only sets RawPath when the request path is not in its
+			// default encoding. Without it, Path is all there is and it has
+			// already been unescaped once, so unescaping it again while matching
+			// would decode a sequence like %252F twice.
+			unescapingMode = UnescapingModeLegacy
+		}
 	}
 
-	if override := r.Header.Get("X-HTTP-Method-Override"); override != "" && s.isPathLengthFallback(r) {
+	// "X-Http-Method-Override" is the canonical spelling; Header.Get allocates a
+	// canonicalised copy of any other, and this lookup happens on every request.
+	if override := r.Header.Get("X-Http-Method-Override"); override != "" && !s.disableHTTPMethodOverride && s.isPathLengthFallback(r) {
 		if err := r.ParseForm(); err != nil {
 			_, outboundMarshaler := MarshalerForRequest(s, r)
 			sterr := status.Error(codes.InvalidArgument, err.Error())
@@ -401,7 +506,7 @@ func (s *ServeMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// in this escaping mode we would be double unescaping but in UnescapingModeAllCharacters, we still do as the
 	// path is the RawPath (i.e. unescaped). That does mean that the behavior of this function will change its default
 	// behavior when the UnescapingModeDefault gets changed from UnescapingModeLegacy to UnescapingModeAllExceptReserved
-	if s.unescapingMode == UnescapingModeAllCharacters {
+	if unescapingMode == UnescapingModeAllCharacters {
 		pathComponents = encodedPathSplitter.Split(path[1:], -1)
 	} else {
 		pathComponents = strings.Split(path[1:], "/")
@@ -427,20 +532,33 @@ func (s *ServeMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			idx = len(lastPathComponent) - len(patVerb) - 1
 		}
 		if idx == 0 {
-			_, outboundMarshaler := MarshalerForRequest(s, r)
-			s.routingErrorHandler(ctx, s, outboundMarshaler, w, r, http.StatusNotFound)
-			return
+			// The last component is the bare verb with nothing before it,
+			// which this pattern cannot match. Other patterns still might, so
+			// move on rather than ending the search with a 404.
+			continue
 		}
 
-		comps := make([]string, len(pathComponents))
-		copy(comps, pathComponents)
-
+		// Only copy the components when the verb has to be split off the last
+		// one. MatchAndEscape never mutates its input, so sharing the slice
+		// across handlers is safe, and copying it per handler otherwise costs
+		// len(pathComponents) allocations for every registered pattern.
+		comps := pathComponents
 		if idx > 0 {
+			comps = make([]string, len(pathComponents))
+			copy(comps, pathComponents)
 			comps[len(comps)-1], verb = lastPathComponent[:idx], lastPathComponent[idx+1:]
 		}
 
-		pathParams, err := h.pat.MatchAndEscape(comps, verb, s.unescapingMode)
+		pathParams, err := h.pat.matchAndEscape(comps, verb, unescapingMode, s.strictDeepWildcard)
 		if err != nil {
+			// ErrNotMatch is returned once for every registered pattern the request does not
+			// match, so it is by far the most common error reaching this branch. Checking it
+			// first keeps errors.As off that path: its target parameter is an any, so &mse is
+			// boxed onto the heap on every call -- one allocation per route a request did not
+			// match, which grows with the number of registered routes.
+			if errors.Is(err, ErrNotMatch) {
+				continue
+			}
 			var mse MalformedSequenceError
 			if ok := errors.As(err, &mse); ok {
 				_, outboundMarshaler := MarshalerForRequest(s, r)
@@ -448,6 +566,7 @@ func (s *ServeMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					HTTPStatus: http.StatusBadRequest,
 					Err:        mse,
 				})
+				return
 			}
 			continue
 		}
@@ -461,11 +580,24 @@ func (s *ServeMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Note we are not eagerly checking the request here as we want to return the
 	// right HTTP status code, and we need to process the fallback candidates in
 	// order to do that.
-	for m, handlers := range s.handlers {
+	// GET is tried first when the request is subject to path length fallback:
+	// map iteration order is random, and a match for another method would
+	// otherwise return 405 before the GET handler is reached.
+	methods := make([]string, 0, len(s.handlers))
+	if s.isPathLengthFallback(r) {
+		methods = append(methods, http.MethodGet)
+	}
+	for m := range s.handlers {
+		if m == http.MethodGet && s.isPathLengthFallback(r) {
+			continue
+		}
+		methods = append(methods, m)
+	}
+	for _, m := range methods {
 		if m == r.Method {
 			continue
 		}
-		for _, h := range handlers {
+		for _, h := range s.handlers[m] {
 			var verb string
 			patVerb := h.pat.Verb()
 
@@ -474,14 +606,14 @@ func (s *ServeMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				idx = len(lastPathComponent) - len(patVerb) - 1
 			}
 
-			comps := make([]string, len(pathComponents))
-			copy(comps, pathComponents)
-
+			comps := pathComponents
 			if idx > 0 {
+				comps = make([]string, len(pathComponents))
+				copy(comps, pathComponents)
 				comps[len(comps)-1], verb = lastPathComponent[:idx], lastPathComponent[idx+1:]
 			}
 
-			pathParams, err := h.pat.MatchAndEscape(comps, verb, s.unescapingMode)
+			pathParams, err := h.pat.matchAndEscape(comps, verb, unescapingMode, s.strictDeepWildcard)
 			if err != nil {
 				var mse MalformedSequenceError
 				if ok := errors.As(err, &mse); ok {
@@ -490,6 +622,7 @@ func (s *ServeMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						HTTPStatus: http.StatusBadRequest,
 						Err:        mse,
 					})
+					return
 				}
 				continue
 			}
@@ -523,12 +656,19 @@ func (s *ServeMux) GetForwardResponseOptions() []func(context.Context, http.Resp
 }
 
 func (s *ServeMux) isPathLengthFallback(r *http.Request) bool {
-	return !s.disablePathLengthFallback && r.Method == "POST" && r.Header.Get("Content-Type") == "application/x-www-form-urlencoded"
+	if s.disablePathLengthFallback || r.Method != http.MethodPost {
+		return false
+	}
+	// Like net/http's ParseForm, ignore parameters such as charset.
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	return err == nil && mediaType == "application/x-www-form-urlencoded"
 }
 
 type handler struct {
 	pat Pattern
 	h   HandlerFunc
+	// raw is h before middlewares were applied.
+	raw HandlerFunc
 }
 
 func (s *ServeMux) handleHandler(h handler, w http.ResponseWriter, r *http.Request, pathParams map[string]string) {

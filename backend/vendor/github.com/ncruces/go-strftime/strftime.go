@@ -80,8 +80,11 @@ func AppendFormat(dst []byte, fmt string, t time.Time) []byte {
 			dst = t.AppendFormat(dst, "2006")
 			return nil
 		case 'C':
-			dst = t.AppendFormat(dst, "2006")
-			dst = dst[:len(dst)-2]
+			century := century(t)
+			if century >= 0 && century < 10 {
+				dst = append(dst, '0')
+			}
+			dst = strconv.AppendInt(dst, int64(century), 10)
 			return nil
 		case 'U':
 			dst = appendWeekNumber(dst, t, flag, true)
@@ -146,6 +149,15 @@ func AppendFormat(dst []byte, fmt string, t time.Time) []byte {
 
 // Parse converts a textual representation of time to the time value it represents
 // according to the strptime format specification.
+//
+// The following specifiers are not supported for parsing:
+//
+//	%g %k %l %s %u %w %C %G %Q %U %V %W
+//
+// You must also avoid digits and these letter sequences
+// in fmt literals:
+//
+//	Jan Mon MST PM pm
 func Parse(fmt, value string) (time.Time, error) {
 	pattern, err := layout(fmt, true)
 	if err != nil {
@@ -156,6 +168,15 @@ func Parse(fmt, value string) (time.Time, error) {
 
 // Layout converts a strftime format specification
 // to a Go time pattern specification.
+//
+// The following specifiers are not supported by Go patterns:
+//
+//	%f %g %k %l %s %u %w %C %G %L %N %Q %U %V %W
+//
+// You must also avoid digits and these letter sequences
+// in fmt literals:
+//
+//	Jan Mon MST PM pm
 func Layout(fmt string) (string, error) {
 	return layout(fmt, false)
 }
@@ -220,6 +241,10 @@ func layout(fmt string, parsing bool) (string, error) {
 
 // UTS35 converts a strftime format specification
 // to a Unicode Technical Standard #35 Date Format Pattern.
+//
+// The following specifiers are not supported by UTS35:
+//
+//	%e %k %l %u %w %C %P %U %W
 func UTS35(fmt string) (string, error) {
 	const quote = '\''
 	var quoted bool
@@ -275,6 +300,15 @@ func buffer(format string) (buf []byte) {
 
 func year(y int) time.Time {
 	return time.Date(y, time.January, 1, 0, 0, 0, 0, time.UTC)
+}
+
+func century(t time.Time) int {
+	y := t.Year()
+	c := y / 100
+	if y%100 < 0 {
+		c--
+	}
+	return c
 }
 
 func appendWeekNumber(dst []byte, t time.Time, flag byte, sunday bool) []byte {

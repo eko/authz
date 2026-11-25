@@ -7,14 +7,16 @@ package flate
 
 import (
 	"fmt"
-	"math/bits"
 
 	"github.com/klauspost/compress/internal/le"
+	"github.com/klauspost/compress/internal/regmask"
 )
 
 type fastEnc interface {
 	Encode(dst *tokens, src []byte)
 	Reset()
+	// hasHistory reports whether there is previous data to match against.
+	hasHistory() bool
 }
 
 func newFastEnc(level int) fastEnc {
@@ -48,6 +50,15 @@ const (
 	bTableSize   = 1 << bTableBits                                  // Size of the table
 	allocHistory = maxStoreBlockSize * 5                            // Size to preallocate for history.
 	bufferReset  = (1 << 31) - allocHistory - maxStoreBlockSize - 1 // Reset the buffer offset when reaching this.
+
+	// inputMargin is the number of bytes the encoders must be able to read
+	// past the last position they look for a match at.
+	inputMargin = 12 - 1
+
+	// minNonLiteralBlockSize is the smallest block Encode will emit tokens for.
+	// Smaller blocks are only added to the history and must be written by the
+	// caller.
+	minNonLiteralBlockSize = 1 + 1 + inputMargin
 )
 
 const (
@@ -109,7 +120,7 @@ type tableEntryPrev struct {
 // hash7 returns the hash of the lowest 7 bytes of u to fit in a hash table with h bits.
 // Preferably h should be a constant and should always be <64.
 func hash7(u uint64, h uint8) uint32 {
-	return uint32(((u << (64 - 56)) * prime7bytes) >> ((64 - h) & reg8SizeMask64))
+	return uint32(((u << (64 - 56)) * prime7bytes) >> ((64 - h) & regmask.Shift64ByUint8))
 }
 
 // hashLen returns a hash of the lowest mls bytes of with length output bits.
@@ -151,29 +162,9 @@ func (e *fastGen) matchlen(s, t int, src []byte) int32 {
 			panic(fmt.Sprint(s, "-", t, "(", s-t, ") > maxMatchLength (", maxMatchOffset, ")"))
 		}
 	}
-	s1 := min(s+maxMatchLength-4, len(src))
-	left := s1 - s
-	n := int32(0)
-	for left >= 8 {
-		diff := le.Load64(src, s) ^ le.Load64(src, t)
-		if diff != 0 {
-			return n + int32(bits.TrailingZeros64(diff)>>3)
-		}
-		s += 8
-		t += 8
-		n += 8
-		left -= 8
-	}
-
-	a := src[s:s1]
+	a := src[s:min(s+maxMatchLength-4, len(src))]
 	b := src[t:]
-	for i := range a {
-		if a[i] != b[i] {
-			break
-		}
-		n++
-	}
-	return n
+	return int32(matchLen(a, b))
 }
 
 // matchlenLong will return the match length between offsets and t in src.
@@ -193,29 +184,7 @@ func (e *fastGen) matchlenLong(s, t int, src []byte) int32 {
 			panic(fmt.Sprint(s, "-", t, "(", s-t, ") > maxMatchLength (", maxMatchOffset, ")"))
 		}
 	}
-	// Extend the match to be as long as possible.
-	left := len(src) - s
-	n := int32(0)
-	for left >= 8 {
-		diff := le.Load64(src, s) ^ le.Load64(src, t)
-		if diff != 0 {
-			return n + int32(bits.TrailingZeros64(diff)>>3)
-		}
-		s += 8
-		t += 8
-		n += 8
-		left -= 8
-	}
-
-	a := src[s:]
-	b := src[t:]
-	for i := range a {
-		if a[i] != b[i] {
-			break
-		}
-		n++
-	}
-	return n
+	return int32(matchLen(src[s:], src[t:]))
 }
 
 // Reset the encoding table.
@@ -230,3 +199,5 @@ func (e *fastGen) Reset() {
 	}
 	e.hist = e.hist[:0]
 }
+
+func (e *fastGen) hasHistory() bool { return len(e.hist) > 0 }

@@ -15,6 +15,11 @@ linters-settings:
      check-type-assertions: true
      check-blank: true
      disable-default-exclusions: true
+     exclude-functions:
+       - '(*bytes.Buffer).Write' # always returns nil error
+       - '(*github.com/valyala/bytebufferpool.ByteBuffer).Write' # always returns nil error
+       - '(*github.com/valyala/bytebufferpool.ByteBuffer).WriteByte' # always returns nil error
+       - '(*github.com/valyala/bytebufferpool.ByteBuffer).WriteString' # always returns nil error
 
   errchkjson:
     report-no-exported: true
@@ -39,6 +44,8 @@ linters-settings:
     extra-rules: true
 
   gosec:
+    excludes:
+      - G104 # TODO: Enable this again. Mostly provided by errcheck
     config:
       global:
         audit: true

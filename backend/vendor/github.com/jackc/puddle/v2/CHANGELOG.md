@@ -1,3 +1,14 @@
+# 2.2.4 (November 16, 2026)
+
+* Fix: Destroy resources when construction started by CreateResource finishes after Close or Reset.
+  Previously, Close could leave a resource counted in pool statistics and Reset could allow a stale resource to be reused. (Harrison Crosse)
+
+# 2.2.3 (October 5, 2026)
+
+* Fix: Destroy resources when background construction started by TryAcquire finishes after Close or Reset.
+  Previously, Close could wait indefinitely and Reset could allow a stale resource to be reused. (bensynapse)
+* Replace custom logarithm calculation with math/bits. (Andy Walker)
+
 # 2.2.2 (September 10, 2024)
 
 * Add empty acquire time to stats (Maxim Ivanov)

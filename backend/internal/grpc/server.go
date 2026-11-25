@@ -57,13 +57,12 @@ func NewServer(
 	authorizationFunc := interceptor.AuthorizationFunc(compiledManager)
 
 	grpcServer := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainStreamInterceptor(
-			otelgrpc.StreamServerInterceptor(), // nolint:staticcheck
 			grpc_auth.StreamServerInterceptor(authenticateFunc),
 			interceptor.AuthorizationStreamServerInterceptor(authorizationFunc),
 		),
 		grpc.ChainUnaryInterceptor(
-			otelgrpc.UnaryServerInterceptor(), // nolint:staticcheck
 			interceptor.AuthenticationUnaryServerInterceptor(
 				grpc_auth.UnaryServerInterceptor(authenticateFunc),
 			),

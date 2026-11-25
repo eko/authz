@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"iter"
 	"sort"
 	"sync"
 )
@@ -18,7 +19,7 @@ const (
 // The returned Args may be returned to the pool with ReleaseArgs
 // when no longer needed. This allows reducing GC load.
 func AcquireArgs() *Args {
-	return argsPool.Get().(*Args)
+	return argsPool.Get().(*Args) //nolint:forcetypeassert
 }
 
 // ReleaseArgs returns the object acquired via AcquireArgs to the pool.
@@ -64,12 +65,34 @@ func (a *Args) CopyTo(dst *Args) {
 	dst.args = copyArgs(dst.args, a.args)
 }
 
+// All returns an iterator over key-value pairs from args.
+//
+// The key and value may invalid outside the iteration loop.
+// Make copies if you need to use them after the loop ends.
+//
+// Making modifications to the Args during the iteration loop leads to undefined
+// behavior and can cause panics.
+func (a *Args) All() iter.Seq2[[]byte, []byte] {
+	return func(yield func([]byte, []byte) bool) {
+		for i := range a.args {
+			if !yield(a.args[i].key, a.args[i].value) {
+				break
+			}
+		}
+	}
+}
+
 // VisitAll calls f for each existing arg.
 //
 // f must not retain references to key and value after returning.
 // Make key and/or value copies if you need storing them after returning.
+//
+// Deprecated: Use All instead.
 func (a *Args) VisitAll(f func(key, value []byte)) {
-	visitArgs(a.args, f)
+	a.All()(func(key, value []byte) bool {
+		f(key, value)
+		return true
+	})
 }
 
 // Len returns the number of query args.
@@ -116,21 +139,35 @@ func (a *Args) QueryString() []byte {
 
 // Sort sorts Args by key and then value using 'f' as comparison function.
 //
+// f must return a negative value, zero, or a positive value when x is less
+// than, equal to, or greater than y, respectively.
 // For example args.Sort(bytes.Compare).
 func (a *Args) Sort(f func(x, y []byte) int) {
 	sort.SliceStable(a.args, func(i, j int) bool {
 		n := f(a.args[i].key, a.args[j].key)
 		if n == 0 {
-			return f(a.args[i].value, a.args[j].value) == -1
+			return f(a.args[i].value, a.args[j].value) < 0
 		}
-		return n == -1
+		return n < 0
+	})
+}
+
+// SortKeys sorts Args by key only using 'f' as comparison function.
+//
+// f must return a negative value, zero, or a positive value when x is less
+// than, equal to, or greater than y, respectively.
+// For example args.SortKeys(bytes.Compare).
+func (a *Args) SortKeys(f func(x, y []byte) int) {
+	sort.SliceStable(a.args, func(i, j int) bool {
+		return f(a.args[i].key, a.args[j].key) < 0
 	})
 }
 
 // AppendBytes appends query string to dst and returns the extended dst.
 func (a *Args) AppendBytes(dst []byte) []byte {
-	for i, n := 0, len(a.args); i < n; i++ {
-		kv := &a.args[i]
+	args := a.args
+	for i, n := 0, len(args); i < n; i++ {
+		kv := &args[i]
 		dst = AppendQuotedArg(dst, kv.key)
 		if !kv.noValue {
 			dst = append(dst, '=')
@@ -149,7 +186,11 @@ func (a *Args) AppendBytes(dst []byte) []byte {
 //
 // WriteTo implements io.WriterTo interface.
 func (a *Args) WriteTo(w io.Writer) (int64, error) {
-	n, err := w.Write(a.QueryString())
+	b := a.QueryString()
+	n, err := w.Write(b)
+	if err == nil && n != len(b) {
+		err = io.ErrShortWrite
+	}
 	return int64(n), err
 }
 
@@ -205,7 +246,7 @@ func (a *Args) AddBytesKNoValue(key []byte) {
 	a.args = appendArg(a.args, b2s(key), "", argsNoValue)
 }
 
-// Set sets 'key=value' argument.
+// Set replaces all values for key with the given value.
 func (a *Args) Set(key, value string) {
 	a.args = setArg(a.args, key, value, argsHasValue)
 }
@@ -256,11 +297,11 @@ func (a *Args) PeekBytes(key []byte) []byte {
 // PeekMulti returns all the arg values for the given key.
 func (a *Args) PeekMulti(key string) [][]byte {
 	var values [][]byte
-	a.VisitAll(func(k, v []byte) {
+	for k, v := range a.All() {
 		if string(k) == key {
 			values = append(values, v)
 		}
-	})
+	}
 	return values
 }
 
@@ -280,7 +321,7 @@ func (a *Args) HasBytes(key []byte) bool {
 }
 
 // ErrNoArgValue is returned when Args value with the given key is missing.
-var ErrNoArgValue = errors.New("no Args value for the given key")
+var ErrNoArgValue = errors.New("fasthttp: no args value for the given key")
 
 // GetUint returns uint value for the given key.
 func (a *Args) GetUint(key string) (int, error) {
@@ -349,13 +390,6 @@ func (a *Args) GetBool(key string) bool {
 	}
 }
 
-func visitArgs(args []argsKV, f func(k, v []byte)) {
-	for i, n := 0, len(args); i < n; i++ {
-		kv := &args[i]
-		f(kv.key, kv.value)
-	}
-}
-
 func copyArgs(dst, src []argsKV) []argsKV {
 	if cap(dst) < len(src) {
 		tmp := make([]argsKV, len(src))
@@ -371,7 +405,7 @@ func copyArgs(dst, src []argsKV) []argsKV {
 	}
 	n := len(src)
 	dst = dst[:n]
-	for i := 0; i < n; i++ {
+	for i := range n {
 		dstKV := &dst[i]
 		srcKV := &src[i]
 		dstKV.key = append(dstKV.key[:0], srcKV.key...)
@@ -386,16 +420,19 @@ func copyArgs(dst, src []argsKV) []argsKV {
 }
 
 func delAllArgsStable(args []argsKV, key string) []argsKV {
-	for i, n := 0, len(args); i < n; i++ {
-		kv := &args[i]
-		if key == string(kv.key) {
-			tmp := *kv
-			copy(args[i:], args[i+1:])
-			n--
-			i--
-			args[n] = tmp
-			args = args[:n]
+	for i := range args {
+		if key != string(args[i].key) {
+			continue
 		}
+		write := i
+		for read := i + 1; read < len(args); read++ {
+			if key != string(args[read].key) {
+				// Keep the removed entries' buffers available for reuse.
+				args[write], args[read] = args[read], args[write]
+				write++
+			}
+		}
+		return args[:write]
 	}
 	return args
 }
@@ -418,7 +455,7 @@ func setArgBytes(h []argsKV, key, value []byte, noValue bool) []argsKV {
 
 func setArg(h []argsKV, key, value string, noValue bool) []argsKV {
 	n := len(h)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		kv := &h[i]
 		if key == string(kv.key) {
 			if noValue {
@@ -427,7 +464,8 @@ func setArg(h []argsKV, key, value string, noValue bool) []argsKV {
 				kv.value = append(kv.value[:0], value...)
 			}
 			kv.noValue = noValue
-			return h
+			tail := delAllArgsStable(h[i+1:], b2s(kv.key))
+			return h[:i+1+len(tail)]
 		}
 	}
 	return appendArg(h, key, value, noValue)
@@ -435,6 +473,32 @@ func setArg(h []argsKV, key, value string, noValue bool) []argsKV {
 
 func appendArgBytes(h []argsKV, key, value []byte, noValue bool) []argsKV {
 	return appendArg(h, b2s(key), b2s(value), noValue)
+}
+
+// appendArgNormalized stores a parsed header field, canonicalizing the key
+// while it is copied so the source bytes stay untouched.
+func appendArgNormalized(args []argsKV, key, value []byte, disableNormalizing bool) []argsKV {
+	var kv *argsKV
+	args, kv = allocArg(args)
+	if disableNormalizing {
+		kv.key = append(kv.key[:0], key...)
+	} else {
+		dst := kv.key[:0]
+		upper := true
+		for _, c := range key {
+			if upper {
+				c = toUpperTable[c]
+			} else {
+				c = toLowerTable[c]
+			}
+			upper = c == '-'
+			dst = append(dst, c)
+		}
+		kv.key = dst
+	}
+	kv.value = append(kv.value[:0], value...)
+	kv.noValue = argsHasValue
+	return args
 }
 
 func appendArg(args []argsKV, key, value string, noValue bool) []argsKV {
@@ -508,21 +572,34 @@ func (s *argsScanner) next(kv *argsKV) bool {
 
 	isKey := true
 	k := 0
+	// esc is where the first '%' or '+' of the key or value being scanned
+	// sits, relative to its start, so decoding needn't search for it again.
+	esc := -1
 	for i, c := range s.b {
-		switch c {
+		t := argsScanTable[c]
+		if t == 0 {
+			// Neither a separator nor an escape, as most bytes are.
+			continue
+		}
+		switch t {
+		case '%': // '%' or '+'
+			if esc < 0 {
+				esc = i - k
+			}
 		case '=':
 			if isKey {
 				isKey = false
-				kv.key = decodeArgAppend(kv.key[:0], s.b[:i])
+				kv.key = decodeArgAppendAt(kv.key[:0], s.b[:i], esc)
 				k = i + 1
+				esc = -1
 			}
-		case '&':
+		default: // '&'
 			if isKey {
-				kv.key = decodeArgAppend(kv.key[:0], s.b[:i])
+				kv.key = decodeArgAppendAt(kv.key[:0], s.b[:i], esc)
 				kv.value = kv.value[:0]
 				kv.noValue = argsNoValue
 			} else {
-				kv.value = decodeArgAppend(kv.value[:0], s.b[k:i])
+				kv.value = decodeArgAppendAt(kv.value[:0], s.b[k:i], esc)
 			}
 			s.b = s.b[i+1:]
 			return true
@@ -530,11 +607,11 @@ func (s *argsScanner) next(kv *argsKV) bool {
 	}
 
 	if isKey {
-		kv.key = decodeArgAppend(kv.key[:0], s.b)
+		kv.key = decodeArgAppendAt(kv.key[:0], s.b, esc)
 		kv.value = kv.value[:0]
 		kv.noValue = argsNoValue
 	} else {
-		kv.value = decodeArgAppend(kv.value[:0], s.b[k:])
+		kv.value = decodeArgAppendAt(kv.value[:0], s.b[k:], esc)
 	}
 	s.b = s.b[len(s.b):]
 	return true
@@ -543,10 +620,6 @@ func (s *argsScanner) next(kv *argsKV) bool {
 func decodeArgAppend(dst, src []byte) []byte {
 	idxPercent := bytes.IndexByte(src, '%')
 	idxPlus := bytes.IndexByte(src, '+')
-	if idxPercent == -1 && idxPlus == -1 {
-		// fast path: src doesn't contain encoded chars
-		return append(dst, src...)
-	}
 
 	var idx int
 	switch {
@@ -559,19 +632,31 @@ func decodeArgAppend(dst, src []byte) []byte {
 	default:
 		idx = idxPercent
 	}
+	return decodeArgAppendAt(dst, src, idx)
+}
+
+// decodeArgAppendAt is decodeArgAppend for a src whose first '%' or '+' is
+// known to be at idx, or which has none if idx is negative.
+func decodeArgAppendAt(dst, src []byte, idx int) []byte {
+	if idx < 0 {
+		// fast path: src doesn't contain encoded chars
+		return append(dst, src...)
+	}
 
 	dst = append(dst, src[:idx]...)
 
 	// slow path
-	for i := idx; i < len(src); i++ {
+	for i := uint(idx); i < uint(len(src)); i++ {
 		c := src[i]
 		switch c {
 		case '%':
-			if i+2 >= len(src) {
+			end := i + 3
+			if end > uint(len(src)) {
 				return append(dst, src[i:]...)
 			}
-			x2 := hex2intTable[src[i+2]]
-			x1 := hex2intTable[src[i+1]]
+			chunk := src[i:end]
+			x2 := hex2intTable[chunk[2]]
+			x1 := hex2intTable[chunk[1]]
 			if x1 == 16 || x2 == 16 {
 				dst = append(dst, '%')
 			} else {
@@ -601,14 +686,16 @@ func decodeArgAppendNoPlus(dst, src []byte) []byte {
 	dst = append(dst, src[:idx]...)
 
 	// slow path
-	for i := idx; i < len(src); i++ {
+	for i := uint(idx); i < uint(len(src)); i++ {
 		c := src[i]
 		if c == '%' {
-			if i+2 >= len(src) {
+			end := i + 3
+			if end > uint(len(src)) {
 				return append(dst, src[i:]...)
 			}
-			x2 := hex2intTable[src[i+2]]
-			x1 := hex2intTable[src[i+1]]
+			chunk := src[i:end]
+			x2 := hex2intTable[chunk[2]]
+			x1 := hex2intTable[chunk[1]]
 			if x1 == 16 || x2 == 16 {
 				dst = append(dst, '%')
 			} else {
@@ -628,14 +715,6 @@ func peekAllArgBytesToDst(dst [][]byte, h []argsKV, k []byte) [][]byte {
 		if bytes.Equal(kv.key, k) {
 			dst = append(dst, kv.value)
 		}
-	}
-	return dst
-}
-
-func peekArgsKeys(dst [][]byte, h []argsKV) [][]byte {
-	for i, n := 0, len(h); i < n; i++ {
-		kv := &h[i]
-		dst = append(dst, kv.key)
 	}
 	return dst
 }

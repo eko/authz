@@ -146,7 +146,8 @@ type TCPDialer struct {
 
 	concurrencyCh chan struct{}
 
-	tcpAddrsMap sync.Map
+	tcpAddrsMap    sync.Map
+	cleanerRunning atomic.Bool
 
 	// Concurrency controls the maximum number of concurrent Dials
 	// that can be performed using this object.
@@ -158,6 +159,11 @@ type TCPDialer struct {
 
 	// DNSCacheDuration may be used to override the default DNS cache duration (DefaultDNSCacheDuration)
 	DNSCacheDuration time.Duration
+
+	// KeepAlive specifies the keep-alive period for an active network connection.
+	// If zero, keep-alives are enabled if supported by the protocol and operating system.
+	// If negative, keep-alives are disabled.
+	KeepAlive time.Duration
 
 	once sync.Once
 
@@ -271,6 +277,22 @@ func (d *TCPDialer) DialDualStackTimeout(addr string, timeout time.Duration) (ne
 	return d.dial(addr, true, timeout)
 }
 
+// FlushDNSCache clears all cached DNS entries, forcing fresh DNS lookups on subsequent dials.
+// This is useful when you want to ensure fresh DNS resolution, for example after network changes.
+func (d *TCPDialer) FlushDNSCache() {
+	d.tcpAddrsMap.Range(func(k, v any) bool {
+		d.tcpAddrsMap.Delete(k)
+		return true
+	})
+}
+
+// FlushDNSCache clears all cached DNS entries for the default dialer,
+// forcing fresh DNS lookups on subsequent Dial* calls.
+// This is useful when you want to ensure fresh DNS resolution, for example after network changes.
+func FlushDNSCache() {
+	defaultDialer.FlushDNSCache()
+}
+
 func (d *TCPDialer) dial(addr string, dualStack bool, timeout time.Duration) (net.Conn, error) {
 	d.once.Do(func() {
 		if d.Concurrency > 0 {
@@ -279,10 +301,6 @@ func (d *TCPDialer) dial(addr string, dualStack bool, timeout time.Duration) (ne
 
 		if d.DNSCacheDuration == 0 {
 			d.DNSCacheDuration = DefaultDNSCacheDuration
-		}
-
-		if !d.DisableDNSResolution {
-			go d.tcpAddrsClean()
 		}
 	})
 	deadline := time.Now().Add(timeout)
@@ -297,6 +315,7 @@ func (d *TCPDialer) dial(addr string, dualStack bool, timeout time.Duration) (ne
 	if err != nil {
 		return nil, err
 	}
+	d.startTCPAddrsClean()
 	var conn net.Conn
 	n := uint32(len(addrs)) // #nosec G115
 	for range n {
@@ -343,6 +362,9 @@ func (d *TCPDialer) tryDial(
 	if d.LocalAddr != nil {
 		dialer.LocalAddr = d.LocalAddr
 	}
+	if d.KeepAlive != 0 {
+		dialer.KeepAlive = d.KeepAlive
+	}
 
 	ctx, cancelCtx := context.WithDeadline(context.Background(), deadline)
 	defer cancelCtx()
@@ -357,17 +379,16 @@ func (d *TCPDialer) tryDial(
 }
 
 // ErrDialTimeout is returned when TCP dialing is timed out.
-var ErrDialTimeout = errors.New("dialing to the given TCP address timed out")
+var ErrDialTimeout = errors.New("fasthttp: dialing to the given tcp address timed out")
 
 // ErrDialWithUpstream wraps dial error with upstream info.
 //
-// Should use errors.As to get upstream information from error:
+// Use errors.AsType to get upstream information from the error:
 //
 //	hc := fasthttp.HostClient{Addr: "foo.com,bar.com"}
 //	err := hc.Do(req, res)
 //
-//	var dialErr *fasthttp.ErrDialWithUpstream
-//	if errors.As(err, &dialErr) {
+//	if dialErr, ok := errors.AsType[*fasthttp.ErrDialWithUpstream](err); ok {
 //		upstream = dialErr.Upstream // 34.206.39.153:80
 //	}
 type ErrDialWithUpstream struct {
@@ -406,22 +427,72 @@ type tcpAddrEntry struct {
 // by Dial* functions.
 const DefaultDNSCacheDuration = time.Minute
 
-func (d *TCPDialer) tcpAddrsClean() {
+// cleanExpiredDNSEntries removes expired DNS cache entries based on DNSCacheDuration.
+// This is the core cleanup logic used by both the background cleaner and manual cleanup.
+func (d *TCPDialer) cleanExpiredDNSEntries() bool {
 	expireDuration := 2 * d.DNSCacheDuration
-	for {
-		time.Sleep(time.Second)
-		t := time.Now()
-		d.tcpAddrsMap.Range(func(k, v any) bool {
-			if e, ok := v.(*tcpAddrEntry); ok && t.Sub(e.resolveTime) > expireDuration {
-				d.tcpAddrsMap.Delete(k)
-			}
-			return true
-		})
+
+	t := time.Now()
+	hasEntries := false
+	d.tcpAddrsMap.Range(func(k, v any) bool {
+		if e, ok := v.(*tcpAddrEntry); ok && t.Sub(e.resolveTime) > expireDuration {
+			d.tcpAddrsMap.Delete(k)
+		} else {
+			hasEntries = true
+		}
+		return true
+	})
+	return hasEntries
+}
+
+func (d *TCPDialer) startTCPAddrsClean() {
+	if d.cleanerRunning.CompareAndSwap(false, true) {
+		go d.tcpAddrsClean()
 	}
 }
 
+func (d *TCPDialer) hasTCPAddrsEntries() bool {
+	hasEntries := false
+	d.tcpAddrsMap.Range(func(k, v any) bool {
+		hasEntries = true
+		return false
+	})
+	return hasEntries
+}
+
+var tcpAddrsCleanInterval = int64(time.Second)
+
+func (d *TCPDialer) tcpAddrsClean() {
+	t := time.NewTicker(time.Duration(atomic.LoadInt64(&tcpAddrsCleanInterval)))
+	defer t.Stop()
+
+	for range t.C {
+		if !d.cleanExpiredDNSEntries() {
+			d.cleanerRunning.Store(false)
+			// A dial may store a new DNS entry while cleanerRunning is still
+			// true and skip starting a cleaner. Reclaim ownership in that case.
+			if !d.hasTCPAddrsEntries() {
+				return
+			}
+			if d.cleanerRunning.CompareAndSwap(false, true) {
+				continue
+			}
+			// Another dial already claimed ownership and started a cleaner.
+			return
+		}
+	}
+}
+
+// tcpAddrsKey is the key of a DNS cache entry. An entry resolved for Dial
+// holds the IPv4 addresses only, so DialDualStack keeps entries of its own.
+type tcpAddrsKey struct {
+	addr      string
+	dualStack bool
+}
+
 func (d *TCPDialer) getTCPAddrs(addr string, dualStack bool, deadline time.Time) ([]net.TCPAddr, uint32, error) {
-	item, exist := d.tcpAddrsMap.Load(addr)
+	key := tcpAddrsKey{addr: addr, dualStack: dualStack}
+	item, exist := d.tcpAddrsMap.Load(key)
 	e, ok := item.(*tcpAddrEntry)
 	if exist && ok && e != nil && time.Since(e.resolveTime) > d.DNSCacheDuration {
 		// Only let one goroutine re-resolve at a time.
@@ -433,7 +504,7 @@ func (d *TCPDialer) getTCPAddrs(addr string, dualStack bool, deadline time.Time)
 	if e == nil {
 		addrs, err := resolveTCPAddrs(addr, dualStack, d.Resolver, deadline)
 		if err != nil {
-			item, exist := d.tcpAddrsMap.Load(addr)
+			item, exist := d.tcpAddrsMap.Load(key)
 			e, ok = item.(*tcpAddrEntry)
 			if exist && ok && e != nil {
 				// Set pending to 0 so another goroutine can retry.
@@ -446,7 +517,7 @@ func (d *TCPDialer) getTCPAddrs(addr string, dualStack bool, deadline time.Time)
 			addrs:       addrs,
 			resolveTime: time.Now(),
 		}
-		d.tcpAddrsMap.Store(addr, e)
+		d.tcpAddrsMap.Store(key, e)
 	}
 
 	idx := atomic.AddUint32(&e.addrsIdx, 1)
@@ -476,7 +547,7 @@ func resolveTCPAddrs(addr string, dualStack bool, resolver Resolver, deadline ti
 
 	n := len(ipaddrs)
 	addrs := make([]net.TCPAddr, 0, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		ip := ipaddrs[i]
 		if !dualStack && ip.IP.To4() == nil {
 			continue
@@ -493,4 +564,4 @@ func resolveTCPAddrs(addr string, dualStack bool, resolver Resolver, deadline ti
 	return addrs, nil
 }
 
-var errNoDNSEntries = errors.New("couldn't find DNS entries for the given domain. Try using DialDualStack")
+var errNoDNSEntries = errors.New("couldn't find dns entries for the given domain: try using dual-stack dialing")

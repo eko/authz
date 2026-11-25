@@ -2,13 +2,15 @@ package fasthttp
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
 
-	"github.com/andybalholm/brotli"
 	"github.com/valyala/bytebufferpool"
 	"github.com/valyala/fasthttp/stackless"
+
+	brotli "github.com/molecule-man/go-brrr"
 )
 
 // Supported compression levels.
@@ -17,22 +19,20 @@ const (
 	CompressBrotliBestSpeed       = brotli.BestSpeed
 	CompressBrotliBestCompression = brotli.BestCompression
 
-	// Choose a default brotli compression level comparable to
-	// CompressDefaultCompression (gzip 6)
+	// CompressBrotliDefaultCompression chooses a default brotli compression level comparable to
+	// CompressDefaultCompression (gzip 6).
 	// See: https://github.com/valyala/fasthttp/issues/798#issuecomment-626293806
 	CompressBrotliDefaultCompression = 4
 )
 
-func acquireBrotliReader(r io.Reader) (*brotli.Reader, error) {
+func acquireBrotliReader(r io.Reader) *brotli.Reader {
 	v := brotliReaderPool.Get()
 	if v == nil {
-		return brotli.NewReader(r), nil
+		return brotli.NewReader(r)
 	}
-	zr := v.(*brotli.Reader)
-	if err := zr.Reset(r); err != nil {
-		return nil, err
-	}
-	return zr, nil
+	zr := v.(*brotli.Reader) //nolint:forcetypeassert
+	zr.Reset(r)
+	return zr
 }
 
 func releaseBrotliReader(zr *brotli.Reader) {
@@ -50,16 +50,17 @@ func acquireStacklessBrotliWriter(w io.Writer, level int) stackless.Writer {
 			return acquireRealBrotliWriter(w, level)
 		})
 	}
-	sw := v.(stackless.Writer)
+	sw := v.(stackless.Writer) //nolint:forcetypeassert
 	sw.Reset(w)
 	return sw
 }
 
-func releaseStacklessBrotliWriter(sw stackless.Writer, level int) {
-	sw.Close()
+func releaseStacklessBrotliWriter(sw stackless.Writer, level int) error {
+	err := sw.Close()
 	nLevel := normalizeBrotliCompressLevel(level)
 	p := stacklessBrotliWriterPoolMap[nLevel]
 	p.Put(sw)
+	return err
 }
 
 func acquireRealBrotliWriter(w io.Writer, level int) *brotli.Writer {
@@ -67,10 +68,12 @@ func acquireRealBrotliWriter(w io.Writer, level int) *brotli.Writer {
 	p := realBrotliWriterPoolMap[nLevel]
 	v := p.Get()
 	if v == nil {
-		zw := brotli.NewWriterLevel(w, level)
+		// nLevel is always in the [0..11] range accepted by brotli.NewWriter,
+		// so the error can never be non-nil here.
+		zw, _ := brotli.NewWriter(w, nLevel)
 		return zw
 	}
-	zw := v.(*brotli.Writer)
+	zw := v.(*brotli.Writer) //nolint:forcetypeassert
 	zw.Reset(w)
 	return zw
 }
@@ -127,7 +130,9 @@ func WriteBrotliLevel(w io.Writer, p []byte, level int) (int, error) {
 	default:
 		zw := acquireStacklessBrotliWriter(w, level)
 		n, err := zw.Write(p)
-		releaseStacklessBrotliWriter(zw, level)
+		if errc := releaseStacklessBrotliWriter(zw, level); err == nil {
+			err = errc
+		}
 		return n, err
 	}
 }
@@ -145,7 +150,7 @@ func stacklessWriteBrotli(ctx any) {
 }
 
 func nonblockingWriteBrotli(ctxv any) {
-	ctx := ctxv.(*compressCtx)
+	ctx := ctxv.(*compressCtx) //nolint:forcetypeassert
 	zw := acquireRealBrotliWriter(ctx.w, ctx.level)
 
 	zw.Write(ctx.p) //nolint:errcheck // no way to handle this error anyway
@@ -167,25 +172,84 @@ func AppendBrotliBytes(dst, src []byte) []byte {
 // WriteUnbrotli writes unbrotlied p to w and returns the number of uncompressed
 // bytes written to w.
 func WriteUnbrotli(w io.Writer, p []byte) (int, error) {
-	r := &byteSliceReader{b: p}
-	zr, err := acquireBrotliReader(r)
-	if err != nil {
-		return 0, err
-	}
-	n, err := copyZeroAlloc(w, zr)
+	return writeUnbrotli(w, p, 0)
+}
+
+func writeUnbrotli(w io.Writer, p []byte, maxBodySize int) (int, error) {
+	r := newBrotliSliceReader(p)
+	zr := acquireBrotliReader(r)
+	n, err := copyZeroAllocWithLimit(w, zr, maxBodySize)
 	releaseBrotliReader(zr)
 	nn := int(n)
 	if int64(nn) != n {
 		return 0, fmt.Errorf("too much data unbrotlied: %d", n)
+	}
+	if err == nil && r.excessiveInput() {
+		return nn, errBrotliExcessiveInput
 	}
 	return nn, err
 }
 
 // AppendUnbrotliBytes appends unbrotlied src to dst and returns the resulting dst.
 func AppendUnbrotliBytes(dst, src []byte) ([]byte, error) {
+	return AppendUnbrotliBytesWithLimit(dst, src, 0)
+}
+
+// AppendUnbrotliBytesWithLimit is like AppendUnbrotliBytes, but it stops with
+// ErrBodyTooLarge when src unbrotlies to more than maxBodySize bytes. The data
+// already in dst doesn't count towards the limit.
+//
+// The returned dst holds the data that was unbrotlied before an error, which is
+// at most maxBodySize+1 bytes if the error is ErrBodyTooLarge.
+//
+// If maxBodySize <= 0, then no limit is applied.
+func AppendUnbrotliBytesWithLimit(dst, src []byte, maxBodySize int) ([]byte, error) {
 	w := &byteSliceWriter{b: dst}
-	_, err := WriteUnbrotli(w, src)
+	_, err := writeUnbrotli(w, src, maxBodySize)
 	return w.b, err
+}
+
+// errBrotliExcessiveInput is returned when a complete brotli stream is followed
+// by bytes that aren't part of it. github.com/andybalholm/brotli, the decoder
+// fasthttp used before, reported this with the same message; go-brrr ignores
+// the trailing bytes, so brotliSliceReader detects them instead.
+var errBrotliExcessiveInput = errors.New("brotli: excessive input")
+
+// brotliSliceReader hands the decoder everything but the final byte of b,
+// releasing that byte only once the decoder asks for more input. A brotli
+// stream is self-terminating and its final byte always carries stream bits, so
+// a decoder that succeeds without asking for the held back byte ended before
+// the end of b: the leftover is excessive input.
+type brotliSliceReader struct {
+	b []byte
+}
+
+func newBrotliSliceReader(b []byte) *brotliSliceReader {
+	return &brotliSliceReader{b: b}
+}
+
+func (r *brotliSliceReader) Read(p []byte) (int, error) {
+	if len(r.b) > 1 {
+		// Always withhold the final byte.
+		n := copy(p, r.b[:len(r.b)-1])
+		r.b = r.b[n:]
+		return n, nil
+	}
+	if len(r.b) == 1 {
+		if len(p) == 0 {
+			return 0, nil
+		}
+		p[0] = r.b[0]
+		r.b = r.b[1:]
+		return 1, nil
+	}
+	return 0, io.EOF
+}
+
+// excessiveInput is only meaningful once the decoder has reported success:
+// a decoder that stopped early hasn't asked for the held back byte either.
+func (r *brotliSliceReader) excessiveInput() bool {
+	return len(r.b) > 0
 }
 
 // normalizes compression level into [0..11], so it could be used as an index

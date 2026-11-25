@@ -1,7 +1,7 @@
 package server
 
 import (
-	"log"
+	"context"
 
 	"github.com/go-oauth2/oauth2/v4"
 	"github.com/go-oauth2/oauth2/v4/errors"
@@ -16,8 +16,13 @@ func NewServer(
 	srv := server.NewDefaultServer(manager)
 	srv.SetAllowGetAccessRequest(true)
 	srv.SetClientInfoHandler(server.ClientFormHandler)
-	srv.SetResponseErrorHandler(func(re *errors.Response) {
-		log.Printf("Response Error: %#+v\n", re)
+	srv.SetResponseErrorHandler(func(_ context.Context, re *errors.Response) {
+		logger.Error(
+			"OAuth response error",
+			slog.Any("error", re.Error),
+			slog.Int("status_code", re.StatusCode),
+			slog.String("description", re.Description),
+		)
 	})
 
 	return srv

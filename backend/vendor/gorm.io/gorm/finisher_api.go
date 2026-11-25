@@ -1,6 +1,7 @@
 package gorm
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -45,11 +46,21 @@ func (db *DB) CreateInBatches(value interface{}, batchSize int) (tx *DB) {
 				}
 
 				subtx := tx.getInstance()
-				subtx.Statement.Dest = reflectValue.Slice(i, ends).Interface()
+				batchSlice := reflect.New(reflectValue.Type())
+				batchSlice.Elem().Set(reflectValue.Slice(i, ends))
+				subtx.Statement.Dest = batchSlice.Interface()
+
 				subtx.callbacks.Create().Execute(subtx)
+
 				if subtx.Error != nil {
 					return subtx.Error
 				}
+
+				resultSlice := reflect.Indirect(batchSlice)
+				for j := 0; j < resultSlice.Len(); j++ {
+					reflectValue.Index(i + j).Set(resultSlice.Index(j))
+				}
+
 				rowsAffected += subtx.RowsAffected
 			}
 			return nil
@@ -464,7 +475,7 @@ func (db *DB) Count(count *int64) (tx *DB) {
 
 		if len(tx.Statement.Selects) == 1 {
 			dbName := tx.Statement.Selects[0]
-			fields := strings.FieldsFunc(dbName, utils.IsValidDBNameChar)
+			fields := strings.FieldsFunc(dbName, utils.IsInvalidDBNameChar)
 			if len(fields) == 1 || (len(fields) == 3 && (strings.ToUpper(fields[1]) == "AS" || fields[1] == ".")) {
 				if tx.Statement.Parse(tx.Statement.Model) == nil {
 					if f := tx.Statement.Schema.LookUpField(dbName); f != nil {
@@ -532,13 +543,18 @@ func (db *DB) Scan(dest interface{}) (tx *DB) {
 	tx.Config = &config
 
 	if rows, err := tx.Rows(); err == nil {
+		defer func() {
+			if err := rows.Close(); err != nil {
+				_ = tx.AddError(err)
+			}
+		}()
+
 		if rows.Next() {
 			tx.ScanRows(rows, dest)
 		} else {
 			tx.RowsAffected = 0
 			tx.AddError(rows.Err())
 		}
-		tx.AddError(rows.Close())
 	}
 
 	currentLogger.Trace(tx.Statement.Context, newLogger.BeginAt, func() (string, int64) {
@@ -563,7 +579,7 @@ func (db *DB) Pluck(column string, dest interface{}) (tx *DB) {
 	}
 
 	if len(tx.Statement.Selects) != 1 {
-		fields := strings.FieldsFunc(column, utils.IsValidDBNameChar)
+		fields := strings.FieldsFunc(column, utils.IsInvalidDBNameChar)
 		tx.Statement.AddClauseIfNotExists(clause.Select{
 			Distinct: tx.Statement.Distinct,
 			Columns:  []clause.Column{{Name: column, Raw: len(fields) != 1}},
@@ -673,11 +689,18 @@ func (db *DB) Begin(opts ...*sql.TxOptions) *DB {
 		opt = opts[0]
 	}
 
+	ctx := tx.Statement.Context
+	if db.DefaultTransactionTimeout > 0 {
+		if _, ok := ctx.Deadline(); !ok {
+			ctx, _ = context.WithTimeout(ctx, db.DefaultTransactionTimeout)
+		}
+	}
+
 	switch beginner := tx.Statement.ConnPool.(type) {
 	case TxBeginner:
-		tx.Statement.ConnPool, err = beginner.BeginTx(tx.Statement.Context, opt)
+		tx.Statement.ConnPool, err = beginner.BeginTx(ctx, opt)
 	case ConnPoolBeginner:
-		tx.Statement.ConnPool, err = beginner.BeginTx(tx.Statement.Context, opt)
+		tx.Statement.ConnPool, err = beginner.BeginTx(ctx, opt)
 	default:
 		err = ErrInvalidTransaction
 	}

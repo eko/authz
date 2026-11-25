@@ -27,8 +27,8 @@ func (l *defaultLogger) privateLog(lv Level, fmtArgs []interface{}) {
 	}
 	level := lv.toString()
 	buf := bytebufferpool.Get()
-	_, _ = buf.WriteString(level)                  //nolint:errcheck // It is fine to ignore the error
-	_, _ = buf.WriteString(fmt.Sprint(fmtArgs...)) //nolint:errcheck // It is fine to ignore the error
+	_, _ = buf.WriteString(level)
+	_, _ = buf.WriteString(fmt.Sprint(fmtArgs...))
 
 	_ = l.stdlog.Output(l.depth, buf.String()) //nolint:errcheck // It is fine to ignore the error
 	buf.Reset()
@@ -46,12 +46,12 @@ func (l *defaultLogger) privateLogf(lv Level, format string, fmtArgs []interface
 	}
 	level := lv.toString()
 	buf := bytebufferpool.Get()
-	_, _ = buf.WriteString(level) //nolint:errcheck // It is fine to ignore the error
+	_, _ = buf.WriteString(level)
 
 	if len(fmtArgs) > 0 {
 		_, _ = fmt.Fprintf(buf, format, fmtArgs...)
 	} else {
-		_, _ = fmt.Fprint(buf, fmtArgs...)
+		_, _ = fmt.Fprint(buf, format)
 	}
 	_ = l.stdlog.Output(l.depth, buf.String()) //nolint:errcheck // It is fine to ignore the error
 	buf.Reset()
@@ -69,11 +69,11 @@ func (l *defaultLogger) privateLogw(lv Level, format string, keysAndValues []int
 	}
 	level := lv.toString()
 	buf := bytebufferpool.Get()
-	_, _ = buf.WriteString(level) //nolint:errcheck // It is fine to ignore the error
+	_, _ = buf.WriteString(level)
 
 	// Write format privateLog buffer
 	if format != "" {
-		_, _ = buf.WriteString(format) //nolint:errcheck // It is fine to ignore the error
+		_, _ = buf.WriteString(format)
 	}
 	var once sync.Once
 	isFirst := true

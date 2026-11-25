@@ -13,7 +13,7 @@ REGISTRY_BASE_URL = https://raw.githubusercontent.com/open-telemetry/opentelemet
 CONTRIB_REPO_URL = https://github.com/open-telemetry/opentelemetry-go-contrib/tree/main
 
 GO = go
-TIMEOUT = 60
+TIMEOUT = 120
 
 # User to run as in docker images.
 DOCKER_USER=$(shell id -u):$(shell id -g)
@@ -23,7 +23,7 @@ DEPENDENCIES_DOCKERFILE=./dependencies.Dockerfile
 
 .PHONY: precommit ci
 precommit: generate toolchain-check license-check misspell go-mod-tidy golangci-lint-fix test-default
-ci: generate toolchain-check license-check lint vanity-import-check build test-default check-clean-work-tree test-coverage
+ci: generate toolchain-check license-check lint build test-default check-clean-work-tree test-coverage
 
 # Tools
 
@@ -38,7 +38,7 @@ $(TOOLS)/%: $(TOOLS_MOD_DIR)/go.mod | $(TOOLS)
 	$(GO) build -o $@ $(PACKAGE)
 
 GOLANGCI_LINT = $(TOOLS)/golangci-lint
-$(GOLANGCI_LINT): PACKAGE=github.com/golangci/golangci-lint/cmd/golangci-lint
+$(GOLANGCI_LINT): PACKAGE=github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
 MISSPELL = $(TOOLS)/misspell
 $(MISSPELL): PACKAGE=github.com/client9/misspell/cmd/misspell
@@ -48,9 +48,6 @@ $(GOCOVMERGE): PACKAGE=github.com/wadey/gocovmerge
 
 STRINGER = $(TOOLS)/stringer
 $(STRINGER): PACKAGE=golang.org/x/tools/cmd/stringer
-
-PORTO = $(TOOLS)/porto
-$(TOOLS)/porto: PACKAGE=github.com/jcchavezs/porto/cmd/porto
 
 MULTIMOD = $(TOOLS)/multimod
 $(MULTIMOD): PACKAGE=go.opentelemetry.io/build-tools/multimod
@@ -73,7 +70,7 @@ $(GOJSONSCHEMA): PACKAGE=github.com/atombender/go-jsonschema
 GOVULNCHECK = $(TOOLS)/govulncheck
 $(GOVULNCHECK): PACKAGE=golang.org/x/vuln/cmd/govulncheck
 
-tools: $(GOLANGCI_LINT) $(MISSPELL) $(GOCOVMERGE) $(STRINGER) $(PORTO) $(GOJQ) $(MULTIMOD) $(CROSSLINK) $(GOTMPL) $(GORELEASE) $(GOJSONSCHEMA) $(GOVULNCHECK)
+tools: $(GOLANGCI_LINT) $(MISSPELL) $(GOCOVMERGE) $(STRINGER) $(GOJQ) $(MULTIMOD) $(CROSSLINK) $(GOTMPL) $(GORELEASE) $(GOJSONSCHEMA) $(GOVULNCHECK)
 
 # Virtualized python tools via docker
 
@@ -111,7 +108,7 @@ $(CODESPELL): PACKAGE=codespell
 # Generate
 
 .PHONY: generate
-generate: go-generate genjsonschema vanity-import-fix
+generate: go-generate genjsonschema
 
 .PHONY: go-generate
 go-generate: $(OTEL_GO_MOD_DIRS:%=go-generate/%)
@@ -120,10 +117,6 @@ go-generate/%: $(STRINGER) $(GOTMPL)
 	@echo "$(GO) generate $(DIR)/..." \
 		&& cd $(DIR) \
 		&& PATH="$(TOOLS):$${PATH}" $(GO) generate ./...
-
-.PHONY: vanity-import-fix
-vanity-import-fix: $(PORTO)
-	@$(PORTO) --include-internal -w .
 
 # Generate go.work file for local development.
 .PHONY: go-work
@@ -186,12 +179,8 @@ govulncheck/%: $(GOVULNCHECK)
 		&& cd $(DIR) \
 		&& $(GOVULNCHECK) ./...
 
-.PHONY: vanity-import-check
-vanity-import-check: | $(PORTO)
-	@$(PORTO) --include-internal -l . || ( echo "(run: make vanity-import-fix)"; exit 1 )
-
 .PHONY: lint
-lint: go-mod-tidy golangci-lint misspell govulncheck
+lint: go-mod-tidy golangci-lint misspell
 
 .PHONY: toolchain-check
 toolchain-check:
@@ -260,7 +249,8 @@ test/%: DIR=$*
 test/%:
 	@echo "$(GO) test -timeout $(TIMEOUT)s $(ARGS) $(DIR)/..." \
 		&& cd $(DIR) \
-		&& $(GO) test -timeout $(TIMEOUT)s $(ARGS) ./...
+		&& $(GO) list ./... \
+		| xargs $(GO) test -timeout $(TIMEOUT)s $(ARGS)
 
 COVERAGE_MODE    = atomic
 COVERAGE_PROFILE = coverage.out
@@ -277,7 +267,8 @@ test-coverage/%:
 		&& CMD="$$CMD -coverpkg=go.opentelemetry.io/contrib/$$( dirname "$(DIR)" | sed -e "s/^\.\///g" )/..."; \
 		echo "$$CMD $(DIR)/..."; \
 		cd "$(DIR)" \
-		&& $$CMD ./... \
+		&& $(GO) list ./... \
+		| xargs $$CMD \
 		&& $(GO) tool cover -html=coverage.out -o coverage.html;
 
 # Releasing
@@ -322,33 +313,45 @@ update-all-otel-deps:
 # The source directory for opentelemetry-configuration schema.
 OPENTELEMETRY_CONFIGURATION_JSONSCHEMA_SRC_DIR=tmp/opentelemetry-configuration
 
-# The SHA matching the current version of the opentelemetry-configuration schema to use
-OPENTELEMETRY_CONFIGURATION_JSONSCHEMA_VERSION=v0.3.0
-
 # Cleanup temporary directory
 genjsonschema-cleanup:
 	rm -Rf ${OPENTELEMETRY_CONFIGURATION_JSONSCHEMA_SRC_DIR}
 
-GENERATED_CONFIG=./config/${OPENTELEMETRY_CONFIGURATION_JSONSCHEMA_VERSION}/generated_config.go
+GENERATED_EXPERIMENTAL_CONFIG=./otelconf/x/generated_config.go
+GENERATED_STABLE_CONFIG=./otelconf/generated_config.go
 
 # Generate structs for configuration from opentelemetry-configuration schema
 genjsonschema: genjsonschema-cleanup $(GOJSONSCHEMA)
 	mkdir -p ${OPENTELEMETRY_CONFIGURATION_JSONSCHEMA_SRC_DIR}
-	mkdir -p ./config/${OPENTELEMETRY_CONFIGURATION_JSONSCHEMA_VERSION}
-	curl -sSL https://api.github.com/repos/open-telemetry/opentelemetry-configuration/tarball/${OPENTELEMETRY_CONFIGURATION_JSONSCHEMA_VERSION} | tar xz --strip 1 -C ${OPENTELEMETRY_CONFIGURATION_JSONSCHEMA_SRC_DIR}
+	curl -sSL https://api.github.com/repos/open-telemetry/opentelemetry-configuration/tarball/v1.0.0-rc.3 | tar xz --strip 1 -C ${OPENTELEMETRY_CONFIGURATION_JSONSCHEMA_SRC_DIR}
 	$(GOJSONSCHEMA) \
 		--capitalization ID \
 		--capitalization OTLP \
 		--struct-name-from-title \
-		--package config \
+		--package x \
 		--only-models \
-		--output ${GENERATED_CONFIG} \
-		${OPENTELEMETRY_CONFIGURATION_JSONSCHEMA_SRC_DIR}/schema/opentelemetry_configuration.json
+		--output ${GENERATED_EXPERIMENTAL_CONFIG} \
+		${OPENTELEMETRY_CONFIGURATION_JSONSCHEMA_SRC_DIR}/opentelemetry_configuration.json
 	@echo Modify jsonschema generated files.
-	sed -f ./config/jsonschema_patch.sed ${GENERATED_CONFIG} > ${GENERATED_CONFIG}.tmp
-	mv ${GENERATED_CONFIG}.tmp ${GENERATED_CONFIG}
+	sed -f ./otelconf/jsonschema_patch.sed ${GENERATED_EXPERIMENTAL_CONFIG} > ${GENERATED_EXPERIMENTAL_CONFIG}.tmp
+	cp ${GENERATED_EXPERIMENTAL_CONFIG}.tmp ${GENERATED_EXPERIMENTAL_CONFIG}
+	$(GO) fmt ${GENERATED_EXPERIMENTAL_CONFIG}
+	perl -0pi -e 's/type ExperimentalAWSEC2ResourceDetector map\[string\]interface\{\}\n(type ExperimentalGCPResourceDetector)/type ExperimentalAWSEC2ResourceDetector map[string]interface{}\n\n$$1/' ${GENERATED_EXPERIMENTAL_CONFIG}
+	perl -0pi -e 's/type ExperimentalGCPResourceDetector map\[string\]interface\{\}\n(type ExperimentalAWSECSResourceDetector)/type ExperimentalGCPResourceDetector map[string]interface{}\n\n$$1/' ${GENERATED_EXPERIMENTAL_CONFIG}
+	perl -0pi -e 's/type ExperimentalAWSECSResourceDetector map\[string\]interface\{\}\n(type ExperimentalAWSEKSResourceDetector)/type ExperimentalAWSECSResourceDetector map[string]interface{}\n\n$$1/' ${GENERATED_EXPERIMENTAL_CONFIG}
+	perl -0pi -e 's/type ExperimentalAWSEKSResourceDetector map\[string\]interface\{\}\n(type ExperimentalAzureVMResourceDetector)/type ExperimentalAWSEKSResourceDetector map[string]interface{}\n\n$$1/' ${GENERATED_EXPERIMENTAL_CONFIG}
+	perl -0pi -e 's/type ExperimentalAzureVMResourceDetector map\[string\]interface\{\}\n(type ExperimentalServiceResourceDetector)/type ExperimentalAzureVMResourceDetector map[string]interface{}\n\n$$1/' ${GENERATED_EXPERIMENTAL_CONFIG}
+	sed -f ./otelconf/remove_experimental_patch.sed ${GENERATED_EXPERIMENTAL_CONFIG}.tmp > ${GENERATED_STABLE_CONFIG}.tmp
+	rm ${GENERATED_EXPERIMENTAL_CONFIG}.tmp
+	mv ${GENERATED_STABLE_CONFIG}.tmp ${GENERATED_STABLE_CONFIG}
+	$(GO) fmt ${GENERATED_STABLE_CONFIG}
 	$(MAKE) genjsonschema-cleanup
 
 .PHONY: codespell
 codespell: $(CODESPELL)
 	@$(DOCKERPY) $(CODESPELL)
+
+MARKDOWNIMAGE := $(shell awk '$$4=="markdown" {print $$2}' $(DEPENDENCIES_DOCKERFILE))
+.PHONY: lint-markdown
+lint-markdown:
+	docker run --rm -u $(DOCKER_USER) -v "$(CURDIR):$(WORKDIR)" $(MARKDOWNIMAGE) -c $(WORKDIR)/.markdownlint.yaml $(WORKDIR)/**/*.md

@@ -1,3 +1,5 @@
+// Package gorm is a full-featured, developer-friendly ORM for Golang.
+// See https://gorm.io for documentation and community.
 package gorm
 
 import (
@@ -21,14 +23,19 @@ const preparedStmtDBKey = "preparedStmt"
 type Config struct {
 	// GORM perform single create, update, delete operations in transactions by default to ensure database data integrity
 	// You can disable it by setting `SkipDefaultTransaction` to true
-	SkipDefaultTransaction bool
+	SkipDefaultTransaction    bool
+	DefaultTransactionTimeout time.Duration
+	DefaultContextTimeout     time.Duration
+
 	// NamingStrategy tables, columns naming strategy
 	NamingStrategy schema.Namer
 	// FullSaveAssociations full save associations
 	FullSaveAssociations bool
 	// Logger
 	Logger logger.Interface
-	// NowFunc the function to be used when creating a new timestamp
+	// NowFunc the function to be used when creating a new timestamp.
+	// It defaults to time.Now().Local(), so return values in the desired
+	// location when overriding it for timezone-sensitive applications.
 	NowFunc func() time.Time
 	// DryRun generate sql without execute
 	DryRun bool
@@ -110,8 +117,6 @@ type DB struct {
 type Session struct {
 	DryRun                   bool
 	PrepareStmt              bool
-	PrepareStmtMaxSize       int
-	PrepareStmtTTL           time.Duration
 	NewDB                    bool
 	Initialized              bool
 	SkipHooks                bool
@@ -123,8 +128,10 @@ type Session struct {
 	QueryFields              bool
 	Context                  context.Context
 	Logger                   logger.Interface
-	NowFunc                  func() time.Time
-	CreateBatchSize          int
+	// NowFunc overrides the function used when creating a new timestamp
+	// for this session.
+	NowFunc         func() time.Time
+	CreateBatchSize int
 }
 
 // Open initialize db session based on dialector
@@ -137,12 +144,24 @@ func Open(dialector Dialector, opts ...Option) (db *DB, err error) {
 		return isConfig && !isConfig2
 	})
 
+	if len(opts) > 0 {
+		if c, ok := opts[0].(*Config); ok {
+			config = c
+		} else {
+			opts = append([]Option{config}, opts...)
+		}
+	}
+
+	var skipAfterInitialize bool
 	for _, opt := range opts {
 		if opt != nil {
 			if applyErr := opt.Apply(config); applyErr != nil {
 				return nil, applyErr
 			}
 			defer func(opt Option) {
+				if skipAfterInitialize {
+					return
+				}
 				if errr := opt.AfterInitialize(db); errr != nil {
 					err = errr
 				}
@@ -194,6 +213,10 @@ func Open(dialector Dialector, opts ...Option) (db *DB, err error) {
 			if db, _ := db.DB(); db != nil {
 				_ = db.Close()
 			}
+
+			// DB is not initialized, so we skip AfterInitialize
+			skipAfterInitialize = true
+			return
 		}
 
 		if config.TranslateError {
@@ -219,6 +242,11 @@ func Open(dialector Dialector, opts ...Option) (db *DB, err error) {
 	if err == nil && !config.DisableAutomaticPing {
 		if pinger, ok := db.ConnPool.(interface{ Ping() error }); ok {
 			err = pinger.Ping()
+			if err != nil {
+				if db, _ := db.DB(); db != nil {
+					_ = db.Close()
+				}
+			}
 		}
 	}
 
@@ -275,7 +303,7 @@ func (db *DB) Session(config *Session) *DB {
 		if v, ok := db.cacheStore.Load(preparedStmtDBKey); ok {
 			preparedStmt = v.(*PreparedStmtDB)
 		} else {
-			preparedStmt = NewPreparedStmtDB(db.ConnPool, config.PrepareStmtMaxSize, config.PrepareStmtTTL)
+			preparedStmt = NewPreparedStmtDB(db.ConnPool, db.PrepareStmtMaxSize, db.PrepareStmtTTL)
 			db.cacheStore.Store(preparedStmtDBKey, preparedStmt)
 		}
 
@@ -386,6 +414,9 @@ func (db *DB) AddError(err error) error {
 			db.Error = err
 		} else {
 			db.Error = fmt.Errorf("%v; %w", db.Error, err)
+		}
+		if db.Statement != nil && db.Statement.Result != nil {
+			db.Statement.Result.Error = db.Error
 		}
 	}
 	return db.Error
@@ -521,7 +552,7 @@ func (db *DB) Use(plugin Plugin) error {
 //				.First(&User{})
 //	})
 func (db *DB) ToSQL(queryFn func(tx *DB) *DB) string {
-	tx := queryFn(db.Session(&Session{DryRun: true, SkipDefaultTransaction: true}))
+	tx := queryFn(db.Session(&Session{DryRun: true, SkipDefaultTransaction: true}).getInstance())
 	stmt := tx.Statement
 
 	return db.Dialector.Explain(stmt.SQL.String(), stmt.Vars...)
