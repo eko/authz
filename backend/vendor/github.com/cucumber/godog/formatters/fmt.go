@@ -4,7 +4,7 @@ import (
 	"io"
 	"regexp"
 
-	messages "github.com/cucumber/messages/go/v21"
+	messages "github.com/cucumber/messages/go/v34"
 )
 
 type registeredFormatter struct {
@@ -72,6 +72,12 @@ type Formatter interface {
 	Pending(*messages.Pickle, *messages.PickleStep, *StepDefinition)
 	Ambiguous(*messages.Pickle, *messages.PickleStep, *StepDefinition, error)
 	Summary()
+}
+
+// FlushFormatter is a `Formatter` but can be flushed.
+type FlushFormatter interface {
+	Formatter
+	Flush()
 }
 
 // FormatterFunc builds a formatter with given

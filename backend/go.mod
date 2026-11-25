@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/coreos/go-oidc/v3 v3.21.0
-	github.com/cucumber/godog v0.15.0
+	github.com/cucumber/godog v0.16.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-oauth2/oauth2/v4 v4.6.0
 	github.com/go-playground/validator/v10 v10.30.6
@@ -18,7 +18,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.4
 	github.com/heetch/confita v0.11.0
 	github.com/prometheus/client_golang v1.25.0
-	github.com/spf13/pflag v1.0.6
+	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
 	github.com/swaggo/swag v1.16.6
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.72.0
@@ -45,8 +45,8 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
-	github.com/cucumber/gherkin/go/v26 v26.2.0 // indirect
-	github.com/cucumber/messages/go/v21 v21.0.1 // indirect
+	github.com/cucumber/gherkin/go/v42 v42.0.0 // indirect
+	github.com/cucumber/messages/go/v34 v34.2.0 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.16 // indirect
 	github.com/glebarez/go-sqlite v1.23.0 // indirect
@@ -66,7 +66,6 @@ require (
 	github.com/go-playground/locales v0.14.2 // indirect
 	github.com/go-playground/universal-translator v0.18.2 // indirect
 	github.com/go-sql-driver/mysql v1.10.2 // indirect
-	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.34.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
