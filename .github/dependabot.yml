@@ -9,6 +9,14 @@ updates:
   commit-message:
     prefix: "[docker] "
   open-pull-requests-limit: 10
+  groups:
+    docker:
+      patterns:
+        - "*"
+  ignore:
+    # Only follow Node.js LTS (even) major versions.
+    - dependency-name: "node"
+      versions: ["25.x", "27.x", "29.x"]
 
 - package-ecosystem: github-actions
   directory: "/"
@@ -18,6 +26,10 @@ updates:
   commit-message:
     prefix: "[github-actions] "
   open-pull-requests-limit: 10
+  groups:
+    github_actions:
+      patterns:
+        - "*"
 
 - package-ecosystem: gomod
   directory: "/backend"
@@ -27,6 +39,10 @@ updates:
   commit-message:
     prefix: "[gomod] "
   open-pull-requests-limit: 10
+  groups:
+    gomod:
+      patterns:
+        - "*"
 
 - package-ecosystem: "npm"
   directory: "/frontend"
@@ -36,3 +52,7 @@ updates:
   commit-message:
     prefix: "[npm] "
   open-pull-requests-limit: 10
+  groups:
+    npm:
+      patterns:
+        - "*"
