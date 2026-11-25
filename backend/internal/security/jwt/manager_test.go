@@ -6,6 +6,7 @@ import (
 
 	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/helper/time"
+	"github.com/golang-jwt/jwt/v4"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -95,4 +96,54 @@ func TestManager_Parse_WhenSuccess(t *testing.T) {
 	// Then
 	assert.Equal(t, "token contains an invalid number of segments", err.Error())
 	assert.Nil(t, claims)
+}
+
+func TestManager_Parse_RejectsForgedTokens(t *testing.T) {
+	date := lib_time.Date(2023, lib_time.January, 1, 0, 0, 0, 0, lib_time.UTC)
+
+	claims := jwt.RegisteredClaims{
+		Issuer:    configs.ApplicationName,
+		Subject:   "authz-user-admin",
+		IssuedAt:  jwt.NewNumericDate(date),
+		ExpiresAt: jwt.NewNumericDate(date.Add(lib_time.Hour)),
+	}
+
+	signedWithOtherKey, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).
+		SignedString([]byte("4uthz-s3cr3t-valu3-pl3as3-ch4ng3!"))
+	assert.NoError(t, err)
+
+	signedWithOtherAlg, err := jwt.NewWithClaims(jwt.SigningMethodHS512, claims).
+		SignedString([]byte("expected-secret-value-of-32-bytes!!"))
+	assert.NoError(t, err)
+
+	unsigned, err := jwt.NewWithClaims(jwt.SigningMethodNone, claims).
+		SignedString(jwt.UnsafeAllowNoneSignatureType)
+	assert.NoError(t, err)
+
+	testCases := []struct {
+		name  string
+		token string
+	}{
+		{name: "signed with another key", token: signedWithOtherKey},
+		{name: "signed with another algorithm", token: signedWithOtherAlg},
+		{name: "unsigned", token: unsigned},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+
+			clock := time.NewMockClock(ctrl)
+			clock.EXPECT().Now().Return(date).AnyTimes()
+
+			manager := NewManager(&configs.Auth{
+				JWTSignString: []byte("expected-secret-value-of-32-bytes!!"),
+			}, clock)
+
+			result, err := manager.Parse(testCase.token)
+
+			assert.Error(t, err)
+			assert.Nil(t, result)
+		})
+	}
 }

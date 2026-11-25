@@ -44,7 +44,7 @@ Here are the available configuration options available as environment variable:
 | APP_STATS_RESOURCE_KIND_REGEX | `.*` | Filter which resource kind will be added on statistics |
 | AUTH_ACCESS_TOKEN_DURATION | `6h` | Access token duration  |
 | AUTH_DOMAIN | `http://localhost:8080` | OAuth domain to be used  |
-| AUTH_JWT_SIGN_STRING | `4uthz-s3cr3t-valu3-pl3as3-ch4ng3!` | Default HMAC to use for JWT tokens |
+| AUTH_JWT_SIGN_STRING | Random (generated at startup) | HMAC secret used to sign JWT tokens (at least 32 bytes). When not set, a random secret is generated on each startup, so tokens are invalidated on restart and not shared across instances: always set it in production |
 | AUTH_REFRESH_TOKEN_DURATION | `6h` | Refresh token duration |
 | DATABASE_DRIVER | `postgres` | Database driver (`mysql`, `postgres` or `sqlite`) |
 | DATABASE_HOST | `localhost` | Database host |
