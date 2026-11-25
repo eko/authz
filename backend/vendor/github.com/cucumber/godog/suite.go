@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	messages "github.com/cucumber/messages/go/v21"
+	messages "github.com/cucumber/messages/go/v34"
 
 	"github.com/cucumber/godog/formatters"
 	"github.com/cucumber/godog/internal/models"
@@ -159,7 +159,9 @@ func (s *suite) runStep(ctx context.Context, pickle *Scenario, step *Step, scena
 
 		// Check for any calls to Fail on dogT
 		if err == nil {
-			err = getTestingT(ctx).isFailed()
+			if t := getTestingT(ctx); t != nil {
+				err = t.isFailed()
+			}
 		}
 
 		status := StepUndefined
@@ -258,6 +260,8 @@ func (s *suite) runStep(ctx context.Context, pickle *Scenario, step *Step, scena
 				},
 				Args:         match.Args,
 				HandlerValue: match.HandlerValue,
+				File:         match.File,
+				Line:         match.Line,
 				Nested:       match.Nested,
 				Undefined:    undef,
 			}
@@ -270,7 +274,7 @@ func (s *suite) runStep(ctx context.Context, pickle *Scenario, step *Step, scena
 		s.storage.MustInsertPickleStepResult(sr)
 
 		s.fmt.Undefined(pickle, step, match.GetInternalStepDefinition())
-		return ctx, ErrUndefined
+		return ctx, fmt.Errorf("%w: %s", ErrUndefined, step.Text)
 	}
 
 	if scenarioErr != nil {
@@ -300,7 +304,7 @@ func (s *suite) runBeforeStepHooks(ctx context.Context, step *Step, err error) (
 			if err == nil {
 				err = herr
 			} else {
-				err = fmt.Errorf("%v, %w", herr, err)
+				err = mergeErrors(herr, err)
 			}
 		}
 
@@ -325,7 +329,7 @@ func (s *suite) runAfterStepHooks(ctx context.Context, step *Step, status StepRe
 			if err == nil {
 				err = herr
 			} else {
-				err = fmt.Errorf("%v, %w", herr, err)
+				err = mergeErrors(herr, err)
 			}
 		}
 
@@ -347,7 +351,7 @@ func (s *suite) runBeforeScenarioHooks(ctx context.Context, pickle *messages.Pic
 			if err == nil {
 				err = herr
 			} else {
-				err = fmt.Errorf("%v, %w", herr, err)
+				err = mergeErrors(herr, err)
 			}
 		}
 
@@ -385,7 +389,7 @@ func (s *suite) runAfterScenarioHooks(ctx context.Context, pickle *messages.Pick
 					err = fmt.Errorf("step error: %w", err)
 					isStepErr = false
 				}
-				err = fmt.Errorf("%v, %w", herr, err)
+				err = mergeErrors(herr, err)
 			}
 		}
 
@@ -461,7 +465,7 @@ func (s *suite) maybeSubSteps(ctx context.Context, result interface{}) (context.
 		}
 
 		if def == nil {
-			return ctx, ErrUndefined
+			return ctx, fmt.Errorf("%w: %s", ErrUndefined, text)
 		} else {
 			ctx, err = s.runSubStep(ctx, text, def)
 			if err != nil {
@@ -530,6 +534,8 @@ func (s *suite) matchStepTextAndType(text string, stepType messages.PickleStepTy
 				},
 				Args:         args,
 				HandlerValue: h.HandlerValue,
+				File:         h.File,
+				Line:         h.Line,
 				Nested:       h.Nested,
 			}
 
@@ -609,7 +615,7 @@ func (s *suite) runPickle(pickle *messages.Pickle) (err error) {
 		s.storage.MustInsertPickleResult(pr)
 
 		s.fmt.Pickle(pickle)
-		return ErrUndefined
+		return fmt.Errorf("%w: no steps in scenario", ErrUndefined)
 	}
 
 	// Before scenario hooks are called in context of first evaluated step
@@ -642,4 +648,35 @@ func (s *suite) runPickle(pickle *messages.Pickle) (err error) {
 	// so that error from handler can be added to step.
 
 	return err
+}
+
+type joinedError struct {
+	err1 error
+	err2 error
+}
+
+func (e *joinedError) Error() string {
+	return fmt.Sprintf("%v, %v", e.err1, e.err2)
+}
+
+func (e *joinedError) Unwrap() []error {
+	return []error{e.err1, e.err2}
+}
+
+func (e *joinedError) Is(target error) bool {
+	return errors.Is(e.err1, target) || errors.Is(e.err2, target)
+}
+
+func (e *joinedError) As(target interface{}) bool {
+	return errors.As(e.err1, target) || errors.As(e.err2, target)
+}
+
+func mergeErrors(err1, err2 error) error {
+	if err1 == nil {
+		return err2
+	}
+	if err2 == nil {
+		return err1
+	}
+	return &joinedError{err1: err1, err2: err2}
 }

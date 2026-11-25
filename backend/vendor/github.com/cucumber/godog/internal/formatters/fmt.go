@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	messages "github.com/cucumber/messages/go/v21"
+	messages "github.com/cucumber/messages/go/v34"
 
 	"github.com/cucumber/godog/colors"
 	"github.com/cucumber/godog/internal/models"
@@ -78,9 +78,7 @@ func mustConvertStringToInt(s string) int {
 func DefinitionID(sd *models.StepDefinition) string {
 	ptr := sd.HandlerValue.Pointer()
 	f := runtime.FuncForPC(ptr)
-	file, line := f.FileLine(ptr)
-	dir := filepath.Dir(file)
-
+	dir := filepath.Dir(sd.File)
 	fn := strings.Replace(f.Name(), dir, "", -1)
 	var parts []string
 	for _, gr := range matchFuncDefRef.FindAllStringSubmatch(fn, -1) {
@@ -100,7 +98,7 @@ func DefinitionID(sd *models.StepDefinition) string {
 		fn = strings.Replace(fn, "..", ".", -1)
 	}
 
-	return fmt.Sprintf("%s:%d -> %s", filepath.Base(file), line, fn)
+	return fmt.Sprintf("%s:%d -> %s", filepath.Base(sd.File), sd.Line, fn)
 }
 
 var matchFuncDefRef = regexp.MustCompile(`\(([^\)]+)\)`)

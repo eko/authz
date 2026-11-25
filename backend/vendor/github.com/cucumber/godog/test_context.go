@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"runtime"
+
+	messages "github.com/cucumber/messages/go/v34"
 
 	"github.com/cucumber/godog/formatters"
 	"github.com/cucumber/godog/internal/builder"
 	"github.com/cucumber/godog/internal/flags"
 	"github.com/cucumber/godog/internal/models"
-	messages "github.com/cucumber/messages/go/v21"
 )
 
 // GherkinDocument represents gherkin document.
@@ -235,6 +237,7 @@ func (ctx ScenarioContext) AfterStep(fn func(st *Step, err error)) {
 //
 // The stepFunc may accept one or several arguments of type:
 // - int, int8, int16, int32, int64
+// - uint, uint8, uint16, uint32, uint64
 // - float32, float64
 // - string
 // - []byte
@@ -341,6 +344,10 @@ func (ctx ScenarioContext) stepWithKeyword(expr interface{}, stepFunc interface{
 		HandlerValue: reflect.ValueOf(stepFunc),
 		Nested:       isNested,
 	}
+
+	// Get the file and line number of the call that created this step with a
+	// call to one of the Step, Given, When, or Then wrappers.
+	_, def.File, def.Line, _ = runtime.Caller(2)
 
 	// stash the step
 	ctx.suite.steps = append(ctx.suite.steps, def)
