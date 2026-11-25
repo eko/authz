@@ -118,42 +118,47 @@ export default function DataTable<T>({
   }, []);
 
   return (
-      <Grid item xs={12} md={12} lg={12}>
-        <Paper
-        sx={{
-            display: 'flex',
-            flexDirection: 'column',
-        }}
-        >
+    <Grid
+      size={{
+        xs: 12,
+        md: 12,
+        lg: 12
+      }}>
+      <Paper
+      sx={{
+          display: 'flex',
+          flexDirection: 'column',
+      }}
+      >
 
-        {title ? (<Typography variant='h5' sx={{ pt: 2, pl: 2, pb: 2 }}>
-            {title}
-        </Typography>) : null}
+      {title ? (<Typography variant='h5' sx={{ pt: 2, pl: 2, pb: 2 }}>
+          {title}
+      </Typography>) : null}
 
-        <DataGrid
-            autoHeight
-            columns={columns}
-            density='standard'
-            filterMode='server'
-            getRowClassName={(params: GridRowClassNameParams) => {
-              return params.indexRelativeToCurrentPage % 2 === 0 ? 'datagrid-row-lightgrey' : ''
-            }}
-            getRowId={getRowId}
-            getRowHeight={getRowHeight}
-            hideFooterSelectedRowCount
-            loading={loading}
-            onFilterModelChange={handleOnFilterModelChange}
-            paginationModel={paginationModel}
-            onPaginationModelChange={setPaginationModel}
-            onSortModelChange={handleOnSortModelChange}
-            paginationMode='server'
-            rowCount={total}
-            rows={rows}
-            sortModel={forcedSortModel}
-            sortingMode='server'
-            sx={sx}
-        />
-        </Paper>
-      </Grid>
+      <DataGrid
+          autoHeight
+          columns={columns}
+          density='standard'
+          filterMode='server'
+          getRowClassName={(params: GridRowClassNameParams) => {
+            return params.indexRelativeToCurrentPage % 2 === 0 ? 'datagrid-row-lightgrey' : ''
+          }}
+          getRowId={getRowId}
+          getRowHeight={getRowHeight}
+          hideFooterSelectedRowCount
+          loading={loading}
+          onFilterModelChange={handleOnFilterModelChange}
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
+          onSortModelChange={handleOnSortModelChange}
+          paginationMode='server'
+          rowCount={total}
+          rows={rows}
+          sortModel={forcedSortModel}
+          sortingMode='server'
+          sx={sx}
+      />
+      </Paper>
+    </Grid>
   );
 }

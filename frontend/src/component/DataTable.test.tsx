@@ -60,6 +60,10 @@ const fetcher = async (
     };
 };
 
+const nameCells = (): (string | null)[] => screen.getAllByRole('gridcell')
+    .filter(cell => cell.getAttribute('data-field') === 'name')
+    .map(cell => cell.textContent);
+
 test('DataTable: fetch data, render list and paginate', async () => {
     // Given
     const columns: GridColDef[] = [
@@ -150,13 +154,7 @@ test('DataTable: sort ascending / descending', async () => {
         expect(screen.getByText('item-5')).toBeInTheDocument();
     });
 
-    let rows = screen.getAllByRole('row');
-
-    expect(rows[1].getElementsByClassName('MuiDataGrid-cellContent')[1].innerHTML).toEqual('item-1');
-    expect(rows[2].getElementsByClassName('MuiDataGrid-cellContent')[1].innerHTML).toEqual('item-2');
-    expect(rows[3].getElementsByClassName('MuiDataGrid-cellContent')[1].innerHTML).toEqual('item-3');
-    expect(rows[4].getElementsByClassName('MuiDataGrid-cellContent')[1].innerHTML).toEqual('item-4');
-    expect(rows[5].getElementsByClassName('MuiDataGrid-cellContent')[1].innerHTML).toEqual('item-5');
+    expect(nameCells()).toEqual(['item-1', 'item-2', 'item-3', 'item-4', 'item-5']);
 
     // Open name field submenu
     const nameSubmenu = screen.getAllByRole('columnheader')
@@ -170,12 +168,6 @@ test('DataTable: sort ascending / descending', async () => {
     await userEvent.click(descSort!);
 
     await waitFor(() => {
-        rows = screen.getAllByRole('row');
-
-        expect(rows[1].getElementsByClassName('MuiDataGrid-cellContent')[1].innerHTML).toEqual('item-10');
-        expect(rows[2].getElementsByClassName('MuiDataGrid-cellContent')[1].innerHTML).toEqual('item-9');
-        expect(rows[3].getElementsByClassName('MuiDataGrid-cellContent')[1].innerHTML).toEqual('item-8');
-        expect(rows[4].getElementsByClassName('MuiDataGrid-cellContent')[1].innerHTML).toEqual('item-7');
-        expect(rows[5].getElementsByClassName('MuiDataGrid-cellContent')[1].innerHTML).toEqual('item-6');
+        expect(nameCells()).toEqual(['item-10', 'item-9', 'item-8', 'item-7', 'item-6']);
     });
 });

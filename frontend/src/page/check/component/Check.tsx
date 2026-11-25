@@ -1,7 +1,6 @@
 import { useContext, useState } from 'react';
 import { useNavigate } from 'react-router';
-import LoadingButton from '@mui/lab/LoadingButton';
-import { Alert, Paper, Typography } from '@mui/material';
+import { Alert, Button, Paper, Typography } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import SaveIcon from '@mui/icons-material/Save';
 import { ItemType } from 'component/MultipleAutocompleteInput';
@@ -96,14 +95,22 @@ export default function Check() {
     <div>
       <form onSubmit={onSubmit(user?.token!, onSubmitSuccess)}>
         <Grid container spacing={2}>
-          <Grid item xs={12} lg={4}>
+          <Grid
+            size={{
+              xs: 12,
+              lg: 4
+            }}>
             <Paper sx={{ display: 'flex', flexDirection: 'column', p: 2 }}>
               <Typography variant='h5' sx={{ pb: 3 }}>
                   Who?
               </Typography>
 
               <Grid container spacing={2}>
-                <Grid item xs={12} md={12}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    md: 12
+                  }}>
                   <SingleAutocompleteInput
                     label='Principal'
                     placeholder='Search for a principal...'
@@ -119,14 +126,22 @@ export default function Check() {
             </Paper>
           </Grid>
 
-          <Grid item xs={12} lg={4}>
+          <Grid
+            size={{
+              xs: 12,
+              lg: 4
+            }}>
             <Paper sx={{ display: 'flex', flexDirection: 'column', p: 2 }}>
               <Typography variant='h5' sx={{ pb: 3 }}>
                   Which resource?
               </Typography>
 
               <Grid container spacing={2}>
-                <Grid item xs={12} md={12}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    md: 12
+                  }}>
                   <SingleAutocompleteInput
                     label='Resource'
                     placeholder='Search for a resource...'
@@ -142,14 +157,22 @@ export default function Check() {
             </Paper>
           </Grid>
 
-          <Grid item xs={12} lg={4}>
+          <Grid
+            size={{
+              xs: 12,
+              lg: 4
+            }}>
             <Paper sx={{ display: 'flex', flexDirection: 'column', p: 2 }}>
               <Typography variant='h5' sx={{ pb: 3 }}>
                   Which action?
               </Typography>
 
               <Grid container spacing={2}>
-                <Grid item xs={12} md={12}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    md: 12
+                  }}>
                   <SingleAutocompleteInput
                       label='Action'
                       placeholder='Search for an action...'
@@ -180,8 +203,12 @@ export default function Check() {
           </div>
         ) : null}
 
-        <Grid item xs={12} md={8}>
-          <LoadingButton
+        <Grid
+          size={{
+            xs: 12,
+            md: 8
+          }}>
+          <Button
             type='submit'
             loadingPosition='start'
             variant='contained'
@@ -190,7 +217,7 @@ export default function Check() {
             sx={{ marginTop: 2 }}
           >
             Check
-          </LoadingButton>
+          </Button>
         </Grid>
       </form>
     </div>

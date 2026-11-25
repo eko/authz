@@ -1,7 +1,6 @@
 import { useContext, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import moment from "moment";
-import LoadingButton from '@mui/lab/LoadingButton';
 import { Button, Divider, Paper, TextField, Tooltip, Typography } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import SaveIcon from '@mui/icons-material/Save';
@@ -90,7 +89,11 @@ export default function RoleCreateOrEdit() {
           </Typography>
 
           <Grid container >
-            <Grid item xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               <TextField {...register('id')}
                 label='Name'
                 defaultValue={defaultValues?.id}
@@ -137,7 +140,11 @@ export default function RoleCreateOrEdit() {
           </Typography>
 
           <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               <MultipleAutocompleteInput
                 label='Associated policies'
                 placeholder='Search for a policy...'
@@ -152,8 +159,12 @@ export default function RoleCreateOrEdit() {
           </Grid>
         </Paper>
 
-        <Grid item xs={12} md={8}>
-          <LoadingButton
+        <Grid
+          size={{
+            xs: 12,
+            md: 8
+          }}>
+          <Button
             type='submit'
             loadingPosition='start'
             variant='contained'
@@ -162,7 +173,7 @@ export default function RoleCreateOrEdit() {
             sx={{ marginTop: 2 }}
           >
             Submit
-          </LoadingButton>
+          </Button>
 
           <Button
             type='button'

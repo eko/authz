@@ -43,40 +43,52 @@ export default function Attributes(props: AttributeProps) {
         </Alert>
       ) : null}
 
-        {fields.map((item, index) => (
-          <Grid key={item.id} container spacing={2} sx={{ mt: '1px' }}>
-            <Grid item xs={5} md={5}>
-              <TextField {...register(`${fieldName}.${index}.key` as any)}
-                disabled={disabled}
-                label={`Key #${index + 1}`}
-                placeholder='key'
-                sx={{ width: '100%' }}
-              />
-            </Grid>
-
-            <Grid item xs={5} md={5}>
-              <TextField {...register(`${fieldName}.${index}.value` as any)}
-                disabled={disabled}
-                label={`Value #${index + 1}`}
-                placeholder='value'
-                sx={{ width: '100%' }}
-              />
-            </Grid>
-
-            <Grid item xs={2} md={2}>
-              <IconButton
-                type='button'
-                size='small'
-                title='Delete this rule'
-                color='error'
-                sx={{ mt: '5px', ml: '4px', p: '10px' }}
-                onClick={() => remove(index)}
-              >
-                <DeleteForeverOutlinedIcon />
-              </IconButton>
-            </Grid>
+      {fields.map((item, index) => (
+        <Grid key={item.id} container spacing={2} sx={{ mt: '1px' }}>
+          <Grid
+            size={{
+              xs: 5,
+              md: 5
+            }}>
+            <TextField {...register(`${fieldName}.${index}.key` as any)}
+              disabled={disabled}
+              label={`Key #${index + 1}`}
+              placeholder='key'
+              sx={{ width: '100%' }}
+            />
           </Grid>
-        ))}
+
+          <Grid
+            size={{
+              xs: 5,
+              md: 5
+            }}>
+            <TextField {...register(`${fieldName}.${index}.value` as any)}
+              disabled={disabled}
+              label={`Value #${index + 1}`}
+              placeholder='value'
+              sx={{ width: '100%' }}
+            />
+          </Grid>
+
+          <Grid
+            size={{
+              xs: 2,
+              md: 2
+            }}>
+            <IconButton
+              type='button'
+              size='small'
+              title='Delete this rule'
+              color='error'
+              sx={{ mt: '5px', ml: '4px', p: '10px' }}
+              onClick={() => remove(index)}
+            >
+              <DeleteForeverOutlinedIcon />
+            </IconButton>
+          </Grid>
+        </Grid>
+      ))}
     </>
   );
 }

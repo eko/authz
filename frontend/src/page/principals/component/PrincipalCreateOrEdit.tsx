@@ -1,6 +1,5 @@
 import { useContext, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import LoadingButton from '@mui/lab/LoadingButton';
 import { Button, Divider, Paper, TextField, Typography } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import SaveIcon from '@mui/icons-material/Save';
@@ -89,7 +88,11 @@ export default function PrincipalCreateOrEdit() {
           </Typography>
 
           <Grid container >
-            <Grid item xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               <TextField {...register('id')}
                 label='Name'
                 defaultValue={defaultValues?.id}
@@ -110,7 +113,11 @@ export default function PrincipalCreateOrEdit() {
           </Typography>
 
           <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               <MultipleAutocompleteInput
                 label='Associated roles'
                 placeholder='Search for a role...'
@@ -133,7 +140,11 @@ export default function PrincipalCreateOrEdit() {
           </Typography>
 
           <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               <Attributes
                 control={control}
                 defaultValues={defaultValues}
@@ -144,8 +155,12 @@ export default function PrincipalCreateOrEdit() {
           </Grid>
         </Paper>
 
-        <Grid item xs={12} md={8}>
-          <LoadingButton
+        <Grid
+          size={{
+            xs: 12,
+            md: 8
+          }}>
+          <Button
             type='submit'
             loadingPosition='start'
             variant='contained'
@@ -154,7 +169,7 @@ export default function PrincipalCreateOrEdit() {
             sx={{ marginTop: 2 }}
           >
             Submit
-          </LoadingButton>
+          </Button>
 
           <Button
             type='button'

@@ -100,7 +100,12 @@ export default function Dashboard() {
   return (
     <>
       <Grid container spacing={3}>
-        <Grid item xs={12} md={6} lg={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6,
+            lg: 6
+          }}>
           <Paper sx={{ width: '100%', height: 340 }}>
             <Typography variant='h5' sx={{ pt: 2, pl: 2, pb: 0 }}>
               Checks decisions per day
@@ -152,7 +157,12 @@ export default function Dashboard() {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} md={6} lg={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6,
+            lg: 6
+          }}>
           <Paper sx={{ width: '100%', height: 340 }}>
             <Typography variant='h5' sx={{ pt: 2, pl: 2, pb: 0 }}>
               Total of check decisions

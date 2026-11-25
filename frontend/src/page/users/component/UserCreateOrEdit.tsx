@@ -1,6 +1,5 @@
 import { useContext, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import LoadingButton from '@mui/lab/LoadingButton';
 import { Alert, Button, Paper, TextField, Typography } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import SaveIcon from '@mui/icons-material/Save';
@@ -76,7 +75,11 @@ export default function UserCreateOrEdit() {
           </Typography>
 
           <Grid container >
-            <Grid item xs={12} md={6}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 6
+              }}>
               <TextField {...register('username')}
                 label='Username'
                 defaultValue={defaultValues?.username}
@@ -89,8 +92,12 @@ export default function UserCreateOrEdit() {
           </Grid>
         </Paper>
 
-        <Grid item xs={12} md={8}>
-          <LoadingButton
+        <Grid
+          size={{
+            xs: 12,
+            md: 8
+          }}>
+          <Button
             type='submit'
             loadingPosition='start'
             variant='contained'
@@ -99,7 +106,7 @@ export default function UserCreateOrEdit() {
             sx={{ marginTop: 2 }}
           >
             Submit
-          </LoadingButton>
+          </Button>
 
           <Button
             type='button'
