@@ -8,7 +8,7 @@ import (
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/security/jwt"
 	lib_jwt "github.com/golang-jwt/jwt/v4"
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -12,7 +12,7 @@ import (
 	"github.com/eko/authz/backend/internal/security/jwt"
 	"github.com/gofiber/fiber/v2"
 	lib_jwt "github.com/golang-jwt/jwt/v4"
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 

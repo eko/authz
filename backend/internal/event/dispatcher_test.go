@@ -7,8 +7,8 @@ import (
 
 	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/helper/time"
-	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	gomock "go.uber.org/mock/gomock"
 )
 
 func TestNewDispatcher(t *testing.T) {

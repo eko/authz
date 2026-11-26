@@ -7,7 +7,7 @@ import (
 	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/helper/time"
 	"github.com/golang-jwt/jwt/v4"
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 

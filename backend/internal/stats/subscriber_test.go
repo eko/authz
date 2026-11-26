@@ -9,8 +9,8 @@ import (
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/event"
 	"github.com/eko/authz/backend/internal/log"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 func TestNewSubscriber(t *testing.T) {

@@ -13,7 +13,6 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.16
 	github.com/gofiber/swagger v1.1.1
 	github.com/golang-jwt/jwt/v4 v4.5.2
-	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.4
 	github.com/heetch/confita v0.11.0
@@ -27,6 +26,7 @@ require (
 	go.opentelemetry.io/otel/exporters/zipkin v1.47.0
 	go.opentelemetry.io/otel/sdk v1.47.0
 	go.uber.org/fx v1.24.0
+	go.uber.org/mock v0.6.0
 	golang.org/x/crypto v0.59.0
 	golang.org/x/oauth2 v0.38.0
 	google.golang.org/grpc v1.85.0
