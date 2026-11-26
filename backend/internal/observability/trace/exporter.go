@@ -8,7 +8,6 @@ import (
 
 	"github.com/eko/authz/backend/configs"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/exporters/zipkin"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -17,7 +16,6 @@ import (
 const (
 	jaegerExporter   = "jaeger"
 	otlpgrpcExporter = "otlpgrpc"
-	zipkinExporter   = "zipkin"
 )
 
 var (
@@ -26,6 +24,10 @@ var (
 )
 
 func NewExporter(cfg *configs.App) (tracesdk.SpanExporter, error) {
+	if cfg.TraceExporter == configs.TraceExporterZipkin {
+		return nil, configs.ErrTraceExporterZipkinRemoved
+	}
+
 	if !cfg.TraceEnabled {
 		return nil, nil
 	}
@@ -56,11 +58,6 @@ func NewExporter(cfg *configs.App) (tracesdk.SpanExporter, error) {
 		}
 
 		return otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
-
-	case zipkinExporter:
-		return zipkin.New(
-			cfg.TraceZipkinURL,
-		)
 	}
 
 	return nil, ErrUnknownExporter

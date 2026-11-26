@@ -1,6 +1,20 @@
 package configs
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+// TraceExporterZipkin is the removed zipkin trace exporter name, kept to
+// reject configurations that still use it.
+const TraceExporterZipkin = "zipkin"
+
+// ErrTraceExporterZipkinRemoved is returned when the removed zipkin trace exporter is configured.
+var ErrTraceExporterZipkinRemoved = errors.New(
+	"APP_TRACE_EXPORTER=zipkin is no longer supported as the OpenTelemetry Zipkin exporter is deprecated: " +
+		"set APP_TRACE_EXPORTER=otlpgrpc and APP_TRACE_OTLP_ENDPOINT to an OTLP endpoint instead " +
+		"(Jaeger, Zipkin with OTLP ingestion or an OpenTelemetry Collector)",
+)
 
 type App struct {
 	AuditCleanDelay            time.Duration `config:"app_audit_clean_delay"`
@@ -18,7 +32,6 @@ type App struct {
 	TraceJaegerEndpoint        string        `config:"app_trace_jaeger_endpoint"`
 	TraceOtlpDialTimeout       time.Duration `config:"app_trace_otlp_dial_timeout"`
 	TraceOtlpEndpoint          string        `config:"app_trace_otlp_endpoint"`
-	TraceZipkinURL             string        `config:"app_trace_zipkin_url"`
 	TraceSampleRatio           float64       `config:"app_trace_sample_ratio"`
 }
 
@@ -39,7 +52,15 @@ func newApp() *App {
 		TraceJaegerEndpoint:        "localhost:14250",
 		TraceOtlpDialTimeout:       3 * time.Second,
 		TraceOtlpEndpoint:          "localhost:30080",
-		TraceZipkinURL:             "http://localhost:9411/api/v2/spans",
 		TraceSampleRatio:           1.0,
 	}
+}
+
+// validate rejects trace exporters that are no longer supported.
+func (a *App) validate() error {
+	if a.TraceExporter == TraceExporterZipkin {
+		return ErrTraceExporterZipkinRemoved
+	}
+
+	return nil
 }
