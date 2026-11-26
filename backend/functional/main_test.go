@@ -40,7 +40,9 @@ func TestMain(m *testing.M) {
 
 	app := FxApp()
 
-	app.Start(ctx)
+	if err := app.Start(ctx); err != nil {
+		l.Fatalf("Unable to start application: %v", err)
+	}
 
 	status := godog.TestSuite{
 		Name:                configs.ApplicationName,

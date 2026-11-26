@@ -74,7 +74,7 @@ type AttributeMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AttributeMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -178,7 +178,7 @@ type AuthenticateRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AuthenticateRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -286,7 +286,7 @@ type AuthenticateResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AuthenticateResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -373,27 +373,9 @@ func (m *Check) validate(all bool) error {
 
 	var errors []error
 
-	if !_Check_Principal_Pattern.MatchString(m.GetPrincipal()) {
-		err := CheckValidationError{
-			field:  "Principal",
-			reason: "value does not match regex pattern \"[a-z0-9-_\\\\./*]+\"",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
+	// no validation rules for Principal
 
-	if !_Check_ResourceKind_Pattern.MatchString(m.GetResourceKind()) {
-		err := CheckValidationError{
-			field:  "ResourceKind",
-			reason: "value does not match regex pattern \"[a-z0-9-_\\\\./*]+\"",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
+	// no validation rules for ResourceKind
 
 	// no validation rules for ResourceValue
 
@@ -412,7 +394,7 @@ type CheckMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CheckMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -476,10 +458,6 @@ var _ interface {
 	ErrorName() string
 } = CheckValidationError{}
 
-var _Check_Principal_Pattern = regexp.MustCompile("[a-z0-9-_\\./*]+")
-
-var _Check_ResourceKind_Pattern = regexp.MustCompile("[a-z0-9-_\\./*]+")
-
 // Validate checks the field values on CheckAnswer with the rules defined in
 // the proto definition for this message. If any rules are violated, the first
 // error encountered is returned, or nil if there are no violations.
@@ -525,7 +503,7 @@ type CheckAnswerMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CheckAnswerMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -658,7 +636,7 @@ type CheckRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CheckRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -792,7 +770,7 @@ type CheckResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CheckResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -892,7 +870,7 @@ type PolicyMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PolicyMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -978,16 +956,7 @@ func (m *PolicyCreateRequest) validate(all bool) error {
 
 	var errors []error
 
-	if !_PolicyCreateRequest_Id_Pattern.MatchString(m.GetId()) {
-		err := PolicyCreateRequestValidationError{
-			field:  "Id",
-			reason: "value does not match regex pattern \"[a-z0-9-_\\\\./*]+\"",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
+	// no validation rules for Id
 
 	if len(errors) > 0 {
 		return PolicyCreateRequestMultiError(errors)
@@ -1003,7 +972,7 @@ type PolicyCreateRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PolicyCreateRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1068,8 +1037,6 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = PolicyCreateRequestValidationError{}
-
-var _PolicyCreateRequest_Id_Pattern = regexp.MustCompile("[a-z0-9-_\\./*]+")
 
 // Validate checks the field values on PolicyCreateResponse with the rules
 // defined in the proto definition for this message. If any rules are
@@ -1136,7 +1103,7 @@ type PolicyCreateResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PolicyCreateResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1240,7 +1207,7 @@ type PolicyGetRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PolicyGetRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1369,7 +1336,7 @@ type PolicyGetResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PolicyGetResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1473,7 +1440,7 @@ type PolicyDeleteRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PolicyDeleteRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1577,7 +1544,7 @@ type PolicyDeleteResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PolicyDeleteResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1681,7 +1648,7 @@ type PolicyUpdateRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PolicyUpdateRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1812,7 +1779,7 @@ type PolicyUpdateResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PolicyUpdateResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1949,7 +1916,7 @@ type PrincipalMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PrincipalMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2035,16 +2002,7 @@ func (m *PrincipalCreateRequest) validate(all bool) error {
 
 	var errors []error
 
-	if !_PrincipalCreateRequest_Id_Pattern.MatchString(m.GetId()) {
-		err := PrincipalCreateRequestValidationError{
-			field:  "Id",
-			reason: "value does not match regex pattern \"[a-z0-9-_\\\\./*]+\"",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
+	// no validation rules for Id
 
 	for idx, item := range m.GetAttributes() {
 		_, _ = idx, item
@@ -2094,7 +2052,7 @@ type PrincipalCreateRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PrincipalCreateRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2159,8 +2117,6 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = PrincipalCreateRequestValidationError{}
-
-var _PrincipalCreateRequest_Id_Pattern = regexp.MustCompile("[a-z0-9-_\\./*]+")
 
 // Validate checks the field values on PrincipalCreateResponse with the rules
 // defined in the proto definition for this message. If any rules are
@@ -2227,7 +2183,7 @@ type PrincipalCreateResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PrincipalCreateResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2331,7 +2287,7 @@ type PrincipalGetRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PrincipalGetRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2462,7 +2418,7 @@ type PrincipalGetResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PrincipalGetResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2566,7 +2522,7 @@ type PrincipalDeleteRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PrincipalDeleteRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2670,7 +2626,7 @@ type PrincipalDeleteResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PrincipalDeleteResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2808,7 +2764,7 @@ type PrincipalUpdateRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PrincipalUpdateRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2939,7 +2895,7 @@ type PrincipalUpdateResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PrincipalUpdateResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -3080,7 +3036,7 @@ type ResourceMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ResourceMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -3166,38 +3122,11 @@ func (m *ResourceCreateRequest) validate(all bool) error {
 
 	var errors []error
 
-	if !_ResourceCreateRequest_Id_Pattern.MatchString(m.GetId()) {
-		err := ResourceCreateRequestValidationError{
-			field:  "Id",
-			reason: "value does not match regex pattern \"[a-z0-9-_\\\\./*]+\"",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
+	// no validation rules for Id
 
-	if !_ResourceCreateRequest_Kind_Pattern.MatchString(m.GetKind()) {
-		err := ResourceCreateRequestValidationError{
-			field:  "Kind",
-			reason: "value does not match regex pattern \"[a-z0-9-_\\\\./*]+\"",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
+	// no validation rules for Kind
 
-	if !_ResourceCreateRequest_Value_Pattern.MatchString(m.GetValue()) {
-		err := ResourceCreateRequestValidationError{
-			field:  "Value",
-			reason: "value does not match regex pattern \"[a-z0-9-_\\\\./*]+\"",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
+	// no validation rules for Value
 
 	for idx, item := range m.GetAttributes() {
 		_, _ = idx, item
@@ -3247,7 +3176,7 @@ type ResourceCreateRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ResourceCreateRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -3312,12 +3241,6 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = ResourceCreateRequestValidationError{}
-
-var _ResourceCreateRequest_Id_Pattern = regexp.MustCompile("[a-z0-9-_\\./*]+")
-
-var _ResourceCreateRequest_Kind_Pattern = regexp.MustCompile("[a-z0-9-_\\./*]+")
-
-var _ResourceCreateRequest_Value_Pattern = regexp.MustCompile("[a-z0-9-_\\./*]+")
 
 // Validate checks the field values on ResourceCreateResponse with the rules
 // defined in the proto definition for this message. If any rules are
@@ -3384,7 +3307,7 @@ type ResourceCreateResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ResourceCreateResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -3488,7 +3411,7 @@ type ResourceGetRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ResourceGetRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -3619,7 +3542,7 @@ type ResourceGetResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ResourceGetResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -3723,7 +3646,7 @@ type ResourceDeleteRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ResourceDeleteRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -3827,7 +3750,7 @@ type ResourceDeleteResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ResourceDeleteResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -3969,7 +3892,7 @@ type ResourceUpdateRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ResourceUpdateRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -4100,7 +4023,7 @@ type ResourceUpdateResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ResourceUpdateResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -4202,7 +4125,7 @@ type RoleMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RoleMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -4288,16 +4211,7 @@ func (m *RoleCreateRequest) validate(all bool) error {
 
 	var errors []error
 
-	if !_RoleCreateRequest_Id_Pattern.MatchString(m.GetId()) {
-		err := RoleCreateRequestValidationError{
-			field:  "Id",
-			reason: "value does not match regex pattern \"[a-z0-9-_\\\\./*]+\"",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
+	// no validation rules for Id
 
 	if len(errors) > 0 {
 		return RoleCreateRequestMultiError(errors)
@@ -4313,7 +4227,7 @@ type RoleCreateRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RoleCreateRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -4378,8 +4292,6 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = RoleCreateRequestValidationError{}
-
-var _RoleCreateRequest_Id_Pattern = regexp.MustCompile("[a-z0-9-_\\./*]+")
 
 // Validate checks the field values on RoleCreateResponse with the rules
 // defined in the proto definition for this message. If any rules are
@@ -4446,7 +4358,7 @@ type RoleCreateResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RoleCreateResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -4550,7 +4462,7 @@ type RoleGetRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RoleGetRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -4679,7 +4591,7 @@ type RoleGetResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RoleGetResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -4781,7 +4693,7 @@ type RoleDeleteRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RoleDeleteRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -4885,7 +4797,7 @@ type RoleDeleteResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RoleDeleteResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -4989,7 +4901,7 @@ type RoleUpdateRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RoleUpdateRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -5120,7 +5032,7 @@ type RoleUpdateResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RoleUpdateResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

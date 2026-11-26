@@ -7,15 +7,15 @@ help: ## Show this help
 	@egrep '^.+\:.*##\ .+' ${MAKEFILE_LIST} | sed -r 's/^(.+): .*##\ (.+)/  \1#\2/' | column -t -c 2 -s '#'
 
 install-tools: ## Install the development tools
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.49
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
-	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
-	go install github.com/envoyproxy/protoc-gen-validate@v0.9.1
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
+	go install github.com/envoyproxy/protoc-gen-validate@v1.3.3
 	go install go.uber.org/mock/mockgen@v0.6.0
-	go install github.com/swaggo/swag/cmd/swag@v1.8.3
+	go install github.com/swaggo/swag/cmd/swag@v1.16.6
 
 lint: ## Run the linter over all the Go code
-	@command -v golangci-lint > /dev/null || go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.1
+	@command -v golangci-lint > /dev/null || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 	golangci-lint run
 
 proto: ## Generate Go packages from proto files
@@ -23,14 +23,15 @@ proto: ## Generate Go packages from proto files
 		-I ./api/proto \
 		--go_out=./pkg/authz --go_opt=paths=source_relative \
 		--go-grpc_out=./pkg/authz --go-grpc_opt=paths=source_relative \
+		--validate_out="lang=go,paths=source_relative:./pkg/authz" \
 		api.proto
 
 mysql-schema-dump: ## Dump current database schema into schema.sql file
-	docker-compose -f ../docker-compose.mysql.yaml exec mysql \
+	docker compose -f ../docker-compose.mysql.yaml exec mysql \
 		mysqldump -u root -ptoor --no-data root > schema.mysql.sql
 
 postgres-schema-dump: ## Dump current database schema into schema.sql file
-	docker-compose -f ../docker-compose.postgres.yaml exec postgres \
+	docker compose -f ../docker-compose.postgres.yaml exec postgres \
 		pg_dump -x -s -U root -w -d root > schema.postgres.sql
 
 # install needed dependency:

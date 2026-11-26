@@ -48,7 +48,7 @@ func (a *apiFeature) iAuthenticateWithUsernameAndPassword(username, password str
 		return err
 	}
 
-	defer a.resp.Body.Close()
+	defer func() { _ = a.resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(a.resp.Body)
 	if err != nil {

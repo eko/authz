@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	UserIdentifierKey = struct{}{}
+	UserIdentifierKey = contextKey("authz_user_identifier")
 )
 
 func Authentication(
