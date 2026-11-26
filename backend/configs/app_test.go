@@ -9,6 +9,7 @@ import (
 func TestApp_Validate(t *testing.T) {
 	testCases := []struct {
 		name          string
+		traceEnabled  bool
 		traceExporter string
 		expectedErr   error
 	}{
@@ -21,15 +22,21 @@ func TestApp_Validate(t *testing.T) {
 			traceExporter: "otlpgrpc",
 		},
 		{
-			name:          "removed zipkin exporter is rejected",
+			name:          "removed zipkin exporter is rejected when tracing is enabled",
+			traceEnabled:  true,
 			traceExporter: TraceExporterZipkin,
 			expectedErr:   ErrTraceExporterZipkinRemoved,
+		},
+		{
+			name:          "zipkin exporter is ignored when tracing is disabled",
+			traceExporter: TraceExporterZipkin,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			cfg := newApp()
+			cfg.TraceEnabled = testCase.traceEnabled
 			cfg.TraceExporter = testCase.traceExporter
 
 			err := cfg.validate()

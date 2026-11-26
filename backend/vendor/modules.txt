@@ -161,6 +161,7 @@ github.com/gofiber/fiber/v3/internal/wiretarget
 github.com/gofiber/fiber/v3/log
 github.com/gofiber/fiber/v3/middleware/adaptor
 github.com/gofiber/fiber/v3/middleware/cors
+github.com/gofiber/fiber/v3/middleware/recover
 # github.com/gofiber/schema v1.10.2
 ## explicit; go 1.26.0
 github.com/gofiber/schema
@@ -308,6 +309,7 @@ github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
 github.com/stretchr/testify/internal/difflib
 github.com/stretchr/testify/internal/spew
+github.com/stretchr/testify/require
 # github.com/swaggo/files/v2 v2.0.2
 ## explicit; go 1.16
 github.com/swaggo/files/v2

@@ -12,7 +12,7 @@ You can also specify the following environment variables in order to configure i
 | -------- | ------------- | ----------- |
 | APP_TRACE_ENABLED | `false` | Enable tracing observability using OpenTelemetry |
 | APP_TRACE_EXPORTER | `jaeger` | Exporter you want to use. Could be `jaeger` or `otlpgrpc` |
-| APP_TRACE_JAEGER_ENDPOINT | `localhost:14250` | Jaeger endpoint to be used |
+| APP_TRACE_JAEGER_ENDPOINT | `localhost:4317` | Jaeger OTLP gRPC endpoint to be used |
 | APP_TRACE_OTLP_DIAL_TIMEOUT | `3s` | OTLP gRPC exporter dial timeout value |
 | APP_TRACE_OTLP_ENDPOINT | `localhost:30080` | OTLP gRPC endpoint value |
 | APP_TRACE_SAMPLE_RATIO | `1.0` | Sampling ratio value defines how many traces should be sent to your exporter |
@@ -21,7 +21,7 @@ Once you will launch the backend, your traces should be collected over the expor
 
 ## Zipkin exporter removal
 
-The `zipkin` exporter has been removed because the OpenTelemetry Go Zipkin exporter is deprecated. The `APP_TRACE_ZIPKIN_URL` option has been removed too, and Authz now refuses to start when `APP_TRACE_EXPORTER=zipkin` is set.
+The `zipkin` exporter has been removed because the OpenTelemetry Go Zipkin exporter is deprecated. The `APP_TRACE_ZIPKIN_URL` option has been removed too, and Authz now refuses to start when tracing is enabled with `APP_TRACE_EXPORTER=zipkin`.
 
 To keep sending traces to Zipkin, use the OTLP exporter (`APP_TRACE_EXPORTER=otlpgrpc`) and set `APP_TRACE_OTLP_ENDPOINT` to an OTLP gRPC endpoint: a Zipkin server with OTLP ingestion enabled, or an [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) that forwards traces to Zipkin. Jaeger also ingests OTLP natively.
 

@@ -49,7 +49,7 @@ func newApp() *App {
 		StatsResourceKindRegex:     `.*`,
 		TraceEnabled:               false,
 		TraceExporter:              "jaeger",
-		TraceJaegerEndpoint:        "localhost:14250",
+		TraceJaegerEndpoint:        "localhost:4317",
 		TraceOtlpDialTimeout:       3 * time.Second,
 		TraceOtlpEndpoint:          "localhost:30080",
 		TraceSampleRatio:           1.0,
@@ -58,7 +58,7 @@ func newApp() *App {
 
 // validate rejects trace exporters that are no longer supported.
 func (a *App) validate() error {
-	if a.TraceExporter == TraceExporterZipkin {
+	if a.TraceEnabled && a.TraceExporter == TraceExporterZipkin {
 		return ErrTraceExporterZipkinRemoved
 	}
 

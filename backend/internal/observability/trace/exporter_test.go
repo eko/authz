@@ -30,9 +30,8 @@ func TestNewExporter(t *testing.T) {
 			wantErr: configs.ErrTraceExporterZipkinRemoved,
 		},
 		{
-			name:    "removed zipkin exporter with tracing disabled",
-			cfg:     &configs.App{TraceEnabled: false, TraceExporter: configs.TraceExporterZipkin},
-			wantErr: configs.ErrTraceExporterZipkinRemoved,
+			name: "removed zipkin exporter is ignored with tracing disabled",
+			cfg:  &configs.App{TraceEnabled: false, TraceExporter: configs.TraceExporterZipkin},
 		},
 		{
 			name:    "unknown exporter",

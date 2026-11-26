@@ -40,6 +40,10 @@ func OAuthAuthenticate(
 	tokenGenerator token.Generator,
 ) fiber.Handler {
 	return func(c fiber.Ctx) error {
+		if !isOAuthConfigured(oauthClientManager) {
+			return returnError(c, http.StatusNotFound, errOAuthNotConfigured)
+		}
+
 		state, err := tokenGenerator.Generate(16)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, fmt.Errorf("unable to generate state: %v", err))
@@ -74,6 +78,10 @@ func OAuthCallback(
 	principalManager manager.Principal,
 ) fiber.Handler {
 	return func(c fiber.Ctx) error {
+		if !isOAuthConfigured(oauthClientManager) {
+			return returnError(c, http.StatusNotFound, errOAuthNotConfigured)
+		}
+
 		ctx := c.Context()
 
 		state := c.Request().Header.Cookie(OAuthStateCookieName)
@@ -170,4 +178,10 @@ func setCallbackCookie(c fiber.Ctx, name, value, domain string) {
 		MaxAge:   int(time.Hour.Seconds()),
 		HTTPOnly: false,
 	})
+}
+
+var errOAuthNotConfigured = errors.New("OAuth authentication is not configured")
+
+func isOAuthConfigured(oauthClientManager client.Manager) bool {
+	return oauthClientManager.GetConfig() != nil && oauthClientManager.GetVerifier() != nil
 }

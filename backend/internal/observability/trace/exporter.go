@@ -24,12 +24,12 @@ var (
 )
 
 func NewExporter(cfg *configs.App) (tracesdk.SpanExporter, error) {
-	if cfg.TraceExporter == configs.TraceExporterZipkin {
-		return nil, configs.ErrTraceExporterZipkinRemoved
-	}
-
 	if !cfg.TraceEnabled {
 		return nil, nil
+	}
+
+	if cfg.TraceExporter == configs.TraceExporterZipkin {
+		return nil, configs.ErrTraceExporterZipkinRemoved
 	}
 
 	switch cfg.TraceExporter {
