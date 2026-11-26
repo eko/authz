@@ -30,7 +30,7 @@ On frontend side (**build-time only**), fill in these values:
 
 | Property | Default value | Description |
 | -------- | ------------- | ----------- |
-| REACT_APP_OAUTH_BUTTON_LABEL | `Sign-in wigh Single Sign-On (SSO)` | Sign in button label (will make it appear on front) |
+| REACT_APP_OAUTH_BUTTON_LABEL | `Sign-in with Single Sign-On (SSO)` | Sign in button label (will make it appear on front) |
 | REACT_APP_OAUTH_ENABLED | `false` | Should OAuth authentication button be displayed on front? |
 | REACT_APP_OAUTH_LOGO_URL | N/A | Sign in button logo URL that will appear on left |
 
