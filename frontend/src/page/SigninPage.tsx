@@ -31,25 +31,29 @@ export default function SigninPage() {
           <Grid container spacing={4}>
             <Grid
               container
-              display='flex'
-              direction='column'
-              alignSelf='center'
-              alignItems='center'
               size={{
                 xs: 12,
                 md: 6
+              }}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignSelf: 'center',
+                alignItems: 'center'
               }}>
               <img width='300' src='/logo-full.png' alt='Authz' title='Authz' />
             </Grid>
 
             <Grid
               container
-              display='flex'
-              direction='column'
-              alignSelf='center'
               size={{
                 xs: 12,
                 md: 6
+              }}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignSelf: 'center'
               }}>
               <Typography variant="h3" gutterBottom sx={{ textAlign: 'center', marginBottom: 4 }}>
                   Sign In
@@ -91,14 +95,16 @@ export default function SigninPage() {
                 defaultValue={defaultValues?.username}
                 error={errors?.username ? true : false}
                 helperText={errors?.username?.message}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="start">
-                      <AccountCircleIcon />
-                    </InputAdornment>
-                  ),
-                }}
                 sx={{ mb: 2, width: '100%' }}
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="start">
+                        <AccountCircleIcon />
+                      </InputAdornment>
+                    ),
+                  }
+                }}
               />
 
               <TextField {...register('password')}
@@ -107,14 +113,16 @@ export default function SigninPage() {
                 defaultValue={defaultValues?.password}
                 error={errors?.password ? true : false}
                 helperText={errors?.password?.message}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="start">
-                      <PinIcon />
-                    </InputAdornment>
-                  ),
-                }}
                 sx={{ mb: 2, width: '100%' }}
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="start">
+                        <PinIcon />
+                      </InputAdornment>
+                    ),
+                  }
+                }}
               />
 
               <Button

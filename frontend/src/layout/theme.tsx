@@ -17,25 +17,24 @@ export default createTheme({
       },
       styleOverrides: {
         root: {
-          textTransform: 'none'
-        },
-        sizeSmall: {
-          padding: '6px 16px'
-        },
-        sizeMedium: {
-          padding: '8px 20px'
-        },
-        sizeLarge: {
-          padding: '11px 24px'
-        },
-        textSizeSmall: {
-          padding: '7px 12px'
-        },
-        textSizeMedium: {
-          padding: '9px 16px'
-        },
-        textSizeLarge: {
-          padding: '12px 16px'
+          textTransform: 'none',
+          // Later entries win: text buttons use their own padding.
+          variants: [
+            { props: { size: 'small' }, style: { padding: '6px 16px' } },
+            { props: { size: 'medium' }, style: { padding: '8px 20px' } },
+            { props: { size: 'large' }, style: { padding: '11px 24px' } },
+            { props: { variant: 'text', size: 'small' }, style: { padding: '7px 12px' } },
+            { props: { variant: 'text', size: 'medium' }, style: { padding: '9px 16px' } },
+            { props: { variant: 'text', size: 'large' }, style: { padding: '12px 16px' } }
+          ]
+        }
+      }
+    },
+    MuiListItemIcon: {
+      styleOverrides: {
+        // Keep the MUI v5-v7 icon spacing (MUI v9 reduced it to 36px).
+        root: {
+          minWidth: 56
         }
       }
     },
@@ -56,11 +55,14 @@ export default createTheme({
     },
     MuiCardHeader: {
       defaultProps: {
-        titleTypographyProps: {
-          variant: 'h6'
-        },
-        subheaderTypographyProps: {
-          variant: 'body2'
+        slotProps: {
+          title: {
+            variant: 'h6'
+          },
+
+          subheader: {
+            variant: 'body2'
+          }
         }
       },
       styleOverrides: {

@@ -17,7 +17,13 @@ import { AuthContextProvider } from 'context/auth';
 const drawerWidth = 240;
 
 const Copyright = (props: any) => (
-    <Typography variant="body2" color="text.secondary" align="center" {...props}>
+    <Typography
+      variant="body2"
+      align="center"
+      {...props}
+      sx={[{
+        color: "text.secondary"
+      }, ...(Array.isArray(props.sx) ? props.sx : [props.sx])]}>
         {'Copyright © '}
         Authz {new Date().getFullYear()}.
     </Typography>

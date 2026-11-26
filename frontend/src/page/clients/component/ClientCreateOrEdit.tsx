@@ -52,7 +52,13 @@ export default function ClientCreateOrEdit() {
 
   return (
     <div>
-      <Typography variant="h3" gutterBottom marginTop={1} marginBottom={2}>
+      <Typography
+        variant="h3"
+        gutterBottom
+        sx={{
+          marginTop: 1,
+          marginBottom: 2
+        }}>
         {client ? `Service account "${client?.name}"` : `Create new service account`}
       </Typography>
 
@@ -73,8 +79,10 @@ export default function ClientCreateOrEdit() {
                 defaultValue={defaultValues?.name}
                 error={errors?.name ? true : false}
                 helperText={errors?.name?.message}
-                InputLabelProps={{ shrink: defaultValues?.name !== '' ? true : undefined }}
                 sx={{ mb: 2, width: '100%' }}
+                slotProps={{
+                  inputLabel: { shrink: defaultValues?.name !== '' ? true : undefined }
+                }}
               />
 
               {client ? (
@@ -82,8 +90,10 @@ export default function ClientCreateOrEdit() {
                   disabled
                   label='client_id'
                   value={client?.client_id}
-                  InputLabelProps={{ shrink: client?.client_id !== '' ? true : undefined }}
                   sx={{ mb: 2, width: '100%' }}
+                  slotProps={{
+                    inputLabel: { shrink: client?.client_id !== '' ? true : undefined }
+                  }}
                 />
               ) : null}
 
@@ -92,8 +102,10 @@ export default function ClientCreateOrEdit() {
                   disabled
                   label='client_secret'
                   value={client?.client_secret}
-                  InputLabelProps={{ shrink: client?.client_secret !== '' ? true : undefined }}
                   sx={{ mb: 2, width: '100%' }}
+                  slotProps={{
+                    inputLabel: { shrink: client?.client_secret !== '' ? true : undefined }
+                  }}
                 />
               ) : null}
             </Grid>

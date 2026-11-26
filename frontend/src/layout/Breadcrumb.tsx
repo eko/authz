@@ -17,12 +17,14 @@ export default function Breadcrumb() {
     <Breadcrumbs aria-label='breadcrumb'>
       {breadcrumbs.map((breadcrumb, index) => {
         return breadcrumbs.length - 1 === index || breadcrumb.href === '' ? (
-          <Typography key={index} color="text.primary">{breadcrumb.label}</Typography>
+          <Typography key={index} sx={{
+            color: "text.primary"
+          }}>{breadcrumb.label}</Typography>
         ) : (
           <Link key={index} underline='hover' color='inherit' href={breadcrumb.href}>
             {breadcrumb.label}
           </Link>
-        )
+        );
       })}
     </Breadcrumbs>
   );

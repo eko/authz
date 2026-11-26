@@ -61,7 +61,7 @@ export const AuditColumns = (): GridColDef[] => [
               <ListItemText primary={params.row.policy_id} />
             </ListItemButton>
           </List>
-        )
+        );
       },
     },
     {

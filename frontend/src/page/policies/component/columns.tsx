@@ -47,7 +47,7 @@ export const ListColumns = ({
               </ListItemButton>
             ))}
           </List>
-        )
+        );
       },
     },
     {

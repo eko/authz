@@ -35,7 +35,7 @@
     "react-router-dom": "^7.18.6",
     "react-scripts": "5.0.1",
     "styled-components": "^6.6.0",
-    "typescript": "^7.0.2",
+    "typescript": "^5.9.3",
     "universal-cookie": "^8.1.2",
     "web-vitals": "^6.2.3",
     "yup": "^1.7.1"
@@ -63,5 +63,10 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "jest": {
+    "moduleNameMapper": {
+      "^react-router/dom$": "<rootDir>/node_modules/react-router/dist/development/dom-export.js"
+    }
   }
 }

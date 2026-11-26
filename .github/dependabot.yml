@@ -52,6 +52,10 @@ updates:
   commit-message:
     prefix: "[npm] "
   open-pull-requests-limit: 10
+  ignore:
+    # react-scripts (Create React App) does not support TypeScript 6+.
+    - dependency-name: "typescript"
+      versions: [">=6"]
   groups:
     npm:
       patterns:

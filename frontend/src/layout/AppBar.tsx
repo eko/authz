@@ -4,7 +4,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import MuiAppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
-import { Link, MenuItem, Theme, useMediaQuery } from '@mui/material';
+import { Button, Theme, useMediaQuery } from '@mui/material';
 import UserMenu from 'layout/UserMenu';
 
 type AppBarProps = {
@@ -59,19 +59,20 @@ export default function AppBar(props: AppBarProps) {
                 <Typography
                     component="h1"
                     variant="h6"
-                    color="inherit"
                     noWrap
-                    sx={{ flexGrow: 1 }}
-                >
+                    sx={{
+                        color: "inherit",
+                        flexGrow: 1
+                    }}>
                     {title || 'Authz'}
                 </Typography>
 
-                <MenuItem component={Link} href='https://github.com/eko/authz' target='_blank'>
+                <Button color='inherit' href='https://github.com/eko/authz' target='_blank' rel='noopener noreferrer'>
                   GitHub
-                </MenuItem>
+                </Button>
 
                 <UserMenu />
             </Toolbar>
         </AppBar>
-    )
+    );
 };

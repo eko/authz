@@ -1,6 +1,6 @@
 import { Button } from '@mui/material';
 import Grid from '@mui/material/Grid';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutlineOutlined';
 import { useNavigate } from 'react-router';
 import DataTable from 'component/DataTable';
 import { deleteClient, getClients } from 'service/model/client';
@@ -56,7 +56,12 @@ export default function ClientList() {
   return (
     <>
       <ConfirmationDialog />
-      <Box mb={3} display='flex' justifyContent='flex-start'>
+      <Box
+        sx={{
+          mb: 3,
+          display: 'flex',
+          justifyContent: 'flex-start'
+        }}>
         <Button
           variant='contained'
           size='medium'

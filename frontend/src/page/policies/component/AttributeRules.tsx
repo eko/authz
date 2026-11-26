@@ -1,5 +1,5 @@
 import { Alert, Button, IconButton, TextField } from '@mui/material';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutlineOutlined';
 import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined';
 import { PolicyFormData } from 'form/policy';
 import { Control, useFieldArray, UseFormRegister } from 'react-hook-form';

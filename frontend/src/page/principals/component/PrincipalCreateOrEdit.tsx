@@ -77,7 +77,13 @@ export default function PrincipalCreateOrEdit() {
 
   return (
     <div>
-      <Typography variant="h3" gutterBottom marginTop={1} marginBottom={2}>
+      <Typography
+        variant="h3"
+        gutterBottom
+        sx={{
+          marginTop: 1,
+          marginBottom: 2
+        }}>
         {principal?.id ? `Principal "${principal?.id}"` : `Create new principal`}
       </Typography>
 
@@ -98,8 +104,10 @@ export default function PrincipalCreateOrEdit() {
                 defaultValue={defaultValues?.id}
                 error={errors?.id ? true : false}
                 helperText={errors?.id?.message}
-                InputLabelProps={{ shrink: defaultValues?.id !== '' ? true : undefined }}
                 sx={{ mb: 2, width: '100%' }}
+                slotProps={{
+                  inputLabel: { shrink: defaultValues?.id !== '' ? true : undefined }
+                }}
               />
             </Grid>
           </Grid>

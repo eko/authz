@@ -53,13 +53,16 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
                     {error?.message}
                 </Alert>
 
-                <Typography textAlign='center' color='#ebebeb' sx={{
-                    fontSize: '500px',
-                    marginTop: '100px',
-                }}>
+                <Typography
+                    sx={{
+                        textAlign: 'center',
+                        color: '#ebebeb',
+                        fontSize: '500px',
+                        marginTop: '100px'
+                    }}>
                     Error
                 </Typography>
             </>
-        ) : children
+        ) : children;
     }
 }

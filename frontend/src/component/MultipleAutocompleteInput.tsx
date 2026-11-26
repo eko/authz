@@ -123,10 +123,10 @@ export default function MultipleAutocompleteInput({
         onChange={handleOnChange}
         disableCloseOnSelect
         filterOptions={allowAdd ? filterOptions : undefined}
-        isOptionEqualToValue={(option: ItemType, value: ItemType): boolean => {
-          return option.id === value.id;
+        isOptionEqualToValue={(option: ItemType, value: ItemType | string): boolean => {
+          return option.id === (typeof value === 'string' ? value : value.id);
         }}
-        renderTags={() => null}
+        renderValue={() => null}
         noOptionsText='Aucun élément'
         renderOption={(props, option, { selected }) => (
           <li {...props}>
@@ -153,23 +153,25 @@ export default function MultipleAutocompleteInput({
         onKeyUp={handleOnKeyUp}
         renderInput={(params) => (
           <TextField
-            ref={params.InputProps.ref}
+            ref={params.slotProps.input.ref}
             disabled={disabled}
             role='multipleautocompleteinput-field'
-            inputProps={params.inputProps}
             label={label}
             placeholder={placeholder}
             error={errorField ? true : false}
             helperText={errorField?.message}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
             sx={inputSx}
-          />
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              },
+
+              htmlInput: params.slotProps.htmlInput
+            }} />
         )}
       />
 
