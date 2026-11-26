@@ -9,7 +9,7 @@ import (
 	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/http/handler/model"
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
 )
 
@@ -41,11 +41,11 @@ func PolicyCreate(
 	validate *validator.Validate,
 	policyManager manager.Policy,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		request := &CreatePolicyRequest{}
 
 		// Parse request body
-		if err := c.BodyParser(request); err != nil {
+		if err := c.Bind().Body(request); err != nil {
 			return returnError(c, http.StatusBadRequest, err)
 		}
 
@@ -86,7 +86,7 @@ func PolicyCreate(
 func PolicyList(
 	policyManager manager.Policy,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		page, size, err := paginate(c)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
@@ -121,7 +121,7 @@ func PolicyList(
 func PolicyGet(
 	policyManager manager.Policy,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve policy
@@ -160,14 +160,14 @@ func PolicyUpdate(
 	validate *validator.Validate,
 	policyManager manager.Policy,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Update request
 		request := &UpdatePolicyRequest{}
 
 		// Parse request body
-		if err := c.BodyParser(request); err != nil {
+		if err := c.Bind().Body(request); err != nil {
 			return returnError(c, http.StatusBadRequest, err)
 		}
 
@@ -206,7 +206,7 @@ func PolicyUpdate(
 func PolicyDelete(
 	policyManager manager.Policy,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		if err := policyManager.Delete(identifier); err != nil {

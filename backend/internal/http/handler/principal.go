@@ -9,7 +9,7 @@ import (
 	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/http/handler/model"
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
 )
 
@@ -39,11 +39,11 @@ func PrincipalCreate(
 	validate *validator.Validate,
 	principalManager manager.Principal,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		request := &CreatePrincipalRequest{}
 
 		// Parse request body
-		if err := c.BodyParser(request); err != nil {
+		if err := c.Bind().Body(request); err != nil {
 			return returnError(c, http.StatusBadRequest, err)
 		}
 
@@ -79,7 +79,7 @@ func PrincipalCreate(
 func PrincipalList(
 	principalManager manager.Principal,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		page, size, err := paginate(c)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
@@ -114,7 +114,7 @@ func PrincipalList(
 func PrincipalGet(
 	principalManager manager.Principal,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve principal
@@ -153,14 +153,14 @@ func PrincipalUpdate(
 	validate *validator.Validate,
 	principalManager manager.Principal,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Update request
 		request := &UpdatePrincipalRequest{}
 
 		// Parse request body
-		if err := c.BodyParser(request); err != nil {
+		if err := c.Bind().Body(request); err != nil {
 			return returnError(c, http.StatusBadRequest, err)
 		}
 
@@ -194,7 +194,7 @@ func PrincipalUpdate(
 func PrincipalDelete(
 	principalManager manager.Principal,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		err := principalManager.Delete(identifier)

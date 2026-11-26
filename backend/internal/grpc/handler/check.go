@@ -2,11 +2,11 @@ package handler
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/event"
 	"github.com/eko/authz/backend/pkg/authz"
-	"golang.org/x/exp/slog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

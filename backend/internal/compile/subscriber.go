@@ -2,11 +2,11 @@ package compile
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/eko/authz/backend/internal/event"
 	"go.uber.org/fx"
-	"golang.org/x/exp/slog"
 )
 
 type subscriber struct {
@@ -66,7 +66,7 @@ func (s *subscriber) handlePolicyEvents(eventChan chan *event.Event) {
 		if err := s.compiler.CompilePolicy(policy); err != nil {
 			s.logger.Warn(
 				"Compiler: unable to compile policy",
-				err,
+				slog.Any("error", err),
 				slog.Any("policy_id", policy.ID),
 			)
 		}
@@ -85,7 +85,7 @@ func (s *subscriber) handleResourceEvents(eventChan chan *event.Event) {
 		if err := s.compiler.CompileResource(resource); err != nil {
 			s.logger.Warn(
 				"Compiler: unable to compile resource",
-				err,
+				slog.Any("error", err),
 				slog.Any("policy_id", resource.ID),
 			)
 		}
@@ -104,7 +104,7 @@ func (s *subscriber) handlePrincipalEvents(eventChan chan *event.Event) {
 		if err := s.compiler.CompilePrincipal(principal); err != nil {
 			s.logger.Warn(
 				"Compiler: unable to compile principal",
-				err,
+				slog.Any("error", err),
 				slog.Any("policy_id", principal.ID),
 			)
 		}

@@ -16,7 +16,7 @@
   * [OpenID Connect](authentication/oauth.md)
 * **Observability**
 * [Metrics (Prometheus)](observability/metrics.md)
-* [Tracing (Jaeger, Zipkin, OTLP)](observability/tracing.md)
+* [Tracing (Jaeger, OTLP)](observability/tracing.md)
 * **SDKs**
   * [Go](https://github.com/eko/authz/tree/master/sdk)
   * [NodeJS](https://github.com/eko/authz-nodejs-sdk)

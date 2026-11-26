@@ -9,7 +9,7 @@ import (
 	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/http/handler/model"
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
 )
 
@@ -37,11 +37,11 @@ func RoleCreate(
 	validate *validator.Validate,
 	roleManager manager.Role,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		request := &CreateRoleRequest{}
 
 		// Parse request body
-		if err := c.BodyParser(request); err != nil {
+		if err := c.Bind().Body(request); err != nil {
 			return returnError(c, http.StatusBadRequest, err)
 		}
 
@@ -78,7 +78,7 @@ func RoleCreate(
 func RoleList(
 	roleManager manager.Role,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		page, size, err := paginate(c)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
@@ -113,7 +113,7 @@ func RoleList(
 func RoleGet(
 	roleManager manager.Role,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve role
@@ -152,14 +152,14 @@ func RoleUpdate(
 	validate *validator.Validate,
 	roleManager manager.Role,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Update request
 		request := &UpdateRoleRequest{}
 
 		// Parse request body
-		if err := c.BodyParser(request); err != nil {
+		if err := c.Bind().Body(request); err != nil {
 			return returnError(c, http.StatusBadRequest, err)
 		}
 
@@ -193,7 +193,7 @@ func RoleUpdate(
 func RoleDelete(
 	roleManager manager.Role,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		if err := roleManager.Delete(identifier); err != nil {

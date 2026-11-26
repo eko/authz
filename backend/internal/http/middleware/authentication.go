@@ -2,11 +2,11 @@ package middleware
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 
 	"github.com/eko/authz/backend/internal/security/jwt"
-	"github.com/gofiber/fiber/v2"
-	"golang.org/x/exp/slog"
+	"github.com/gofiber/fiber/v3"
 )
 
 var (
@@ -17,7 +17,7 @@ func Authentication(
 	logger *slog.Logger,
 	tokenManager jwt.Manager,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		authorizationHeader := c.Get("Authorization")
 		authorizationHeaderValues := strings.Split(authorizationHeader, " ")
 
@@ -32,7 +32,7 @@ func Authentication(
 
 		claims, err := tokenManager.Parse(token)
 		if err != nil {
-			logger.Error("unable to verify token", err)
+			logger.Error("unable to verify token", slog.Any("error", err))
 
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error":   true,
@@ -40,10 +40,10 @@ func Authentication(
 			})
 		}
 
-		ctx := c.UserContext()
+		ctx := c.Context()
 		ctx = context.WithValue(ctx, UserIdentifierKey, claims.Subject)
 
-		c.SetUserContext(ctx)
+		c.SetContext(ctx)
 
 		return c.Next()
 	}

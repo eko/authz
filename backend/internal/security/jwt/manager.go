@@ -5,7 +5,7 @@ import (
 
 	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/helper/time"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
@@ -36,9 +36,6 @@ func NewManager(
 	cfg *configs.Auth,
 	clock time.Clock,
 ) Manager {
-	// Ensure JWT library is using our clock.
-	jwt.TimeFunc = clock.Now
-
 	return &manager{
 		cfg:   cfg,
 		clock: clock,
@@ -80,6 +77,8 @@ func (g *manager) Parse(accessToken string) (*Claims, error) {
 			return []byte(g.cfg.JWTSignString), nil
 		},
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		// Ensure JWT library is using our clock.
+		jwt.WithTimeFunc(g.clock.Now),
 	)
 	if err != nil {
 		return nil, err

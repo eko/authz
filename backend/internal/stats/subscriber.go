@@ -2,6 +2,7 @@ package stats
 
 import (
 	"context"
+	"log/slog"
 	"regexp"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/eko/authz/backend/internal/event"
 	"github.com/eko/authz/backend/internal/helper/spooler"
 	"go.uber.org/fx"
-	"golang.org/x/exp/slog"
 )
 
 type subscriber struct {
@@ -82,7 +82,7 @@ func (s *subscriber) handleCheckEvents(eventChan chan *event.Event) {
 		}
 
 		if err := s.statsManager.BatchAddCheck(timestamp, allowed, denied); err != nil {
-			s.logger.Error("Stats: unable to add check event", err)
+			s.logger.Error("Stats: unable to add check event", slog.Any("error", err))
 		}
 	}, spooler.WithFlushInterval(s.statsFlushDelay))
 

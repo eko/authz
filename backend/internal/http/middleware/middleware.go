@@ -1,10 +1,11 @@
 package middleware
 
 import (
+	"log/slog"
+
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/security/jwt"
-	"github.com/gofiber/fiber/v2"
-	"golang.org/x/exp/slog"
+	"github.com/gofiber/fiber/v3"
 )
 
 const (

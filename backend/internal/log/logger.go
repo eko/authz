@@ -2,11 +2,11 @@ package log
 
 import (
 	"log"
+	"log/slog"
 	"os"
 	"strings"
 
 	"github.com/eko/authz/backend/configs"
-	"golang.org/x/exp/slog"
 )
 
 var (

@@ -13,7 +13,7 @@ import (
 	"github.com/eko/authz/backend/internal/helper/token"
 	"github.com/eko/authz/backend/internal/oauth/client"
 	"github.com/eko/authz/backend/internal/security/jwt"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
 )
 
@@ -39,7 +39,7 @@ func OAuthAuthenticate(
 	oauthClientManager client.Manager,
 	tokenGenerator token.Generator,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		state, err := tokenGenerator.Generate(16)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, fmt.Errorf("unable to generate state: %v", err))
@@ -53,10 +53,9 @@ func OAuthAuthenticate(
 		setCallbackCookie(c, OAuthStateCookieName, state, oauthClientManager.GetCookiesDomainName())
 		setCallbackCookie(c, OAuthNonceCookieName, nonce, oauthClientManager.GetCookiesDomainName())
 
-		return c.Redirect(
-			oauthClientManager.GetConfig().AuthCodeURL(state, oidc.Nonce(nonce)),
-			http.StatusFound,
-		)
+		return c.Redirect().
+			Status(http.StatusFound).
+			To(oauthClientManager.GetConfig().AuthCodeURL(state, oidc.Nonce(nonce)))
 	}
 }
 
@@ -74,7 +73,7 @@ func OAuthCallback(
 	oauthClientManager client.Manager,
 	principalManager manager.Principal,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		ctx := c.Context()
 
 		state := c.Request().Header.Cookie(OAuthStateCookieName)
@@ -148,7 +147,9 @@ func OAuthCallback(
 		setCallbackCookie(c, OAuthExpiresInCookieName, strconv.FormatInt(jwtToken.ExpiresIn, 10), oauthClientManager.GetCookiesDomainName())
 		setCallbackCookie(c, OAuthTokenCookieName, jwtToken.Token, oauthClientManager.GetCookiesDomainName())
 
-		return c.Redirect(oauthClientManager.GetFrontendRedirectURL(), http.StatusFound)
+		return c.Redirect().
+			Status(http.StatusFound).
+			To(oauthClientManager.GetFrontendRedirectURL())
 	}
 }
 
@@ -161,7 +162,7 @@ func retrieveClaim(claims map[string]any, key string) (string, error) {
 	return value.(string), nil
 }
 
-func setCallbackCookie(c *fiber.Ctx, name, value, domain string) {
+func setCallbackCookie(c fiber.Ctx, name, value, domain string) {
 	c.Cookie(&fiber.Cookie{
 		Domain:   domain,
 		Name:     name,

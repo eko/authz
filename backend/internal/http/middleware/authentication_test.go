@@ -3,17 +3,17 @@ package middleware
 import (
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/eko/authz/backend/internal/log"
 	"github.com/eko/authz/backend/internal/security/jwt"
-	"github.com/gofiber/fiber/v2"
-	lib_jwt "github.com/golang-jwt/jwt/v4"
-	"github.com/golang/mock/gomock"
+	"github.com/gofiber/fiber/v3"
+	lib_jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/exp/slog"
+	"go.uber.org/mock/gomock"
 )
 
 func TestAuthentication_WhenNoAuthorizationHeader(t *testing.T) {
@@ -111,7 +111,7 @@ func TestAuthentication_WhenValidToken(t *testing.T) {
 
 	app := fiber.New()
 	app.Use(Authentication(logger, jwtManager))
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c fiber.Ctx) error {
 		_ = c.JSON(map[string]any{"success": true})
 		return nil
 	})

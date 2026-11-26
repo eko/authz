@@ -1,0 +1,318 @@
+version: "2"
+run:
+  modules-download-mode: readonly
+  allow-serial-runners: true
+linters:
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - containedctx
+    - contextcheck
+    - copyloopvar
+    - decorder
+    - depguard
+    - dogsled
+    - dupword
+    - durationcheck
+    - err113
+    - errchkjson
+    - errname
+    - errorlint
+    - exhaustive
+    - forbidigo
+    - forcetypeassert
+    - ginkgolinter
+    - gochecksumtype
+    - goconst
+    - gocritic
+    - gomoddirectives
+    - goprintffuncname
+    - gosec
+    - grouper
+    - loggercheck
+    - makezero
+    - mirror
+    - misspell
+    - modernize
+    - musttag
+    - nakedret
+    - nilerr
+    - nilnil
+    # - noctx # TODO: enable this once the codebase is migrated to context aware APIs
+    - nolintlint
+    - nonamedreturns
+    - nosprintfhostport
+    - perfsprint
+    - predeclared
+    - promlinter
+    - protogetter
+    - reassign
+    - revive
+    - rowserrcheck
+    - sloglint
+    - spancheck
+    - sqlclosecheck
+    - staticcheck
+    - tagliatelle
+    - testableexamples
+    - testifylint
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - whitespace
+    - wrapcheck
+    - zerologlint
+  settings:
+    depguard:
+      rules:
+        all:
+          list-mode: lax
+          deny:
+            - pkg: flag
+              desc: "`flag` package is only allowed in main.go"
+            - pkg: log
+              desc: logging is provided by `pkg/log`
+            - pkg: io/ioutil
+              desc: "`io/ioutil` package is deprecated, use the `io` and `os` package instead"
+    errcheck:
+      disable-default-exclusions: true
+      check-type-assertions: true
+      check-blank: true
+      exclude-functions:
+        - errors.AsType
+        - (*bytes.Buffer).Write
+        - (*github.com/valyala/bytebufferpool.ByteBuffer).Write
+        - (*github.com/valyala/bytebufferpool.ByteBuffer).WriteByte
+        - (*github.com/valyala/bytebufferpool.ByteBuffer).WriteString
+    errchkjson:
+      report-no-exported: true
+    exhaustive:
+      default-signifies-exhaustive: true
+    forbidigo:
+      forbid:
+        - pattern: ^print(ln)?$
+        - pattern: ^fmt\.Print(f|ln)?$
+        - pattern: ^http\.Default(Client|ServeMux|Transport)$
+      analyze-types: true
+    goconst:
+      ignore-tests: true
+      numbers: true
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      settings:
+        captLocal:
+          paramsOnly: false
+        elseif:
+          skipBalanced: false
+        underef:
+          skipRecvDeref: false
+    gosec:
+      excludes:
+        - G104
+      config:
+        global:
+          audit: true
+    govet:
+      enable-all: true
+    grouper:
+      import-require-single-import: true
+      import-require-grouping: true
+    loggercheck:
+      require-string-key: true
+      no-printf-like: true
+    misspell:
+      locale: US
+    modernize:
+      disable:
+        # reflect's Fields()/Methods() iterators cost a closure per loop
+        # (~40B, 3 allocs); the index form stays allocation-free
+        - stditerators
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    nonamedreturns:
+      report-error-in-defer: true
+    perfsprint:
+      err-error: true
+    predeclared:
+      qualified-name: true
+    promlinter:
+      strict: true
+    revive:
+      enable-all-rules: true
+      rules:
+        - name: add-constant
+          disabled: true
+        - name: argument-limit
+          disabled: true
+        - name: banned-characters
+          disabled: true
+        - name: cognitive-complexity
+          disabled: true
+        - name: confusing-results
+          disabled: true
+        - name: comment-spacings
+          arguments:
+            - nolint
+          disabled: true
+        - name: cyclomatic
+          disabled: true
+        - name: enforce-slice-style
+          arguments:
+            - make
+          disabled: true
+        - name: enforce-switch-style
+          disabled: true
+        - name: exported
+          disabled: true
+        - name: file-header
+          disabled: true
+        - name: function-result-limit
+          arguments:
+            - 3
+        - name: function-length
+          disabled: true
+        - name: line-length-limit
+          disabled: true
+        - name: max-public-structs
+          disabled: true
+        - name: modifies-parameter
+          disabled: true
+        - name: multiline-if-init
+          disabled: true
+        - name: nested-structs
+          disabled: true
+        - name: package-comments
+          disabled: true
+        - name: package-naming
+          arguments:
+            - skip-collision-with-common-std: true
+        - name: optimize-operands-order
+          disabled: true
+        - name: unchecked-type-assertion
+          disabled: true
+        - name: unhandled-error
+          disabled: true
+        - name: use-slices-sort
+          disabled: true
+    staticcheck:
+      checks:
+        - all
+        - -ST1000
+        - -ST1020
+        - -ST1021
+        - -ST1022
+    tagalign:
+      strict: true
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+    testifylint:
+      enable-all: true
+    testpackage:
+      skip-regexp: ^$
+    unparam:
+      check-exported: false
+    unused:
+      field-writes-are-uses: true
+      exported-fields-are-used: true
+    usestdlibvars:
+      http-method: true
+      http-status-code: true
+      time-weekday: false
+      time-month: false
+      time-layout: false
+      crypto-hash: true
+      default-rpc-path: true
+      sql-isolation-level: true
+      tls-signature-scheme: true
+      constant-kind: true
+    wrapcheck:
+      ignore-package-globs:
+        - github.com/gofiber/fiber/*
+        - github.com/valyala/fasthttp
+  exclusions:
+    generated: lax
+    rules:
+      - text: (?i)do not define dynamic errors, use wrapped static errors instead*
+        linters:
+          - err113
+      - path: log/.*\.go
+        linters:
+          - depguard
+      - path: _test\.go
+        linters:
+          - bodyclose
+          - dupword
+          - err113
+          - goconst # disabling goconst in test files only
+          - gosec
+      - source: (?i)fmt.Fprintf?
+        linters:
+          - errcheck
+          - revive
+      # revive (run with enable-all-rules) emits its findings nondeterministically
+      # across a full-module run, so a //nolint:revive directive whose finding is
+      # not surfaced on a given run gets reported as unused. This made the Linter
+      # workflow fail intermittently on unrelated PRs (and occasionally on main).
+      # nolintlint cannot reliably police revive directives under this behavior,
+      # so suppress its unused-directive reports for revive only; it still guards
+      # directives for every other linter.
+      - linters:
+          - nolintlint
+        text: directive `.*` is unused for linter "revive"
+      # helpers.go and internal/fieldname/fieldname.go deliberately call
+      # fasthttp's deprecated VisitAll (not the replacement All) to stay
+      # zero-alloc: All returns an iterator closure that escapes to the heap on
+      # every call. An inline //nolint:staticcheck cannot police this reliably
+      # because the golangci-lint CI cache can carry staticcheck facts from
+      # before these calls existed, surfacing no SA1019 finding and making
+      # nolintlint report the directive as unused. Exclude the finding at report
+      # time instead so it is robust to cache state.
+      - path: (helpers|fieldname)\.go
+        linters:
+          - staticcheck
+        text: 'SA1019: .*VisitAll'
+    paths:
+      - _msgp\.go
+      - _msgp_test\.go
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    gci:
+      sections:
+        - standard
+        - prefix(github.com/gofiber/fiber)
+        - default
+        - blank
+        - dot
+      custom-order: true
+    gofumpt:
+      module-path: github.com/gofiber/fiber
+      extra:
+        group-params: true
+  exclusions:
+    generated: lax
+    paths:
+      - _msgp\.go
+      - _msgp_test\.go
+      - third_party$
+      - builtin$
+      - examples$

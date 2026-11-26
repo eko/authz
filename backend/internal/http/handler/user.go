@@ -10,7 +10,7 @@ import (
 	"github.com/eko/authz/backend/internal/http/handler/model"
 	"github.com/eko/authz/backend/internal/http/middleware"
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
 )
 
@@ -38,11 +38,11 @@ func UserCreate(
 	validate *validator.Validate,
 	userManager manager.User,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		request := &UserCreateRequest{}
 
 		// Parse request body
-		if err := c.BodyParser(request); err != nil {
+		if err := c.Bind().Body(request); err != nil {
 			return returnError(c, http.StatusBadRequest, err)
 		}
 
@@ -77,7 +77,7 @@ func UserCreate(
 func UserList(
 	userManager manager.User,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		page, size, err := paginate(c)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
@@ -111,7 +111,7 @@ func UserList(
 func UserGet(
 	userManager manager.User,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve user
@@ -147,8 +147,8 @@ func UserGet(
 func UserDelete(
 	userManager manager.User,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		ctx := c.UserContext()
+	return func(c fiber.Ctx) error {
+		ctx := c.Context()
 		userID := ctx.Value(middleware.UserIdentifierKey).(string)
 
 		identifier := c.Params("identifier")

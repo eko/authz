@@ -1,8 +1,9 @@
 package validator
 
 import (
+	"log/slog"
+
 	"github.com/go-playground/validator/v10"
-	"golang.org/x/exp/slog"
 )
 
 func Register(
@@ -10,6 +11,6 @@ func Register(
 	validate *validator.Validate,
 ) {
 	if err := validate.RegisterValidation("slug", ValidateSlug); err != nil {
-		logger.Error("Unable to register slug validation rule", err)
+		logger.Error("Unable to register slug validation rule", slog.Any("error", err))
 	}
 }

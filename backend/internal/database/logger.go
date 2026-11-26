@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
-	"golang.org/x/exp/slog"
 	gorml "gorm.io/gorm/logger"
 )
 
@@ -53,7 +53,7 @@ func (l Logger) Trace(ctx context.Context, begin time.Time, fc func() (string, i
 
 	switch {
 	case err != nil && (!errors.Is(err, gorml.ErrRecordNotFound) || !l.ignoreRecordNotFoundError):
-		l.call().Error("trace", err, slog.Duration("elapsed", elapsed), slog.Int64("rows", rows), slog.String("sql", sql))
+		l.call().Error("trace", slog.Any("error", err), slog.Duration("elapsed", elapsed), slog.Int64("rows", rows), slog.String("sql", sql))
 	case elapsed > l.slowThreshold && l.slowThreshold != 0:
 		slowLog := fmt.Sprintf("SLOW SQL >= %v", l.slowThreshold)
 		l.call().Warn("trace", slog.String("slow", slowLog), slog.Duration("elapsed", elapsed), slog.Int64("rows", rows), slog.String("sql", sql))

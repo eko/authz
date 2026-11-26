@@ -5,7 +5,7 @@ import (
 	handler_validator "github.com/eko/authz/backend/internal/http/handler/validator"
 	"github.com/eko/authz/backend/internal/http/middleware"
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"go.uber.org/fx"
 )
 
@@ -13,9 +13,7 @@ func FxModule() fx.Option {
 	return fx.Module("http",
 		fx.Provide(
 			func() *fiber.App {
-				return fiber.New(fiber.Config{
-					DisableStartupMessage: true,
-				})
+				return fiber.New()
 			},
 			NewServer,
 			handler.NewHandlers,

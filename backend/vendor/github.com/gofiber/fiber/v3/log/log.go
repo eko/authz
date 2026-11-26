@@ -1,0 +1,120 @@
+package log
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"os"
+)
+
+// baseLogger defines the minimal logger functionality required by the package.
+// It allows storing any logger implementation regardless of its generic type.
+type baseLogger interface {
+	CommonLogger
+	SetLevel(Level)
+	SetOutput(io.Writer)
+	WithContext(ctx any) CommonLogger
+}
+
+var logger baseLogger = &defaultLogger{
+	stdlog: log.New(os.Stderr, "", log.LstdFlags|log.Lshortfile|log.Lmicroseconds),
+	depth:  4,
+}
+
+// Logger is a logger interface that provides logging function with levels.
+type Logger interface {
+	Trace(v ...any)
+	Debug(v ...any)
+	Info(v ...any)
+	Warn(v ...any)
+	Error(v ...any)
+	Fatal(v ...any)
+	Panic(v ...any)
+}
+
+// FormatLogger is a logger interface that output logs with a format.
+type FormatLogger interface {
+	Tracef(format string, v ...any)
+	Debugf(format string, v ...any)
+	Infof(format string, v ...any)
+	Warnf(format string, v ...any)
+	Errorf(format string, v ...any)
+	Fatalf(format string, v ...any)
+	Panicf(format string, v ...any)
+}
+
+// WithLogger is a logger interface that output logs with a message and key-value pairs.
+type WithLogger interface {
+	Tracew(msg string, keysAndValues ...any)
+	Debugw(msg string, keysAndValues ...any)
+	Infow(msg string, keysAndValues ...any)
+	Warnw(msg string, keysAndValues ...any)
+	Errorw(msg string, keysAndValues ...any)
+	Fatalw(msg string, keysAndValues ...any)
+	Panicw(msg string, keysAndValues ...any)
+}
+
+// CommonLogger is the set of logging operations available across Fiber's
+// logging implementations.
+type CommonLogger interface {
+	Logger
+	FormatLogger
+	WithLogger
+}
+
+// ConfigurableLogger provides methods to config a logger.
+type ConfigurableLogger[T any] interface {
+	// SetLevel sets logging level.
+	//
+	// Available levels: Trace, Debug, Info, Warn, Error, Fatal, Panic.
+	SetLevel(level Level)
+
+	// SetOutput sets the logger output.
+	SetOutput(w io.Writer)
+
+	// Logger returns the logger instance. It can be used to adjust the logger configurations in case of need.
+	Logger() T
+}
+
+// AllLogger is the combination of CommonLogger, context binding, and ConfigurableLogger.
+// Custom extensions can be made through AllLogger
+type AllLogger[T any] interface {
+	CommonLogger
+	ConfigurableLogger[T]
+
+	// WithContext returns a new logger with the given context.
+	WithContext(ctx any) CommonLogger
+}
+
+// Level defines the priority of a log message.
+// When a logger is configured with a level, any log message with a lower
+// log level (smaller by integer comparison) will not be output.
+type Level int
+
+// The levels of logs.
+const (
+	LevelTrace Level = iota
+	LevelDebug
+	LevelInfo
+	LevelWarn
+	LevelError
+	LevelFatal
+	LevelPanic
+)
+
+var strs = []string{
+	"[Trace] ",
+	"[Debug] ",
+	"[Info] ",
+	"[Warn] ",
+	"[Error] ",
+	"[Fatal] ",
+	"[Panic] ",
+}
+
+func (lv Level) toString() string {
+	if lv >= LevelTrace && lv <= LevelPanic {
+		return strs[lv]
+	}
+	return fmt.Sprintf("[?%d] ", lv)
+}

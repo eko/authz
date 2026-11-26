@@ -8,7 +8,7 @@ import (
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/http/handler/model"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"gorm.io/gorm"
 )
 
@@ -29,7 +29,7 @@ import (
 func ActionList(
 	actionManager manager.Action,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		page, size, err := paginate(c)
 		if err != nil {
 			return returnError(c, http.StatusInternalServerError, err)
@@ -63,7 +63,7 @@ func ActionList(
 func ActionGet(
 	actionManager manager.Action,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		identifier := c.Params("identifier")
 
 		// Retrieve action

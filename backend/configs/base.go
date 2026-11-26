@@ -43,6 +43,10 @@ func Load(ctx context.Context) *Base {
 		log.Fatalf("cannot load configuration: %v", err)
 	}
 
+	if err := cfg.App.validate(); err != nil {
+		log.Fatalf("invalid app configuration: %v", err)
+	}
+
 	if err := cfg.Auth.ensureJWTSignString(); err != nil {
 		log.Fatalf("invalid auth configuration: %v", err)
 	}

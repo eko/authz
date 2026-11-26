@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"log/slog"
+
 	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/event"
@@ -9,9 +11,8 @@ import (
 	"github.com/eko/authz/backend/internal/security/jwt"
 	"github.com/go-oauth2/oauth2/v4/server"
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/adaptor/v2"
-	"github.com/gofiber/fiber/v2"
-	"golang.org/x/exp/slog"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/adaptor"
 )
 
 const (
@@ -55,7 +56,7 @@ const (
 	UserListKey          = "user-list"
 )
 
-type Handler fiber.Handler
+type Handler = fiber.Handler
 type Handlers map[string]Handler
 
 func (h Handlers) Get(name string) Handler {

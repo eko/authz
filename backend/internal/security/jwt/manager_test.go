@@ -6,9 +6,9 @@ import (
 
 	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/helper/time"
-	"github.com/golang-jwt/jwt/v4"
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
+	gomock "go.uber.org/mock/gomock"
 )
 
 func TestNewManager(t *testing.T) {
@@ -94,7 +94,8 @@ func TestManager_Parse_WhenSuccess(t *testing.T) {
 	claims, err := manager.Parse("this-is-an-invalid-token")
 
 	// Then
-	assert.Equal(t, "token contains an invalid number of segments", err.Error())
+	assert.ErrorIs(t, err, jwt.ErrTokenMalformed)
+	assert.ErrorContains(t, err, "token contains an invalid number of segments")
 	assert.Nil(t, claims)
 }
 

@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"log/slog"
 	"regexp"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/eko/authz/backend/internal/event"
 	"github.com/eko/authz/backend/internal/helper/spooler"
 	"go.uber.org/fx"
-	"golang.org/x/exp/slog"
 )
 
 type subscriber struct {
@@ -92,7 +92,7 @@ func (s *subscriber) handleCheckEvents(eventChan chan *event.Event) {
 		}
 
 		if err := s.auditManager.BatchAdd(audits); err != nil {
-			s.logger.Error("Audit: unable to batch add audit events", err)
+			s.logger.Error("Audit: unable to batch add audit events", slog.Any("error", err))
 		}
 	}, spooler.WithFlushInterval(s.flushDelay))
 
