@@ -1,0 +1,44 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+*.tmp
+
+# Output of the go coverage tool
+**/*.out
+
+.cache
+.gocache
+
+# IDE files
+.vscode
+.DS_Store
+.idea
+.claude
+
+# Misc
+*.fiber.gz
+*.fiber.zst
+*.fiber.br
+*.fasthttp.gz
+*.fasthttp.zst
+*.fasthttp.br
+*.test.gz
+*.test.zst
+*.test.br
+*.pprof
+*.workspace
+
+# Dependencies
+/vendor/
+vendor/
+vendor
+/Godeps/
+
+# Local tools
+bin/

@@ -1,0 +1,1983 @@
+// ⚡️ Fiber is an Express inspired web framework written in Go with ☕️
+// 🤖 GitHub Repository: https://github.com/gofiber/fiber
+// 📌 API Documentation: https://docs.gofiber.io
+
+// Package fiber is an Express inspired web framework built on top of Fasthttp,
+// the fastest HTTP engine for Go. Designed to ease things up for fast
+// development with zero memory allocation and performance in mind.
+package fiber
+
+import (
+	"bufio"
+	"bytes"
+	"context"
+	"encoding/json"
+	"encoding/xml"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/http/httputil"
+	"os"
+	"reflect"
+	"strings"
+	"sync"
+	"time"
+	"unsafe"
+
+	"github.com/gofiber/utils/v2"
+	"github.com/valyala/fasthttp"
+
+	"github.com/gofiber/fiber/v3/binder"
+	"github.com/gofiber/fiber/v3/internal/errorreplay"
+	"github.com/gofiber/fiber/v3/internal/nilerror"
+	"github.com/gofiber/fiber/v3/log"
+)
+
+// Version of current fiber package
+const Version = "3.7.0"
+
+// Handler defines a function to serve HTTP requests.
+type Handler = func(Ctx) error
+
+// Map is a shortcut for map[string]any, useful for JSON returns
+type Map map[string]any
+
+// ErrorHandler defines a function that will process all errors
+// returned from any handlers in the stack
+//
+//	cfg := fiber.Config{}
+//	cfg.ErrorHandler = func(c Ctx, err error) error {
+//	 code := StatusInternalServerError
+//	 var e *fiber.Error
+//	 matched := errors.As(err, &e)
+//	 if matched && e != nil {
+//	   code = e.Code
+//	 }
+//	 message := utils.StatusMessage(code)
+//	 if err != nil && !(matched && e == nil) {
+//	   message = err.Error()
+//	 }
+//	 c.Set(HeaderContentType, MIMETextPlainCharsetUTF8)
+//	 return c.Status(code).SendString(message)
+//	}
+//	app := fiber.New(cfg)
+type ErrorHandler = func(Ctx, error) error
+
+// Error represents an error that occurred while handling a request.
+type Error struct {
+	Message string `json:"message"`
+	Code    int    `json:"code"`
+}
+
+// App denotes the Fiber application.
+// App is safe for concurrent use, except for route mutation methods that
+// explicitly document otherwise.
+type App struct {
+	// App config
+	config Config
+	// Indicates if the value was explicitly configured
+	configured Config
+	// Ctx pool
+	pool sync.Pool
+	// Fasthttp server
+	server *fasthttp.Server
+	// Converts byte slice to a string
+	toString func(b []byte) string
+	// Hooks
+	hooks *Hooks
+	// Latest route & group
+	latestRoute *Route
+	// newCtxFunc
+	newCtxFunc func(app *App) CustomCtx
+	// TLS handler
+	tlsHandler *TLSHandler
+	// Mount fields
+	mountFields *mountFields
+	// state management
+	state *State
+	// shared state management (prefork-safe, storage-backed)
+	sharedState *SharedState
+	// headerHook is the HeaderReceived callback hookHeaderReceived installed, kept
+	// to tell it from one set since
+	headerHook func(*fasthttp.RequestHeader) fasthttp.RequestConfig
+	// Route stack divided by HTTP methods
+	stack [][]*Route
+	// customConstraints is a list of external constraints
+	customConstraints []CustomConstraint
+	// sendfiles stores configurations for handling ctx.SendFile operations
+	sendfiles []*sendFileStore
+	// custom binders
+	customBinders []CustomBinder
+	// Route stack divided by HTTP methods and route prefixes. Build-time only:
+	// requests go through treeIndex. Each build replaces it with freshly
+	// allocated buckets rather than refilling the previous ones, so a published
+	// tree stays immutable; it is retained as a field because buildLookahead
+	// reads it to index the same buckets next() will scan.
+	treeStack []map[int][]*Route
+	// Request-time view of treeStack: one flat, open-addressed index per HTTP
+	// method, rebuilt with the tree (see routeTree in router.go). Held by
+	// pointer so a rebuild publishes each method's tree in one store.
+	treeIndex []*routeTree
+	// Precomputed unmatched-route indexes, rebuilt with the tree (router_skip.go)
+	skip             skipRouteIndex
+	autoHeadRouteID  uint64
+	autoHeadStackLen int
+	// sendfilesMutex is a mutex used for sendfile operations
+	sendfilesMutex sync.RWMutex
+	mutex          sync.Mutex
+	// Amount of registered handlers
+	handlersCount uint32
+	// contains the information if the route stack has been changed to build the optimized tree
+	hasRoutesRefreshed bool
+	connStateHooked    bool
+	// hasCustomCtx tracks whether app uses a custom context implementation
+	hasCustomCtx bool
+	// hasParamRoutes tracks whether any route consults the per-request slash
+	// count (rebuilt with the tree); when false the count is skipped entirely
+	hasParamRoutes bool
+}
+
+type viewsLockKey struct {
+	typ  reflect.Type
+	view Views
+	ptr  uintptr
+}
+
+type viewsLockStore struct {
+	locks map[viewsLockKey]*sync.RWMutex
+	mutex sync.Mutex
+}
+
+var globalViewsLocks = newViewsLockStore()
+
+func newViewsLockStore() *viewsLockStore {
+	return &viewsLockStore{
+		locks: make(map[viewsLockKey]*sync.RWMutex),
+	}
+}
+
+func (s *viewsLockStore) get(views Views) *sync.RWMutex {
+	viewValue := reflect.ValueOf(views)
+	key := viewsLockKey{
+		typ: viewValue.Type(),
+	}
+
+	switch viewValue.Kind() {
+	case reflect.Pointer, reflect.Chan, reflect.Func, reflect.Map, reflect.Slice, reflect.UnsafePointer:
+		key.ptr = viewValue.Pointer()
+	default:
+		if viewValue.Type().Comparable() {
+			key.view = views
+		}
+	}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if lock, ok := s.locks[key]; ok {
+		return lock
+	}
+
+	lock := &sync.RWMutex{}
+	s.locks[key] = lock
+	return lock
+}
+
+func getViewsLock(views Views) *sync.RWMutex {
+	return globalViewsLocks.get(views)
+}
+
+func isNilViews(views any) bool {
+	if views == nil {
+		return true
+	}
+
+	value := reflect.ValueOf(views)
+	switch value.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Chan, reflect.Func, reflect.Interface, reflect.UnsafePointer:
+		return value.IsNil()
+	default:
+		return false
+	}
+}
+
+// Config is a struct holding the server settings.
+type Config struct { //nolint:govet // Aligning the struct fields is not necessary. betteralign:ignore
+	// Enables the "Server: value" HTTP header.
+	//
+	// Default: ""
+	ServerHeader string `json:"server_header"`
+
+	// When set to true, the router treats "/foo" and "/foo/" as different.
+	// By default this is disabled and both "/foo" and "/foo/" will execute the same handler.
+	// Middleware registered with Use on "/foo/" runs for "/foo" either way.
+	//
+	// Default: false
+	StrictRouting bool `json:"strict_routing"`
+
+	// When set to true, enables case-sensitive routing.
+	// E.g. "/FoO" and "/foo" are treated as different routes.
+	// By default this is disabled and both "/FoO" and "/foo" will execute the same handler.
+	//
+	// Default: false
+	CaseSensitive bool `json:"case_sensitive"`
+
+	// When set to true, requests whose path and method match no registered route
+	// are answered with 404 (or 405 when the path exists for other methods)
+	// before the middleware chain runs, so no work is spent on bots, scanners,
+	// and bad URLs.
+	//
+	// Warning: middleware never runs for skipped requests. This breaks Use-based
+	// responders on unregistered paths (catch-all 404 pages, static, proxy,
+	// healthcheck, rewrite and redirect middleware); loggers and metrics will not
+	// see the skipped requests either, and a rate limiter neither counts nor
+	// throttles them. CORS preflight requests are exempt, so cors middleware
+	// keeps working. Customize the 404/405 responses via ErrorHandler.
+	//
+	// Note: with more than 64 entries in RequestMethods the fast path is disabled
+	// and requests fall through to the normal router.
+	//
+	// Default: false
+	SkipUnmatchedRoutes bool `json:"skip_unmatched_routes"`
+
+	// When set to true, disables automatic registration of HEAD routes for
+	// every GET route.
+	//
+	// Default: false
+	DisableHeadAutoRegister bool `json:"disable_head_auto_register"`
+
+	// When set to true, disables redirect flash messages: Redirect().With and
+	// WithInput set no cookie, Messages and OldInput report nothing, and the
+	// scan of every request's headers for an incoming flash cookie is skipped.
+	// Flash messages travel in the fiber_flash cookie, so only clients that
+	// keep cookies across a redirect, browsers above all, ever receive them;
+	// deployments whose clients do not lose nothing by turning them off.
+	//
+	// Default: false
+	DisableFlashMessages bool `json:"disable_flash_messages"`
+
+	// When set to true, this relinquishes the 0-allocation promise in certain
+	// cases in order to access the handler values (e.g. request bodies) in an
+	// immutable fashion so that these values are available even if you return
+	// from handler.
+	//
+	// Default: false
+	Immutable bool `json:"immutable"`
+
+	// The router always normalizes the request path before matching (RFC 3986
+	// Section 6.2.2): escapes of unreserved characters are decoded, other
+	// escapes keep their encoding with uppercase hex digits, and "." and ".."
+	// segments are removed. When set to true, every escape is decoded, so the
+	// routing, `ctx.Path()` and `ctx.Params(%key%)` see the fully decoded
+	// path.
+	//
+	// Default: false
+	UnescapePath bool `json:"unescape_path"`
+
+	// Max body size that the server accepts.
+	// Zero or negative values fall back to the default limit.
+	//
+	// Default: 4 * 1024 * 1024
+	BodyLimit int `json:"body_limit"`
+
+	// MaxRanges sets the maximum number of ranges parsed from a Range header.
+	// Zero or negative values fall back to the default limit.
+	//
+	// Default: 16
+	MaxRanges int `json:"max_ranges"`
+
+	// Maximum number of concurrent connections.
+	//
+	// Default: 256 * 1024
+	Concurrency int `json:"concurrency"`
+
+	// Views is the interface that wraps the Render function.
+	//
+	// Default: nil
+	Views Views `json:"-"`
+
+	// Views Layout is the global layout for all template render until override on Render function.
+	//
+	// Default: ""
+	ViewsLayout string `json:"views_layout"`
+
+	// PassLocalsToViews Enables passing of the locals set on a fiber.Ctx to the template engine
+	//
+	// Default: false
+	PassLocalsToViews bool `json:"pass_locals_to_views"`
+
+	// PassLocalsToContext controls whether StoreInContext also propagates values to
+	// the request context.Context for Fiber-backed contexts.
+	//
+	// ValueFromContext for Fiber-backed contexts always reads from c.Locals().
+	//
+	// Default: false
+	PassLocalsToContext bool `json:"pass_locals_to_context"`
+
+	// The amount of time allowed to read the full request including body.
+	// It is reset after the request handler has returned.
+	// The connection's read deadline is reset when the connection opens.
+	//
+	// Default: unlimited
+	ReadTimeout time.Duration `json:"read_timeout"`
+
+	// The maximum duration before timing out writes of the response.
+	// It is reset after the request handler has returned.
+	//
+	// Default: unlimited
+	WriteTimeout time.Duration `json:"write_timeout"`
+
+	// The maximum amount of time to wait for the next request when keep-alive is enabled.
+	// If IdleTimeout is zero, the value of ReadTimeout is used.
+	//
+	// Default: unlimited
+	IdleTimeout time.Duration `json:"idle_timeout"`
+
+	// Per-connection buffer size for requests' reading.
+	// This also limits the maximum header size.
+	// Increase this buffer if your clients send multi-KB RequestURIs
+	// and/or multi-KB headers (for example, BIG cookies).
+	//
+	// Default: 8192
+	ReadBufferSize int `json:"read_buffer_size"`
+
+	// Per-connection buffer size for responses' writing.
+	//
+	// Default: 8192
+	WriteBufferSize int `json:"write_buffer_size"`
+
+	// CompressedFileSuffixes adds suffix to the original file name and
+	// tries saving the resulting compressed file under the new file name.
+	//
+	// Default: map[string]string{"gzip": ".fiber.gz", "br": ".fiber.br", "zstd": ".fiber.zst"}
+	CompressedFileSuffixes map[string]string `json:"compressed_file_suffixes"`
+
+	// ProxyHeader will enable c.IP() to return the value of the given header key
+	// By default c.IP() will return the Remote IP from the TCP connection
+	// This property can be useful if you are behind a load balancer: X-Forwarded-*
+	// NOTE: headers are easily spoofed and the detected IP addresses are unreliable.
+	//
+	// Default: ""
+	ProxyHeader string `json:"proxy_header"`
+
+	// GETOnly rejects every method except GET and HEAD if set to true.
+	// This option is useful as anti-DoS protection for servers
+	// accepting only GET requests. The request size is limited
+	// by ReadBufferSize if GETOnly is set. A rejected request gets 405 with
+	// "Allow: GET, HEAD", and no middleware runs for it.
+	//
+	// Default: false
+	GETOnly bool `json:"get_only"`
+
+	// ErrorHandler is executed when an error is returned from fiber.Handler.
+	//
+	// Default: DefaultErrorHandler
+	ErrorHandler ErrorHandler `json:"-"`
+
+	// When set to true, disables keep-alive connections.
+	// The server will close incoming connections after sending the first response to client.
+	//
+	// Default: false
+	DisableKeepalive bool `json:"disable_keepalive"`
+
+	// When set to true, causes the default date header to be excluded from the response.
+	//
+	// Default: false
+	DisableDefaultDate bool `json:"disable_default_date"`
+
+	// When set to true, causes the default Content-Type header to be excluded from the response.
+	//
+	// Default: false
+	DisableDefaultContentType bool `json:"disable_default_content_type"`
+
+	// When set to true, disables header normalization.
+	// By default all header names are normalized: conteNT-tYPE -> Content-Type.
+	//
+	// Default: false
+	DisableHeaderNormalizing bool `json:"disable_header_normalizing"`
+
+	// This function allows to setup app name for the app
+	//
+	// Default: nil
+	AppName string `json:"app_name"`
+
+	// SharedStorage configures storage-backed shared state that can be used
+	// safely across prefork workers and processes.
+	//
+	// Default: nil
+	SharedStorage Storage `json:"-"`
+
+	// SharedStatePrefix customizes the namespace prefix for keys written to
+	// SharedStorage. If empty, Fiber derives a prefixed namespace using
+	// AppName (when set) or an internal default.
+	//
+	// Default: ""
+	SharedStatePrefix string `json:"shared_state_prefix"`
+
+	// StreamRequestBody enables request body streaming,
+	// and calls the handler sooner when given body is
+	// larger than the current limit.
+	//
+	// Only BodyStream reads such a body: Body, FormValue and the binders still
+	// apply BodyLimit, and a multipart form is never pre-parsed.
+	//
+	// Default: false
+	StreamRequestBody bool
+
+	// Will not pre parse Multipart Form data if set to true.
+	//
+	// This option is useful for servers that desire to treat
+	// multipart form data as a binary blob, or choose when to parse the data.
+	//
+	// Server pre parses multipart form data by default, but never with
+	// StreamRequestBody.
+	//
+	// Default: false
+	DisablePreParseMultipartForm bool
+
+	// Aggressively reduces memory usage at the cost of higher CPU usage
+	// if set to true.
+	//
+	// Try enabling this option only if the server consumes too much memory
+	// serving mostly idle keep-alive connections. This may reduce memory
+	// usage by more than 50%.
+	//
+	// Default: false
+	ReduceMemoryUsage bool `json:"reduce_memory_usage"`
+
+	// When set by an external client of Fiber it will use the provided implementation of a
+	// JSONMarshal
+	//
+	// Allowing for flexibility in using another json library for encoding
+	// Default: json.Marshal
+	JSONEncoder utils.JSONMarshal `json:"-"`
+
+	// When set by an external client of Fiber it will use the provided implementation of a
+	// JSONUnmarshal
+	//
+	// Allowing for flexibility in using another json library for decoding
+	// Default: json.Unmarshal
+	JSONDecoder utils.JSONUnmarshal `json:"-"`
+
+	// When set by an external client of Fiber it will use the provided implementation of a
+	// MsgPackMarshal
+	//
+	// Allowing for flexibility in using another msgpack library for encoding
+	// Default: binder.UnimplementedMsgpackMarshal
+	MsgPackEncoder utils.MsgPackMarshal `json:"-"`
+
+	// When set by an external client of Fiber it will use the provided implementation of a
+	// MsgPackUnmarshal
+	//
+	// Allowing for flexibility in using another msgpack library for decoding
+	// Default: binder.UnimplementedMsgpackUnmarshal
+	MsgPackDecoder utils.MsgPackUnmarshal `json:"-"`
+
+	// When set by an external client of Fiber it will use the provided implementation of a
+	// CBORMarshal
+	//
+	// Allowing for flexibility in using another cbor library for encoding
+	// Default: binder.UnimplementedCborMarshal
+	CBOREncoder utils.CBORMarshal `json:"-"`
+
+	// When set by an external client of Fiber it will use the provided implementation of a
+	// CBORUnmarshal
+	//
+	// Allowing for flexibility in using another cbor library for decoding
+	// Default: binder.UnimplementedCborUnmarshal
+	CBORDecoder utils.CBORUnmarshal `json:"-"`
+
+	// XMLEncoder set by an external client of Fiber it will use the provided implementation of a
+	// XMLMarshal
+	//
+	// Allowing for flexibility in using another XML library for encoding
+	// Default: xml.Marshal
+	XMLEncoder utils.XMLMarshal `json:"-"`
+
+	// XMLDecoder set by an external client of Fiber it will use the provided implementation of a
+	// XMLUnmarshal
+	//
+	// Allowing for flexibility in using another XML library for decoding
+	// Default: xml.Unmarshal
+	XMLDecoder utils.XMLUnmarshal `json:"-"`
+
+	// If you find yourself behind some sort of proxy, like a load balancer,
+	// then certain header information may be sent to you using special X-Forwarded-* headers or the Forwarded header.
+	// For example, the Host HTTP header is usually used to return the requested host.
+	// But when you’re behind a proxy, the actual host may be stored in an X-Forwarded-Host header.
+	//
+	// If you are behind a proxy, you should enable TrustProxy to prevent header spoofing.
+	// If you enable TrustProxy and do not provide a TrustProxyConfig, Fiber will skip
+	// all headers that could be spoofed.
+	// If the request IP is in the TrustProxyConfig.Proxies allowlist, then:
+	//   1. c.Scheme() get value from X-Forwarded-Proto, X-Forwarded-Protocol, X-Forwarded-Ssl or X-Url-Scheme header
+	//   2. c.IP() get value from ProxyHeader header.
+	//   3. c.Host() and c.Hostname() get value from X-Forwarded-Host header
+	// But if the request IP is NOT in the TrustProxyConfig.Proxies allowlist, then:
+	//   1. c.Scheme() WON'T get value from X-Forwarded-Proto, X-Forwarded-Protocol, X-Forwarded-Ssl or X-Url-Scheme header,
+	//    will return https when a TLS connection is handled by the app, or http otherwise.
+	//   2. c.IP() WON'T get value from ProxyHeader header, will return RemoteIP() from fasthttp context
+	//   3. c.Host() and c.Hostname() WON'T get value from X-Forwarded-Host header, fasthttp.Request.URI().Host()
+	//    will be used to get the hostname.
+	//
+	// To automatically trust all loopback, link-local, or private IP addresses,
+	// without manually adding them to the TrustProxyConfig.Proxies allowlist,
+	// you can set TrustProxyConfig.Loopback, TrustProxyConfig.LinkLocal, or TrustProxyConfig.Private to true.
+	//
+	// Default: false
+	TrustProxy bool `json:"trust_proxy"`
+
+	// Read TrustProxy doc.
+	//
+	// Default: DefaultTrustProxyConfig
+	TrustProxyConfig TrustProxyConfig `json:"trust_proxy_config"`
+
+	// If set to true, c.IP() and c.IPs() will validate IP addresses before returning them.
+	// Also, c.IP() will return a single validated IP rather than just the raw header value,
+	// which for X-Forwarded-For may be a comma-separated chain: when TrustProxyConfig names
+	// proxy IPs or ranges (Proxies, Loopback, Private or LinkLocal) the chain is walked
+	// right-to-left and those proxies are skipped; otherwise, including when only UnixSocket
+	// is trusted, the first valid IP from the left is returned. Enable it whenever c.IP() is
+	// used as a single client identifier and the header can carry a chain; a proxy that
+	// overwrites the header with one address, or a single-IP header, does not need it.
+	// WARNING: this has a performance cost associated with it.
+	//
+	// Default: false
+	EnableIPValidation bool `json:"enable_ip_validation"`
+
+	// You can define custom color scheme. They'll be used for startup message, route list and some middlewares.
+	//
+	// Optional. Default: DefaultColors
+	ColorScheme Colors `json:"color_scheme"`
+
+	// If you want to validate header/form/query... automatically when to bind, you can define struct validator.
+	// Fiber doesn't have default validator, so it'll skip validator step if you don't use any validator.
+	//
+	// Default: nil
+	StructValidator StructValidator
+
+	// RequestMethods provides customizability for HTTP methods. You can add/remove methods as you wish.
+	//
+	// Optional. Default: DefaultMethods
+	RequestMethods []string
+
+	// EnableSplittingOnParsers splits the query/body/header parameters by comma when it's true.
+	// For example, you can use it to parse multiple values from a query parameter like this:
+	//   /api?foo=bar,baz == foo[]=bar&foo[]=baz
+	//
+	// Optional. Default: false
+	EnableSplittingOnParsers bool `json:"enable_splitting_on_parsers"`
+
+	// Services is a list of services that are used by the app (e.g. databases, caches, etc.)
+	//
+	// Optional. Default: a zero value slice
+	Services []Service
+
+	// ServicesStartupContextProvider is a context provider for the startup of the services.
+	//
+	// Optional. Default: a provider that returns context.Background()
+	ServicesStartupContextProvider func() context.Context
+
+	// ServicesShutdownContextProvider is a context provider for the shutdown of the services.
+	//
+	// Optional. Default: a provider that returns context.Background()
+	ServicesShutdownContextProvider func() context.Context
+
+	// RegexHandler is a function that compiles regex patterns for `regex()`
+	// route constraints. Assign regexp.MustCompile or coregex.MustCompile
+	// directly to use the standard library or an alternative regex engine.
+	//
+	// Compiled matchers are reused across requests, so the returned value must
+	// be safe for concurrent use. Fiber may invoke RegexHandler more than once
+	// per route while parsing raw and normalized route patterns during
+	// registration.
+	//
+	// Example with standard library (default):
+	//     import "regexp"
+	//     app := fiber.New(fiber.Config{
+	//         RegexHandler: regexp.MustCompile,
+	//     })
+	//
+	// Example with coregex:
+	//     import "github.com/coregx/coregex"
+	//     app := fiber.New(fiber.Config{
+	//         RegexHandler: coregex.MustCompile,
+	//     })
+	//
+	// Optional. Default: regexp.MustCompile
+	RegexHandler any `json:"-"`
+}
+
+// Default TrustProxyConfig
+var DefaultTrustProxyConfig = TrustProxyConfig{}
+
+// TrustProxyConfig is a struct for configuring trusted proxies if Config.TrustProxy is true.
+type TrustProxyConfig struct {
+	ips map[string]struct{}
+
+	// Proxies is a list of trusted proxy IP addresses or CIDR ranges.
+	//
+	// Default: []string
+	Proxies []string `json:"proxies"`
+
+	ranges []*net.IPNet
+
+	// LinkLocal enables trusting all link-local IP ranges (e.g., 169.254.0.0/16, fe80::/10).
+	//
+	// Default: false
+	LinkLocal bool `json:"link_local"`
+
+	// Loopback enables trusting all loopback IP ranges (e.g., 127.0.0.0/8, ::1/128).
+	//
+	// Default: false
+	Loopback bool `json:"loopback"`
+
+	// Private enables trusting all private IP ranges (e.g., 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7).
+	//
+	// Default: false
+	Private bool `json:"private"`
+
+	// UnixSocket enables trusting Unix domain socket connections.
+	// When enabled, requests from Unix sockets are treated as trusted proxies.
+	//
+	// Default: false
+	UnixSocket bool `json:"unix_socket"`
+}
+
+// RouteMessage is some message need to be print when server starts
+type RouteMessage struct {
+	name     string
+	method   string
+	path     string
+	handlers string
+}
+
+// Default Config values
+const (
+	DefaultBodyLimit       = 4 * 1024 * 1024
+	DefaultMaxRanges       = 16
+	DefaultConcurrency     = 256 * 1024
+	DefaultReadBufferSize  = 8192
+	DefaultWriteBufferSize = 8192
+)
+
+const (
+	methodGet = iota
+	methodHead
+	methodPost
+	methodPut
+	methodDelete
+	methodConnect
+	methodOptions
+	methodTrace
+	methodPatch
+	methodQuery
+)
+
+// HTTP methods enabled by default
+var DefaultMethods = []string{
+	methodGet:     MethodGet,
+	methodHead:    MethodHead,
+	methodPost:    MethodPost,
+	methodPut:     MethodPut,
+	methodDelete:  MethodDelete,
+	methodConnect: MethodConnect,
+	methodOptions: MethodOptions,
+	methodTrace:   MethodTrace,
+	methodPatch:   MethodPatch,
+	methodQuery:   MethodQuery,
+}
+
+// httpReadResponse - Used for test mocking http.ReadResponse
+var httpReadResponse = http.ReadResponse
+
+// DefaultErrorHandler that process return errors from handlers
+func DefaultErrorHandler(c Ctx, err error) error {
+	if nilerror.IsNil(err) {
+		err = nil
+	}
+
+	code := StatusInternalServerError
+	e, matched := asFiberError(err)
+	if matched && e != nil {
+		code = e.Code
+	}
+	message := utils.StatusMessage(code)
+	if err != nil && (!matched || e != nil) {
+		message = err.Error()
+	}
+	c.Set(HeaderContentType, MIMETextPlainCharsetUTF8)
+	return c.Status(code).SendString(message)
+}
+
+// asFiberError reports whether err is or wraps a *Error and returns it. A direct
+// *Error is matched alloc-free by a type assertion; wrapped or joined errors
+// fall back to errors.As.
+func asFiberError(err error) (*Error, bool) {
+	if err == nil {
+		return nil, false
+	}
+	if e, ok := err.(*Error); ok { //nolint:errorlint // intentional fast path; wrapped/joined errors fall through to errors.As below
+		return e, true
+	}
+	// Declared here so errors.As's &target escapes only on this slow path.
+	var target *Error
+	matched := errors.As(err, &target)
+	return target, matched
+}
+
+// New creates a new Fiber named instance.
+//
+//	app := fiber.New()
+//
+// You can pass optional configuration options by passing a Config struct:
+//
+//	app := fiber.New(fiber.Config{
+//	    ServerHeader: "Fiber",
+//	})
+func New(config ...Config) *App {
+	// Create a new app
+	app := &App{
+		// Create config
+		config:        Config{},
+		toString:      utils.UnsafeString,
+		latestRoute:   &Route{},
+		customBinders: []CustomBinder{},
+		sendfiles:     []*sendFileStore{},
+	}
+
+	// Create Ctx pool
+	app.pool = sync.Pool{
+		New: func() any {
+			if app.newCtxFunc != nil {
+				return app.newCtxFunc(app)
+			}
+			return NewDefaultCtx(app)
+		},
+	}
+
+	// Define hooks
+	app.hooks = newHooks(app)
+
+	// Define mountFields
+	app.mountFields = newMountFields(app)
+
+	// Define state
+	app.state = newState()
+
+	// Override config if provided
+	if len(config) > 0 {
+		app.config = config[0]
+	}
+
+	// Initialize configured before defaults are set
+	app.configured = app.config
+	if err := app.validateConfiguredServices(); err != nil {
+		panic(err)
+	}
+
+	// Override default values
+	if app.config.BodyLimit <= 0 {
+		app.config.BodyLimit = DefaultBodyLimit
+	}
+	if app.config.MaxRanges <= 0 {
+		app.config.MaxRanges = DefaultMaxRanges
+	}
+	if app.config.Concurrency <= 0 {
+		app.config.Concurrency = DefaultConcurrency
+	}
+	if app.config.ReadBufferSize <= 0 {
+		app.config.ReadBufferSize = DefaultReadBufferSize
+	}
+	if app.config.WriteBufferSize <= 0 {
+		app.config.WriteBufferSize = DefaultWriteBufferSize
+	}
+	if app.config.CompressedFileSuffixes == nil {
+		app.config.CompressedFileSuffixes = map[string]string{
+			"gzip": ".fiber.gz",
+			"br":   ".fiber.br",
+			"zstd": ".fiber.zst",
+		}
+	}
+
+	if app.config.Immutable {
+		app.toString = toStringImmutable
+	}
+
+	if app.config.ErrorHandler == nil {
+		app.config.ErrorHandler = DefaultErrorHandler
+	}
+
+	if app.config.JSONEncoder == nil {
+		app.config.JSONEncoder = json.Marshal
+	}
+	if app.config.JSONDecoder == nil {
+		app.config.JSONDecoder = json.Unmarshal
+	}
+	if app.config.MsgPackEncoder == nil {
+		app.config.MsgPackEncoder = binder.UnimplementedMsgpackMarshal
+	}
+	if app.config.MsgPackDecoder == nil {
+		app.config.MsgPackDecoder = binder.UnimplementedMsgpackUnmarshal
+	}
+	if app.config.CBOREncoder == nil {
+		app.config.CBOREncoder = binder.UnimplementedCborMarshal
+	}
+	if app.config.CBORDecoder == nil {
+		app.config.CBORDecoder = binder.UnimplementedCborUnmarshal
+	}
+	if app.config.XMLEncoder == nil {
+		app.config.XMLEncoder = xml.Marshal
+	}
+	if app.config.XMLDecoder == nil {
+		app.config.XMLDecoder = xml.Unmarshal
+	}
+	app.config.RegexHandler = validateRegexHandler(app.config.RegexHandler)
+
+	app.sharedState = newSharedState(&app.config)
+	if len(app.config.RequestMethods) == 0 {
+		app.config.RequestMethods = DefaultMethods
+	}
+
+	app.config.TrustProxyConfig.ips = make(map[string]struct{}, len(app.config.TrustProxyConfig.Proxies))
+	for _, ipAddress := range app.config.TrustProxyConfig.Proxies {
+		app.handleTrustedProxy(ipAddress)
+	}
+
+	// Create router stack
+	app.stack = make([][]*Route, len(app.config.RequestMethods))
+	app.treeStack = make([]map[int][]*Route, len(app.config.RequestMethods))
+	app.treeIndex = make([]*routeTree, len(app.config.RequestMethods))
+	for i := range app.treeIndex {
+		// Never nil: next() may run before the tree is first built.
+		app.treeIndex[i] = &routeTree{}
+	}
+
+	// Override colors
+	app.config.ColorScheme = defaultColors(&app.config.ColorScheme)
+
+	// Init app
+	app.init()
+
+	// Return app
+	return app
+}
+
+// NewWithCustomCtx creates a new Fiber instance and applies the
+// provided function to generate a custom context type. It mirrors the behavior
+// of calling `New()` followed by `app.setCtxFunc(fn)`.
+func NewWithCustomCtx(newCtxFunc func(app *App) CustomCtx, config ...Config) *App {
+	app := New(config...)
+	app.setCtxFunc(newCtxFunc)
+	return app
+}
+
+// GetString returns s unchanged when Immutable is off or s is read-only (rodata).
+// Otherwise, it returns a detached copy (strings.Clone).
+func (app *App) GetString(s string) string {
+	if !app.config.Immutable || s == "" {
+		return s
+	}
+	if isReadOnly(unsafe.Pointer(unsafe.StringData(s))) { //nolint:gosec // pointer check avoids unnecessary copy
+		return s // literal / rodata → safe to return as-is
+	}
+	return strings.Clone(s) // heap-backed / aliased → detach
+}
+
+// GetBytes returns b unchanged when Immutable is off or b is read-only (rodata).
+// Otherwise, it returns a detached copy.
+func (app *App) GetBytes(b []byte) []byte {
+	if !app.config.Immutable || len(b) == 0 {
+		return b
+	}
+	if isReadOnly(unsafe.Pointer(unsafe.SliceData(b))) { //nolint:gosec // pointer check avoids unnecessary copy
+		return b // rodata → safe to return as-is
+	}
+	return utils.CopyBytes(b) // detach when backed by request/response memory
+}
+
+// Adds an ip address to TrustProxyConfig.ranges or TrustProxyConfig.ips based on whether it is an IP range or not
+func (app *App) handleTrustedProxy(ipAddress string) {
+	if strings.IndexByte(ipAddress, '/') >= 0 {
+		_, ipNet, err := net.ParseCIDR(ipAddress)
+		if err != nil {
+			log.Warnf("IP range %q could not be parsed: %v", ipAddress, err)
+		} else {
+			app.config.TrustProxyConfig.ranges = append(app.config.TrustProxyConfig.ranges, ipNet)
+		}
+	} else {
+		ip := net.ParseIP(ipAddress)
+		if ip == nil {
+			log.Warnf("IP address %q could not be parsed", ipAddress)
+		} else {
+			// Store the canonical spelling, which lookups compare against.
+			app.config.TrustProxyConfig.ips[ip.String()] = struct{}{}
+			if ip4 := ip.To4(); ip4 != nil {
+				// netip keeps the IPv4-mapped spelling apart from the dotted one.
+				app.config.TrustProxyConfig.ips["::ffff:"+ip4.String()] = struct{}{}
+			}
+		}
+	}
+}
+
+// setCtxFunc applies the given context factory to the app.
+// It is used internally by NewWithCustomCtx. It doesn't allow adding new methods,
+// only customizing existing ones.
+func (app *App) setCtxFunc(function func(app *App) CustomCtx) {
+	app.newCtxFunc = function
+	app.hasCustomCtx = function != nil
+
+	if app.server != nil {
+		app.server.Handler = app.selectRequestHandler()
+	}
+}
+
+// RegisterCustomConstraint allows to register custom constraint.
+func (app *App) RegisterCustomConstraint(constraint CustomConstraint) {
+	app.customConstraints = append(app.customConstraints, constraint)
+}
+
+// RegisterCustomBinder Allows to register custom binders to use as Bind().Custom("name").
+// They should be compatible with CustomBinder interface.
+func (app *App) RegisterCustomBinder(customBinder CustomBinder) {
+	app.customBinders = append(app.customBinders, customBinder)
+}
+
+// ReloadViews reloads the configured view engine by invoking its Load method.
+// It returns an error if no view engine is configured or if reloading fails.
+func (app *App) ReloadViews() error {
+	// Walks the mount metadata rather than the flattened app list: a domain
+	// mount nested inside a plain one only reaches the root's list once the
+	// app has started, and ReloadViews may be called before that. The walk
+	// takes each app's own lock in turn, so this must not hold one itself.
+	apps := app.mountedApps()
+
+	var reloaded bool
+	for _, targetApp := range apps {
+		if targetApp == nil || isNilViews(targetApp.config.Views) {
+			continue
+		}
+
+		if err := func() error {
+			viewsLock := getViewsLock(targetApp.config.Views)
+			viewsLock.Lock()
+			defer viewsLock.Unlock()
+
+			if err := targetApp.config.Views.Load(); err != nil {
+				return fmt.Errorf("fiber: failed to reload views: %w", err)
+			}
+
+			return nil
+		}(); err != nil {
+			return err
+		}
+
+		reloaded = true
+	}
+
+	if !reloaded {
+		return ErrNoViewEngineConfigured
+	}
+
+	return nil
+}
+
+// Render writes a template through the configured view engine.
+func (app *App) Render(out io.Writer, name string, binding any, layouts ...string) error {
+	views := app.config.Views
+	if isNilViews(views) {
+		return ErrNoViewEngineConfigured
+	}
+	if len(layouts) == 0 && app.config.ViewsLayout != "" {
+		layouts = []string{app.config.ViewsLayout}
+	}
+
+	viewsLock := getViewsLock(views)
+	viewsLock.RLock()
+	defer viewsLock.RUnlock()
+
+	if err := views.Render(out, name, binding, layouts...); err != nil {
+		return fmt.Errorf("fiber: failed to render views: %w", err)
+	}
+
+	return nil
+}
+
+// SetTLSHandler Can be used to set ClientHelloInfo when using TLS with Listener.
+func (app *App) SetTLSHandler(tlsHandler *TLSHandler) {
+	// Attach the tlsHandler to the config
+	app.mutex.Lock()
+	app.tlsHandler = tlsHandler
+	app.mutex.Unlock()
+}
+
+// Name Assign name to specific route.
+func (app *App) Name(name string) Router {
+	app.mutex.Lock()
+	defer app.mutex.Unlock()
+
+	hosts := matchersKey(app.latestRoute.hosts)
+
+	for _, routes := range app.stack {
+		for _, route := range routes {
+			// The shared registration id covers every method of a multi-method
+			// Add, and only those: matching on the method as well would rename
+			// an older route that merely shares the path, and would do it only
+			// when the registration happened to finish on that method. It is
+			// latestID rather than id because a method whose route the
+			// registration merged into keeps the id of the registration that
+			// created it.
+			isMethodValid := route.latestID == app.latestRoute.latestID ||
+				app.latestRoute.use ||
+				(app.latestRoute.Method == MethodGet && route.Method == MethodHead)
+
+			// The path alone does not make it the same route: another Domain
+			// pattern can serve it too, under a name of its own.
+			if route.Path == app.latestRoute.Path && isMethodValid && matchersKey(route.hosts) == hosts {
+				route.Name = name
+				if route.group != nil {
+					route.Name = route.group.name + route.Name
+				}
+			}
+		}
+	}
+
+	if err := app.hooks.executeOnNameHooks(app.latestRoute); err != nil {
+		panic(err)
+	}
+
+	return app
+}
+
+// GetRoute Get route by name
+func (app *App) GetRoute(name string) Route {
+	for _, routes := range app.stack {
+		for _, route := range routes {
+			if route.Name == name {
+				return *route
+			}
+		}
+	}
+
+	return Route{}
+}
+
+// GetRoutes Get all routes. When filterUseOption equal to true, it will filter the routes registered by the middleware.
+func (app *App) GetRoutes(filterUseOption ...bool) []Route {
+	var rs []Route
+	var filterUse bool
+	if len(filterUseOption) != 0 {
+		filterUse = filterUseOption[0]
+	}
+	for _, routes := range app.stack {
+		for _, route := range routes {
+			if filterUse && route.use {
+				continue
+			}
+			rs = append(rs, *route)
+		}
+	}
+	return rs
+}
+
+// Use registers a middleware route that will match requests
+// with the provided prefix (which is optional and defaults to "/").
+// Also, you can pass another app instance as a sub-router along a routing path.
+// It's very useful to split up a large API as many independent routers and
+// compose them as a single service using Use. The fiber's error handler and
+// any of the fiber's sub apps are added to the application's error handlers
+// to be invoked on errors that happen within the prefix route.
+//
+//		app.Use(func(c fiber.Ctx) error {
+//		     return c.Next()
+//		})
+//		app.Use("/api", func(c fiber.Ctx) error {
+//		     return c.Next()
+//		})
+//		app.Use("/api", handler, func(c fiber.Ctx) error {
+//		     return c.Next()
+//		})
+//	 	subApp := fiber.New()
+//		app.Use("/mounted-path", subApp)
+//
+// This method will match all HTTP verbs: GET, POST, PUT, HEAD etc...
+func (app *App) Use(args ...any) Router {
+	prefixes, subApp, handlers := useArgs(args)
+
+	for _, prefix := range prefixes {
+		if subApp != nil {
+			// Every prefix mounts the sub-app, as every prefix registers a handler.
+			app.mount(prefix, subApp)
+			continue
+		}
+
+		app.register([]string{methodUse}, prefix, nil, handlers...)
+	}
+
+	return app
+}
+
+// useArgs sorts the arguments of a Use call. Anything it would otherwise drop
+// silently panics: a second prefix argument, a second sub-app, or handlers next to a sub-app.
+func useArgs(args []any) (prefixes []string, subApp *App, handlers []Handler) { //nolint:nonamedreturns // names tell the three results apart
+	prefixArgs := 0
+	for _, arg := range args {
+		switch arg := arg.(type) {
+		case string:
+			prefixes = []string{arg}
+			prefixArgs++
+		case []string:
+			prefixes = arg
+			prefixArgs++
+		case *App:
+			if subApp != nil {
+				panic("use: only one sub-app can be passed in one call\n")
+			}
+			subApp = arg
+		default:
+			handler, ok := toFiberHandler(arg)
+			if !ok {
+				panic(fmt.Sprintf("use: invalid handler %v\n", reflect.TypeOf(arg)))
+			}
+			handlers = append(handlers, handler)
+		}
+	}
+
+	if prefixArgs > 1 {
+		panic("use: pass several prefixes as one []string\n")
+	}
+	if subApp != nil && len(handlers) > 0 {
+		panic("use: handlers and a sub-app cannot be passed in one call\n")
+	}
+	if len(prefixes) == 0 {
+		prefixes = []string{""}
+	}
+	return prefixes, subApp, handlers
+}
+
+// Get registers a route for GET methods that requests a representation
+// of the specified resource. Requests using GET should only retrieve data.
+func (app *App) Get(path string, handler any, handlers ...any) Router {
+	return app.Add([]string{MethodGet}, path, handler, handlers...)
+}
+
+// Head registers a route for HEAD methods that asks for a response identical
+// to that of a GET request, but without the response body.
+func (app *App) Head(path string, handler any, handlers ...any) Router {
+	return app.Add([]string{MethodHead}, path, handler, handlers...)
+}
+
+// Post registers a route for POST methods that is used to submit an entity to the
+// specified resource, often causing a change in state or side effects on the server.
+func (app *App) Post(path string, handler any, handlers ...any) Router {
+	return app.Add([]string{MethodPost}, path, handler, handlers...)
+}
+
+// Put registers a route for PUT methods that replaces all current representations
+// of the target resource with the request payload.
+func (app *App) Put(path string, handler any, handlers ...any) Router {
+	return app.Add([]string{MethodPut}, path, handler, handlers...)
+}
+
+// Delete registers a route for DELETE methods that deletes the specified resource.
+func (app *App) Delete(path string, handler any, handlers ...any) Router {
+	return app.Add([]string{MethodDelete}, path, handler, handlers...)
+}
+
+// Connect registers a route for CONNECT methods that establishes a tunnel to the
+// server identified by the target resource.
+func (app *App) Connect(path string, handler any, handlers ...any) Router {
+	return app.Add([]string{MethodConnect}, path, handler, handlers...)
+}
+
+// Options registers a route for OPTIONS methods that is used to describe the
+// communication options for the target resource.
+func (app *App) Options(path string, handler any, handlers ...any) Router {
+	return app.Add([]string{MethodOptions}, path, handler, handlers...)
+}
+
+// Trace registers a route for TRACE methods that performs a message loop-back
+// test along the path to the target resource.
+func (app *App) Trace(path string, handler any, handlers ...any) Router {
+	return app.Add([]string{MethodTrace}, path, handler, handlers...)
+}
+
+// Patch registers a route for PATCH methods that is used to apply partial
+// modifications to a resource.
+func (app *App) Patch(path string, handler any, handlers ...any) Router {
+	return app.Add([]string{MethodPatch}, path, handler, handlers...)
+}
+
+// Query registers a route for QUERY methods that performs a safe, idempotent
+// query with a request body.
+func (app *App) Query(path string, handler any, handlers ...any) Router {
+	return app.Add([]string{MethodQuery}, path, handler, handlers...)
+}
+
+// Add allows you to specify multiple HTTP methods to register a route.
+// The provided handlers are executed in order, starting with `handler` and then the variadic `handlers`.
+func (app *App) Add(methods []string, path string, handler any, handlers ...any) Router {
+	converted := collectHandlers("add", append([]any{handler}, handlers...)...)
+	app.register(methods, path, nil, converted...)
+
+	return app
+}
+
+// All will register the handler on all HTTP methods
+func (app *App) All(path string, handler any, handlers ...any) Router {
+	return app.Add(app.config.RequestMethods, path, handler, handlers...)
+}
+
+// Group is used for Routes with common prefix to define a new sub-router with optional middleware.
+//
+//	api := app.Group("/api")
+//	api.Get("/users", handler)
+func (app *App) Group(prefix string, handlers ...any) Router {
+	grp := &Group{Prefix: prefix, app: app}
+	if len(handlers) > 0 {
+		converted := collectHandlers("group", handlers...)
+		app.register([]string{methodUse}, prefix, grp, converted...)
+	}
+	if err := app.hooks.executeOnGroupHooks(*grp); err != nil {
+		panic(err)
+	}
+
+	return grp
+}
+
+// Domain creates a new router scoped to the given hostname pattern. Routes
+// registered through the returned Router only match requests whose hostname
+// (from c.Hostname()) matches the pattern. When TrustProxy is enabled and the
+// proxy is trusted, the hostname may be derived from the X-Forwarded-Host header.
+// The pattern can contain parameters prefixed with ":" whose values are accessible
+// via [DomainParam].
+//
+// Domain routing has zero performance impact on routes that don't use it because
+// the hostname check is applied as a handler wrapper, not a core router change.
+//
+// To prevent header spoofing, configure Config.TrustProxy together with Config.TrustProxyConfig
+// (trusted proxy IPs/ranges) and, where appropriate, Config.ProxyHeader; see:
+// https://docs.gofiber.io/api/fiber#trustproxy
+//
+//	// Static domain
+//	app.Domain("api.example.com").Get("/users", listUsers)
+//
+//	// Domain with parameter
+//	app.Domain(":user.example.com").Get("/", func(c fiber.Ctx) error {
+//	    user := fiber.DomainParam(c, "user")
+//	    return c.SendString("Hello, " + user)
+//	})
+func (app *App) Domain(host string) Router {
+	return &domainRouter{
+		app:     app,
+		matcher: parseDomainPattern(host),
+	}
+}
+
+// RouteChain creates a Registering instance that lets you declare a stack of
+// handlers for the same route. Handlers defined via the returned Register are
+// scoped to the provided path.
+func (app *App) RouteChain(path string) Register {
+	// Create new route
+	route := &Registering{app: app, path: path}
+
+	return route
+}
+
+// Route is used to define routes with a common prefix inside the supplied
+// function. It mirrors the legacy helper and reuses the Group method to create
+// a sub-router.
+func (app *App) Route(prefix string, fn func(router Router), name ...string) Router {
+	if fn == nil {
+		panic("route handler 'fn' cannot be nil")
+	}
+	// Create new group
+	group := app.Group(prefix)
+	if len(name) > 0 {
+		group.Name(name[0])
+	}
+
+	// Define routes
+	fn(group)
+
+	return group
+}
+
+// Error makes it compatible with the `error` interface.
+func (e *Error) Error() string {
+	return e.Message
+}
+
+// NewError creates a new Error instance with an optional message
+func NewError(code int, message ...string) *Error {
+	err := &Error{
+		Code:    code,
+		Message: utils.StatusMessage(code),
+	}
+	if len(message) > 0 {
+		err.Message = message[0]
+	}
+	return err
+}
+
+// NewErrorf creates a new Error instance with an optional message.
+// Additional arguments are formatted using fmt.Sprintf when provided.
+// If the first argument in the message slice is not a string, the function
+// falls back to using fmt.Sprint on the first element to generate the message.
+func NewErrorf(code int, message ...any) *Error {
+	var msg string
+
+	switch len(message) {
+	case 0:
+		// nothing to override
+		msg = utils.StatusMessage(code)
+
+	case 1:
+		// One argument → treat it like fmt.Sprint(arg)
+		if s, ok := message[0].(string); ok {
+			msg = s
+		} else {
+			msg = fmt.Sprint(message[0])
+		}
+
+	default:
+		// Two or more → first must be a format string.
+		if format, ok := message[0].(string); ok {
+			msg = fmt.Sprintf(format, message[1:]...)
+		} else {
+			// If the first arg isn’t a format string, stringify all of them
+			// instead of dropping everything after the first.
+			msg = fmt.Sprint(message...)
+		}
+	}
+
+	return &Error{Code: code, Message: msg}
+}
+
+// Config returns the app config as value ( read-only ).
+func (app *App) Config() Config {
+	return app.config
+}
+
+// Handler returns the server handler.
+func (app *App) Handler() fasthttp.RequestHandler { //nolint:revive // Having both a Handler() (uppercase) and a handler() (lowercase) is fine.
+	// prepare the server for the start
+	app.startupProcess()
+	return app.selectRequestHandler()
+}
+
+func (app *App) selectRequestHandler() fasthttp.RequestHandler {
+	if app.hasCustomCtx {
+		return app.customRequestHandler
+	}
+	return app.defaultRequestHandler
+}
+
+// Stack returns the raw router stack.
+func (app *App) Stack() [][]*Route {
+	return app.stack
+}
+
+// HandlersCount returns the amount of registered handlers.
+func (app *App) HandlersCount() uint32 {
+	return app.handlersCount
+}
+
+// Shutdown gracefully shuts down the server without interrupting any active connections.
+// Shutdown works by first closing all open listeners and then waiting indefinitely for all connections to return to idle before shutting down.
+//
+// Make sure the program doesn't exit and waits instead for Shutdown to return.
+//
+// Important: app.Listen() must be called in a separate goroutine; otherwise, shutdown hooks will not work
+// as Listen() is a blocking operation. Example:
+//
+//	go app.Listen(":3000")
+//	// ...
+//	app.Shutdown()
+//
+// Shutdown does not close keepalive connections so its recommended to set ReadTimeout to something else than 0.
+func (app *App) Shutdown() error {
+	return app.ShutdownWithContext(context.Background())
+}
+
+// ShutdownWithTimeout gracefully shuts down the server without interrupting any active connections. If the timeout is exceeded,
+// it stops waiting and returns context.DeadlineExceeded; connections still active are not closed.
+// ShutdownWithTimeout works by first closing all open listeners and then waiting for all connections to return to idle before shutting down.
+//
+// Make sure the program doesn't exit and waits instead for ShutdownWithTimeout to return.
+//
+// ShutdownWithTimeout does not close keepalive connections so its recommended to set ReadTimeout to something else than 0.
+func (app *App) ShutdownWithTimeout(timeout time.Duration) error {
+	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+	defer cancelFunc()
+	return app.ShutdownWithContext(ctx)
+}
+
+// ShutdownWithContext shuts down the server and stops waiting once ctx is done; connections still active are not closed.
+//
+// Make sure the program doesn't exit and waits instead for ShutdownWithTimeout to return.
+//
+// ShutdownWithContext does not close keepalive connections so its recommended to set ReadTimeout to something else than 0.
+func (app *App) ShutdownWithContext(ctx context.Context) error {
+	return app.runShutdown(ctx, nil)
+}
+
+// runShutdown is the body of ShutdownWithContext, which passes a nil afterPreHooks. The graceful
+// shutdown of a GracefulContext passes a function that tells its run the server is about to
+// stop accepting, and runShutdown calls it once the OnPreShutdown hooks are done, right before
+// the server is told to stop. A Serve that has not registered its listener by then closes
+// nothing in that shutdown, and the listener of the run finds the news instead.
+func (app *App) runShutdown(ctx context.Context, afterPreHooks func()) error {
+	app.mutex.Lock()
+	server := app.server
+	app.mutex.Unlock()
+
+	if server == nil {
+		return ErrNotRunning
+	}
+
+	// The drain waits for in-flight handlers, so the mutex must not be held
+	// meanwhile: a handler taking it (RebuildTree, Name, ...) would never finish.
+	var err error
+
+	// Execute the Shutdown hook
+	app.hooks.executeOnPreShutdownHooks()
+	// Use a closure so the hooks receive the final error; a plain
+	// `defer ...(err)` would capture the nil value at registration time.
+	defer func() { app.hooks.executeOnPostShutdownHooks(err) }()
+
+	if afterPreHooks != nil {
+		afterPreHooks()
+	}
+
+	err = server.ShutdownWithContext(ctx)
+	return err
+}
+
+// Server returns the underlying fasthttp server
+func (app *App) Server() *fasthttp.Server {
+	return app.server
+}
+
+// Hooks returns the hook struct to register hooks.
+func (app *App) Hooks() *Hooks {
+	return app.hooks
+}
+
+// State returns the in-process state struct to store global data between handlers.
+// State is process-local and is not shared across prefork workers.
+func (app *App) State() *State {
+	return app.state
+}
+
+// SharedState returns storage-backed shared state.
+// SharedState is prefork-safe when Config.SharedStorage is configured.
+func (app *App) SharedState() *SharedState {
+	return app.sharedState
+}
+
+var ErrTestGotEmptyResponse = errors.New("test: got empty response")
+
+// TestConfig is a struct holding Test settings
+type TestConfig struct {
+	// Timeout defines the maximum duration a
+	// test can run before timing out.
+	// Default: time.Second
+	Timeout time.Duration
+
+	// FailOnTimeout specifies whether the test
+	// should return a timeout error if the HTTP response
+	// exceeds the Timeout duration.
+	// Default: true
+	FailOnTimeout bool
+}
+
+// Test is used for internal debugging by passing a *http.Request.
+// Config is optional and defaults to a 1s error on timeout,
+// 0 timeout will disable it completely.
+func (app *App) Test(req *http.Request, config ...TestConfig) (*http.Response, error) {
+	// Default config
+	cfg := TestConfig{
+		Timeout:       time.Second,
+		FailOnTimeout: true,
+	}
+
+	// Override config if provided
+	if len(config) > 0 {
+		cfg = config[0]
+	}
+
+	// Add Content-Length if not provided with body
+	if req.Body != http.NoBody && req.Header.Get(HeaderContentLength) == "" {
+		// net/http reports a body it cannot size as -1, or as 0 with a body
+		if req.Body != nil && req.ContentLength <= 0 {
+			body, err := io.ReadAll(req.Body)
+			if closeErr := req.Body.Close(); err == nil {
+				err = closeErr
+			}
+			if err != nil {
+				return nil, fmt.Errorf("failed to read request body: %w", err)
+			}
+			req.Body = io.NopCloser(bytes.NewReader(body))
+			req.ContentLength = int64(len(body))
+		}
+		req.Header.Add(HeaderContentLength, utils.FormatInt(req.ContentLength))
+	}
+
+	// Ensure Host header is present in the dump (required by fasthttp)
+	if req.Host == "" {
+		if req.URL != nil && req.URL.Host != "" {
+			req.Host = req.URL.Host
+		} else {
+			req.Host = "localhost"
+		}
+	}
+
+	// Clear RequestURI so DumpRequest writes origin-form request line with
+	// Host header instead of absolute-form URI without Host header.
+	req.RequestURI = ""
+
+	// Dump raw http request
+	dump, err := httputil.DumpRequest(req, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dump request: %w", err)
+	}
+
+	// Create test connection
+	conn := new(testConn)
+	var served net.Conn = conn
+	if req.TLS != nil {
+		// httptest.NewRequest sets TLS for an https target; serve such a request over TLS.
+		served = &testTLSConn{testConn: conn, state: *req.TLS}
+	}
+
+	// Write raw http request
+	if _, err = conn.r.Write(dump); err != nil {
+		return nil, fmt.Errorf("failed to write: %w", err)
+	}
+	// prepare the server for the start
+	app.startupProcess()
+	app.hookHeaderReceived()
+
+	// Serve conn to server
+	channel := make(chan error, 1)
+	go func() {
+		var returned bool
+		defer func() {
+			if !returned {
+				channel <- ErrHandlerExited
+			}
+		}()
+
+		channel <- app.server.ServeConn(served)
+		returned = true
+	}()
+
+	// Wait for callback
+	if cfg.Timeout > 0 {
+		// With timeout
+		select {
+		case err = <-channel:
+		case <-time.After(cfg.Timeout):
+			if cfg.FailOnTimeout {
+				conn.Close() //nolint:errcheck // It is fine to ignore the error here
+				return nil, os.ErrDeadlineExceeded
+			}
+			// When FailOnTimeout is false, wait up to 1 additional second for the handler
+			// to complete and write a response. This prevents indefinite blocking while
+			// allowing slow handlers to finish.
+			select {
+			case err = <-channel:
+			case <-time.After(time.Second):
+				// Handler took too long even with extra time
+				conn.Close() //nolint:errcheck // It is fine to ignore the error here
+			}
+		}
+	} else {
+		// Without timeout
+		err = <-channel
+	}
+
+	// Check for errors
+	if err != nil && !errors.Is(err, fasthttp.ErrGetOnly) && !errors.Is(err, errTestConnClosed) {
+		return nil, err
+	}
+
+	// Read response(s)
+	buffer := bufio.NewReader(&conn.w)
+
+	var res *http.Response
+	for {
+		// Convert raw http response to *http.Response
+		res, err = httpReadResponse(buffer, req)
+		if err != nil {
+			if errors.Is(err, io.ErrUnexpectedEOF) {
+				return nil, ErrTestGotEmptyResponse
+			}
+			return nil, fmt.Errorf("failed to read response: %w", err)
+		}
+
+		// Break if this response is non-1xx or there are no more responses
+		if res.StatusCode >= http.StatusOK || buffer.Buffered() == 0 {
+			break
+		}
+
+		// Discard interim response body before reading the next one
+		if res.Body != nil {
+			if _, errCopy := io.Copy(io.Discard, res.Body); errCopy != nil {
+				return nil, fmt.Errorf("failed to discard interim response body: %w", errCopy)
+			}
+			if errClose := res.Body.Close(); errClose != nil {
+				return nil, fmt.Errorf("failed to close interim response body: %w", errClose)
+			}
+		}
+	}
+
+	return res, nil
+}
+
+type disableLogger struct{}
+
+// Printf implements the fasthttp Logger interface and discards log output.
+func (*disableLogger) Printf(string, ...any) {
+}
+
+func (app *App) init() *App {
+	func() {
+		// lock application
+		app.mutex.Lock()
+		defer app.mutex.Unlock()
+
+		// Initialize Services when needed,
+		// panics if there is an error starting them.
+		app.initServices()
+
+		// Only load templates if a view engine is specified
+		if !isNilViews(app.config.Views) {
+			if err := app.config.Views.Load(); err != nil {
+				log.Warnf("failed to load views: %v", err)
+			}
+		}
+
+		// create fasthttp server
+		app.server = &fasthttp.Server{
+			Logger:       &disableLogger{},
+			LogAllErrors: false,
+			ErrorHandler: app.serverErrorHandler,
+		}
+
+		// fasthttp server settings
+		app.server.Handler = app.selectRequestHandler()
+		app.server.Name = app.config.ServerHeader
+		app.server.Concurrency = app.config.Concurrency
+		app.server.NoDefaultDate = app.config.DisableDefaultDate
+		app.server.NoDefaultContentType = app.config.DisableDefaultContentType
+		app.server.DisableHeaderNamesNormalizing = app.config.DisableHeaderNormalizing
+		app.server.DisableKeepalive = app.config.DisableKeepalive
+		app.server.MaxRequestBodySize = app.config.BodyLimit
+		app.server.NoDefaultServerHeader = app.config.ServerHeader == ""
+		app.server.ReadTimeout = app.config.ReadTimeout
+		app.server.WriteTimeout = app.config.WriteTimeout
+		app.server.IdleTimeout = app.config.IdleTimeout
+		app.server.ReadBufferSize = app.config.ReadBufferSize
+		app.server.WriteBufferSize = app.config.WriteBufferSize
+		app.server.GetOnly = app.config.GETOnly
+		app.server.ReduceMemoryUsage = app.config.ReduceMemoryUsage
+		app.server.StreamRequestBody = app.config.StreamRequestBody
+		// fasthttp pre-parses a streamed multipart body of any length before the
+		// handler runs; MultipartForm parses it on demand within BodyLimit instead.
+		app.server.DisablePreParseMultipartForm = app.config.DisablePreParseMultipartForm || app.config.StreamRequestBody
+	}()
+
+	// Register the Services shutdown handler once the app is initialized and unlocked.
+	app.Hooks().OnPostShutdown(func(_ error) error {
+		if err := app.shutdownServices(app.servicesShutdownCtx()); err != nil {
+			log.Errorf("failed to shutdown services: %v", err)
+		}
+		if app.sharedState != nil && app.sharedState.storage != nil {
+			if err := app.sharedState.Close(); err != nil {
+				log.Errorf("failed to close sharedState: %v", err)
+			}
+		}
+		return nil
+	})
+
+	return app
+}
+
+// ErrorHandler is the application's method in charge of finding the
+// appropriate handler for the given request. It searches any mounted
+// sub fibers by their prefixes and if it finds a match, it uses that
+// error handler. Otherwise, it uses the configured error handler for
+// the app, which if not set is the DefaultErrorHandler.
+func (app *App) ErrorHandler(ctx Ctx, err error) error {
+	// Once fasthttp holds a timeout response, writes are ignored and the
+	// timed-out handler may still be writing: leave the context alone.
+	if ctx.RequestCtx().LastTimeoutErrorResponse() != nil {
+		return nil
+	}
+
+	// Fast path: no mounted sub-apps, so no prefix lookup is needed
+	if len(app.mountFields.appListKeys) == 0 && len(app.mountFields.domainAppList) == 0 {
+		return app.config.ErrorHandler(ctx, err)
+	}
+
+	var (
+		mountedErrHandler  ErrorHandler
+		mountedErrApp      *App
+		mountedPrefixParts int
+	)
+
+	for _, prefix := range app.mountFields.appListKeys {
+		subApp := app.mountFields.appList[prefix]
+
+		if app.mountCoversPath(prefix, ctx.Path()) {
+			// Count slashes instead of splitting - more efficient
+			parts := mountDepth(prefix)
+			if mountedPrefixParts <= parts {
+				if subApp.configured.ErrorHandler != nil {
+					mountedErrHandler = subApp.config.ErrorHandler
+					mountedErrApp = subApp
+				}
+
+				mountedPrefixParts = parts
+			}
+		}
+	}
+
+	// Sub-apps mounted on a domain answer only for a matching host, so their
+	// error handler cannot be picked by path alone. The owner is considered
+	// after the plain mounts, which lets a domain mount win a tie on path
+	// depth: it matched the host too, so it is the more specific of the two.
+	if owner := app.domainMountOwner(ctx); owner.outranks(mountedPrefixParts) {
+		// A plain mount the owner supersedes did not serve the request, so its
+		// handler is dropped rather than inherited. One enclosing the owner
+		// still does, and an owner configuring no handler of its own inherits
+		// it, as a nested mount inherits the handler of the mount it sits in.
+		//
+		// Unless the mount is one of the apps the owner sits in: a domain
+		// mount at the root of a plain one covers exactly the paths that mount
+		// does, and is as deep as it without being beside it.
+		if owner.supersedes(mountedPrefixParts, mountedErrApp) {
+			mountedErrHandler = nil
+		}
+
+		if handler := domainMountConfig(owner, appHasErrorHandler); handler != nil {
+			mountedErrHandler = handler.config.ErrorHandler
+		}
+	}
+
+	if mountedErrHandler != nil {
+		return mountedErrHandler(ctx, err)
+	}
+
+	return app.config.ErrorHandler(ctx, err)
+}
+
+const (
+	// getOnlyAllow is the Allow value of the 405 that Config.GETOnly produces.
+	getOnlyAllow = MethodGet + ", " + MethodHead
+
+	// unsupportedTransferCodingMarker precedes the quoted coding in fasthttp's
+	// error. The ErrUnsupportedTransferEncoding sentinel is not matched: it also
+	// covers HTTP/1.0 and repeated fields, which are framing errors and stay 400,
+	// and with Server.SecureErrorLogMessage it stands for every fault, the
+	// coding included, which then stays 400 as well.
+	unsupportedTransferCodingMarker = `unsupported transfer-encoding: "`
+)
+
+// serverErrorHandler is a wrapper around the application's error handler method
+// user for the fasthttp server configuration. It maps a set of fasthttp errors to fiber
+// errors before calling the application's error handler method.
+func (app *App) serverErrorHandler(fctx *fasthttp.RequestCtx, err error) {
+	// Acquire Ctx with fasthttp request from pool
+	c := app.AcquireCtx(fctx)
+	defer app.ReleaseCtx(c)
+
+	var (
+		errNetOP    *net.OpError
+		netErr      net.Error
+		timeoutErr  interface{ Timeout() bool }
+		brokenChunk fasthttp.ErrBrokenChunk
+	)
+
+	errMessage := utils.StatusMessage(StatusBadRequest)
+	matchedNetOP := errors.As(err, &errNetOP)
+	if err != nil && (!matchedNetOP || errNetOP != nil) {
+		errMessage = err.Error()
+	}
+	matchedNetErr := errors.As(err, &netErr)
+
+	switch {
+	case err == nil:
+		err = NewError(StatusBadRequest, errMessage)
+	case matchedNetOP && errNetOP == nil:
+		err = ErrBadGateway
+	case errors.As(err, new(*fasthttp.ErrSmallBuffer)):
+		err = ErrRequestHeaderFieldsTooLarge
+	case matchedNetOP && errNetOP.Timeout():
+		err = ErrRequestTimeout
+	case matchedNetErr:
+		err = ErrBadGateway
+	case errors.Is(err, fasthttp.ErrBodyTooLarge):
+		err = ErrRequestEntityTooLarge
+	case errors.Is(err, fasthttp.ErrGetOnly):
+		err = ErrMethodNotAllowed
+		// A 405 must carry Allow (RFC 9110 §15.5.6).
+		c.Set(HeaderAllow, getOnlyAllow)
+	case errors.Is(err, fasthttp.ErrUnsupportedRequestMethod),
+		strings.HasPrefix(innermostMessage(err), "unsupported http request method"):
+		// The innermost error, not the whole text: the wrappers quote request
+		// bytes, so a malformed trailer could otherwise pick its own status.
+		err = ErrNotImplemented
+	case strings.HasPrefix(innermostMessage(err), unsupportedTransferCodingMarker):
+		// An unknown transfer coding is a 501, not a 400 (RFC 9112 §6.1).
+		err = ErrNotImplemented
+	case errors.As(err, &timeoutErr) && timeoutErr.Timeout(),
+		errors.As(err, &brokenChunk) && strings.HasSuffix(brokenChunk.Error(), "timeout"):
+		// fasthttp.ErrTimeout, as a stalled trailer returns it, is no net.Error;
+		// ErrBrokenChunk does not unwrap to the read error it ends with.
+		err = ErrRequestTimeout
+	default:
+		err = NewError(StatusBadRequest, errMessage)
+	}
+
+	// Seed the mapped status so middleware observes it instead of the default 200.
+	// The ErrorHandler below still has the last word on what goes out.
+	if fiberErr, matched := asFiberError(err); matched && fiberErr != nil {
+		c.Status(fiberErr.Code)
+	}
+
+	// A method GETOnly refuses is not replayed: a Use handler that ends the chain would carry it out.
+	// Asked of the method, not ErrGetOnly, since a header error is reported first.
+	methodRefused := app.server.GetOnly && !fctx.IsGet() && !fctx.IsHead()
+	if !methodRefused && c.getMethodInt() != -1 {
+		c.setSkipNonUseRoutes(true)
+		defer c.setSkipNonUseRoutes(false)
+		// The route never runs, so what the chain leaves is no response for the URL.
+		errorreplay.Mark(fctx)
+		defer errorreplay.Unmark(fctx)
+
+		var nextErr error
+		if d, isDefault := c.(*DefaultCtx); isDefault {
+			_, nextErr = app.next(d)
+		} else {
+			_, nextErr = app.nextCustom(c)
+		}
+
+		if nextErr != nil && !errors.Is(nextErr, ErrNotFound) && !errors.Is(nextErr, ErrMethodNotAllowed) {
+			log.Errorf("serverErrorHandler: middleware traversal failed: %v", nextErr)
+		}
+		// Route guards were skipped too: drop the chain's body, which an ErrorHandler calling SendStatus would send.
+		fctx.Response.ResetBody()
+	}
+
+	if catch := app.ErrorHandler(c, err); catch != nil {
+		log.Errorf("serverErrorHandler: failed to call ErrorHandler: %v", catch)
+		_ = c.SendStatus(StatusInternalServerError) //nolint:errcheck // It is fine to ignore the error here
+		return
+	}
+}
+
+// innermostMessage returns the text of the error err wraps last, which fasthttp
+// starts with its own words before any bytes of the request it quotes.
+func innermostMessage(err error) string {
+	for {
+		inner := errors.Unwrap(err)
+		if inner == nil {
+			return err.Error()
+		}
+		err = inner
+	}
+}
+
+// startupProcess Is the method which executes all the necessary processes just before the start of the server.
+func (app *App) startupProcess() {
+	app.mutex.Lock()
+	defer app.mutex.Unlock()
+
+	app.hookConnState()
+	// Collect every mounted app first, nested ones included, so all get their automatic HEAD routes.
+	app.collectSubApps()
+	app.ensureAutoHeadRoutesLocked()
+	for prefix, subApp := range app.mountFields.appList {
+		if prefix == "" {
+			continue
+		}
+		subApp.ensureAutoHeadRoutes()
+	}
+	app.mountStartupProcess()
+
+	// build route tree stack
+	app.buildTree()
+}
+
+// hookConnState makes the server report new and closed connections to the TLS
+// handler, keeping a user ConnState callback. A connection is reported new
+// while it can still say what it wraps, which is what lets its record be found
+// again at close. Idempotent; the caller holds app.mutex.
+func (app *App) hookConnState() {
+	if app.connStateHooked || app.server == nil {
+		return
+	}
+	app.connStateHooked = true
+	user := app.server.ConnState
+	app.server.ConnState = func(conn net.Conn, state fasthttp.ConnState) {
+		// StateHijacked is terminal too: fasthttp never reports StateClosed after
+		// it, so a hijacked connection (every WebSocket upgrade) would strand its
+		// record.
+		if state == fasthttp.StateNew || state == fasthttp.StateClosed || state == fasthttp.StateHijacked {
+			app.mutex.Lock()
+			handler := app.tlsHandler
+			app.mutex.Unlock()
+			if handler != nil {
+				if state == fasthttp.StateNew {
+					handler.track(conn)
+				} else {
+					handler.forget(conn)
+				}
+			}
+		}
+		if user != nil {
+			user(conn, state)
+		}
+	}
+}
+
+// hookHeaderReceived makes the server close the connection after a request that
+// carries both Content-Length and Transfer-Encoding (RFC 9112 §6.1), keeping a
+// user HeaderReceived callback. It must run before the body is decoded: after that
+// fasthttp has replaced the length and dropped the Content-Length value. Call it
+// right before the server serves: it wraps the callback set by then, in
+// ListenConfig.BeforeServeFunc too, and one replaced since an earlier start. Its
+// own hook is left alone: Test and a listener run on one server at the same time,
+// and the connections they serve read the callback.
+func (app *App) hookHeaderReceived() {
+	app.mutex.Lock()
+	defer app.mutex.Unlock()
+
+	if app.server == nil || sameFunc(app.server.HeaderReceived, app.headerHook) {
+		return
+	}
+	user := app.server.HeaderReceived
+	app.headerHook = func(header *fasthttp.RequestHeader) fasthttp.RequestConfig {
+		if bothFramingFields(header) {
+			header.SetConnectionClose()
+		}
+		if user != nil {
+			return user(header)
+		}
+		// The zero value keeps the server's own limits and timeouts.
+		return fasthttp.RequestConfig{}
+	}
+	app.server.HeaderReceived = app.headerHook
+}
+
+// Run onListen hooks. If they return an error, panic.
+func (app *App) runOnListenHooks(listenData *ListenData) {
+	if err := app.hooks.executeOnListenHooks(listenData); err != nil {
+		panic(err)
+	}
+}

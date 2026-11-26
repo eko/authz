@@ -3,7 +3,7 @@ package middleware
 import (
 	"context"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 type contextKey string
@@ -15,14 +15,14 @@ var (
 )
 
 func DiscoverResource(resourceKind string, action string) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		ctx := c.UserContext()
+	return func(c fiber.Ctx) error {
+		ctx := c.Context()
 
 		ctx = context.WithValue(ctx, ResourceKindKey, resourceKind)
 		ctx = context.WithValue(ctx, ResourceValueKey, c.Params("identifier", "*"))
 		ctx = context.WithValue(ctx, ActionKey, action)
 
-		c.SetUserContext(ctx)
+		c.SetContext(ctx)
 
 		return c.Next()
 	}

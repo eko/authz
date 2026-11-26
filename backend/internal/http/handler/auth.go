@@ -12,7 +12,7 @@ import (
 	"github.com/eko/authz/backend/internal/security/jwt"
 	"github.com/go-oauth2/oauth2/v4/server"
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -58,11 +58,11 @@ func Authenticate(
 	userManager manager.User,
 	tokenManager jwt.Manager,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		request := &AuthRequest{}
 
 		// Parse request body
-		if err := c.BodyParser(request); err != nil {
+		if err := c.Bind().Body(request); err != nil {
 			return returnError(c, http.StatusBadRequest, err)
 		}
 

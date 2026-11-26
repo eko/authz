@@ -7,7 +7,7 @@ import (
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/event"
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 type CheckRequestQuery struct {
@@ -47,11 +47,11 @@ func Check(
 	compiledManager manager.CompiledPolicy,
 	dispatcher event.Dispatcher,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		request := &CheckRequest{}
 
 		// Parse request body
-		if err := c.BodyParser(request); err != nil {
+		if err := c.Bind().Body(request); err != nil {
 			return returnError(c, http.StatusBadRequest, err)
 		}
 

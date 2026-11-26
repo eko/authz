@@ -11,7 +11,7 @@ import (
 
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/log"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -34,19 +34,19 @@ func TestAuthorization_WhenError(t *testing.T) {
 
 	app := fiber.New()
 	app.Use(
-		func(c *fiber.Ctx) error {
+		func(c fiber.Ctx) error {
 			ctx := context.Background()
 			ctx = context.WithValue(ctx, UserIdentifierKey, "user-123")
 			ctx = context.WithValue(ctx, ResourceKindKey, "my-resource-kind")
 			ctx = context.WithValue(ctx, ResourceValueKey, "my-resource-value")
 			ctx = context.WithValue(ctx, ActionKey, "my-action")
 
-			c.SetUserContext(ctx)
+			c.SetContext(ctx)
 			return c.Next()
 		},
 		Authorization(logger, compiledManager),
 	)
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c fiber.Ctx) error {
 		_ = c.JSON(map[string]any{"success": true})
 		return nil
 	})
@@ -81,19 +81,19 @@ func TestAuthorization_WhenIsNotAllowed(t *testing.T) {
 
 	app := fiber.New()
 	app.Use(
-		func(c *fiber.Ctx) error {
+		func(c fiber.Ctx) error {
 			ctx := context.Background()
 			ctx = context.WithValue(ctx, UserIdentifierKey, "user-123")
 			ctx = context.WithValue(ctx, ResourceKindKey, "my-resource-kind")
 			ctx = context.WithValue(ctx, ResourceValueKey, "my-resource-value")
 			ctx = context.WithValue(ctx, ActionKey, "my-action")
 
-			c.SetUserContext(ctx)
+			c.SetContext(ctx)
 			return c.Next()
 		},
 		Authorization(logger, compiledManager),
 	)
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c fiber.Ctx) error {
 		_ = c.JSON(map[string]any{"success": true})
 		return nil
 	})
@@ -128,19 +128,19 @@ func TestAuthorization_WhenIsAllowed(t *testing.T) {
 
 	app := fiber.New()
 	app.Use(
-		func(c *fiber.Ctx) error {
+		func(c fiber.Ctx) error {
 			ctx := context.Background()
 			ctx = context.WithValue(ctx, UserIdentifierKey, "user-123")
 			ctx = context.WithValue(ctx, ResourceKindKey, "my-resource-kind")
 			ctx = context.WithValue(ctx, ResourceValueKey, "my-resource-value")
 			ctx = context.WithValue(ctx, ActionKey, "my-action")
 
-			c.SetUserContext(ctx)
+			c.SetContext(ctx)
 			return c.Next()
 		},
 		Authorization(logger, compiledManager),
 	)
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c fiber.Ctx) error {
 		_ = c.JSON(map[string]any{"success": true})
 		return nil
 	})

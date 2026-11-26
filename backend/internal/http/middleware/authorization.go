@@ -5,15 +5,15 @@ import (
 
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/entity/model"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 func Authorization(
 	logger *slog.Logger,
 	compiledManager manager.CompiledPolicy,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		ctx := c.UserContext()
+	return func(c fiber.Ctx) error {
+		ctx := c.Context()
 
 		userID := ctx.Value(UserIdentifierKey).(string)
 		resourceKind := ctx.Value(ResourceKindKey).(string)

@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,8 +15,8 @@ func TestDiscoverResource(t *testing.T) {
 	app := fiber.New()
 	app.Use(
 		DiscoverResource("my-resource-kind", "my-action"),
-		func(c *fiber.Ctx) error {
-			ctx := c.UserContext()
+		func(c fiber.Ctx) error {
+			ctx := c.Context()
 
 			resourceKindKey := ctx.Value(ResourceKindKey).(string)
 			resourceValueKey := ctx.Value(ResourceValueKey).(string)
@@ -29,7 +29,7 @@ func TestDiscoverResource(t *testing.T) {
 			return c.Next()
 		},
 	)
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c fiber.Ctx) error {
 		_ = c.JSON(map[string]any{"success": true})
 		return nil
 	})

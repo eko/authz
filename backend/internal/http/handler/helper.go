@@ -10,7 +10,7 @@ import (
 	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/http/handler/model"
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 const (
@@ -23,7 +23,7 @@ const (
 	sortHTTPDelimiter = ":"
 )
 
-func paginate(c *fiber.Ctx) (int64, int64, error) {
+func paginate(c fiber.Ctx) (int64, int64, error) {
 	pageStr := c.Query("page")
 	sizeStr := c.Query("size")
 
@@ -63,7 +63,7 @@ func convertStringToInt64(value string) (int64, error) {
 	return intValue, nil
 }
 
-func httpFilterToORM(c *fiber.Ctx) map[string]repository.FieldValue {
+func httpFilterToORM(c fiber.Ctx) map[string]repository.FieldValue {
 	var result = map[string]repository.FieldValue{}
 
 	if c == nil {
@@ -93,7 +93,7 @@ func httpFilterToORM(c *fiber.Ctx) map[string]repository.FieldValue {
 	return result
 }
 
-func httpSortToORM(c *fiber.Ctx) string {
+func httpSortToORM(c fiber.Ctx) string {
 	if c == nil {
 		return ""
 	}
@@ -117,7 +117,7 @@ func httpSortToORM(c *fiber.Ctx) string {
 	return fmt.Sprintf("%s %s", field, order)
 }
 
-func returnError(c *fiber.Ctx, statusCode int, err error) error {
+func returnError(c fiber.Ctx, statusCode int, err error) error {
 	c.Response().SetStatusCode(statusCode)
 
 	return c.JSON(model.ErrorResponse{

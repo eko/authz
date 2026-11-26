@@ -10,7 +10,7 @@ import (
 
 	"github.com/eko/authz/backend/internal/log"
 	"github.com/eko/authz/backend/internal/security/jwt"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	lib_jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -111,7 +111,7 @@ func TestAuthentication_WhenValidToken(t *testing.T) {
 
 	app := fiber.New()
 	app.Use(Authentication(logger, jwtManager))
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c fiber.Ctx) error {
 		_ = c.JSON(map[string]any{"success": true})
 		return nil
 	})

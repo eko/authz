@@ -5,7 +5,7 @@ import (
 
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/entity/repository"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 // Retrieve statistics for last days
@@ -21,7 +21,7 @@ import (
 func StatsGet(
 	statsManager manager.Stats,
 ) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		stats, _, err := statsManager.GetRepository().Find(
 			repository.WithSort("date desc"),
 		)

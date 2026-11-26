@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"go.uber.org/fx"
 
 	"github.com/eko/authz/backend/configs"
@@ -48,7 +48,9 @@ func Run(lc fx.Lifecycle, logger *slog.Logger, server *Server) {
 			logger.Info("Starting HTTP server", slog.String("addr", server.cfg.Addr))
 
 			go func() {
-				if err := server.app.Listen(server.cfg.Addr); err != nil {
+				if err := server.app.Listen(server.cfg.Addr, fiber.ListenConfig{
+					DisableStartupMessage: true,
+				}); err != nil {
 					if err != http.ErrServerClosed {
 						logger.Error("Unable to start HTTP server", slog.Any("error", err))
 					}

@@ -1,0 +1,1634 @@
+// ⚡️ Fiber is an Express inspired web framework written in Go with ☕️
+// 📄 GitHub Repository: https://github.com/gofiber/fiber
+// 📌 API Documentation: https://docs.gofiber.io
+// ⚠️ This path parser was inspired by https://github.com/ucarion/urlpath
+// 💖 Maintained and modified for Fiber by @renewerner87
+
+package fiber
+
+import (
+	"bytes"
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+	"sync"
+
+	"github.com/gofiber/fiber/v3/internal/paramdelim"
+	"github.com/gofiber/utils/v2"
+	utilsstrings "github.com/gofiber/utils/v2/strings"
+	"github.com/gofiber/utils/v2/swar"
+)
+
+// routeParser holds the path segments and param names.
+//
+// The slash bounds lead the struct on purpose: Route.match consults them for
+// every parametric candidate it rejects, and Route embeds routeParser so that
+// they share a cache line with the other fields the router reads while
+// scanning. Keep them first when adding fields.
+//
+//nolint:govet // fieldalignment: the slash bounds lead deliberately, see above
+type routeParser struct { // betteralign:ignore - see above
+	minSlashes    int32           // minimum number of '/' a matching detection path can contain
+	maxSlashes    int32           // maximum number of '/' a matching detection path can contain; only valid when maxBounded is true
+	maxBounded    bool            // false when a parameter can swallow '/', making the maximum unknowable; false also disables the max check
+	constParam    bool            // route is exactly one const segment + one plain trailing param; see matchConstParam
+	yields        bool            // an optional parameter sits directly before another parameter; see matchBacktrack
+	probe         constProbe      // first constant after a parameter, checked before getMatch; see computeProbe
+	segs          []*routeSegment // the parsed segments of the route
+	params        []string        // that parameter names the parsed route
+	wildCardCount int             // number of wildcard parameters, used internally to give the wildcard parameter its number
+	plusCount     int             // number of plus parameters, used internally to give the plus parameter its number
+}
+
+var routerParserPool = &sync.Pool{
+	New: func() any {
+		return &routeParser{}
+	},
+}
+
+// routeSegment holds the segment metadata
+type routeSegment struct {
+	// const information
+	Const       string        // constant part of the route
+	ParamName   string        // name of the parameter for access to it, for wildcards and plus parameters access iterators starting with 1 are added
+	ComparePart string        // search part to find the end of the parameter
+	Constraints []*Constraint // Constraint type if segment is a parameter, if not it will be set to noConstraint by default
+	PartCount   int           // how often is the search part contained in the non-param segments? -> necessary for greedy search
+	Length      int           // length of the parameter for segment, when its 0 then the length is undetermined
+	// future TODO: add support for optional groups "/abc(/def)?"
+	// parameter information
+	IsParam    bool // Truth value that indicates whether it is a parameter or a constant part
+	IsGreedy   bool // indicates whether the parameter is greedy or not, is used with wildcard and plus
+	IsOptional bool // indicates whether the parameter is optional or not
+	CanYield   bool // optional parameter directly before another parameter; only there can an empty retry help
+	// common information
+	IsLast           bool // shows if the segment is the last one for the route
+	HasOptionalSlash bool // segment has the possibility of an optional slash
+	GreedyTail       bool // a prefix's only greedy parameter, right before its last constant; see findGreedyTailLen
+	ParamTail        bool // a prefix's plain parameter, the only one in its segment before its last constant; see findParamTailLen
+}
+
+// different special routing signs
+const (
+	wildcardParam                byte = '*'  // indicates an optional greedy parameter
+	plusParam                    byte = '+'  // indicates a required greedy parameter
+	optionalParam                byte = '?'  // concludes a parameter by name and makes it optional
+	paramStarterChar             byte = ':'  // start character for a parameter with name
+	slashDelimiter               byte = '/'  // separator for the route, unlike the other delimiters this character at the end can be optional
+	escapeChar                   byte = '\\' // escape character
+	paramConstraintStart         byte = '<'  // start of type constraint for a parameter
+	paramConstraintEnd           byte = '>'  // end of type constraint for a parameter
+	paramConstraintSeparator     byte = ';'  // separator of type constraints for a parameter
+	paramConstraintDataStart     byte = '('  // start of data of type constraint for a parameter
+	paramConstraintDataEnd       byte = ')'  // end of data of type constraint for a parameter
+	paramConstraintDataSeparator byte = ','  // separator of data of type constraint for a parameter
+)
+
+// TypeConstraint parameter constraint types.
+//
+// Deprecated: Use the ConstraintHandler interface instead. Retained for
+// backward compatibility with external code that reads or compares IDs.
+type TypeConstraint uint16
+
+// Constraint describes the validation rules that apply to a dynamic route
+// segment when matching incoming requests.
+// See constraint.go for the ConstraintHandler and ConstraintAnalyzer interfaces.
+type Constraint struct {
+	handler   ConstraintHandler
+	typedData []any
+
+	// RegexCompiler is populated when the constraint is a regex and the
+	// default regexp.Compile engine is used.
+	//
+	// Deprecated: Use the ConstraintHandler interface instead. Retained for
+	// backward compatibility with external code that reads this field.
+	RegexCompiler *regexp.Regexp
+
+	// Name is the raw constraint name as it appeared in the route pattern
+	// (e.g. "minlen", not the canonical "minLen").
+	Name string
+
+	// Data holds the raw parsed constraint arguments from the route pattern.
+	Data []string
+
+	// ID identifies the built-in constraint kind.
+	//
+	// Deprecated: Use the ConstraintHandler interface instead. Retained for
+	// backward compatibility with external code that reads or compares IDs.
+	ID TypeConstraint
+}
+
+// Deprecated: Use the ConstraintHandler interface instead.
+const (
+	noConstraint TypeConstraint = 1 << iota
+	intConstraint
+	boolConstraint
+	floatConstraint
+	alphaConstraint
+	datetimeConstraint
+	guidConstraint
+	minLenConstraint
+	maxLenConstraint
+	lenConstraint
+	betweenLenConstraint
+	minConstraint
+	maxConstraint
+	rangeConstraint
+	regexConstraint
+)
+
+// constraintNameToID maps canonical constraint names to their TypeConstraint ID.
+//
+// Deprecated: retained for populating Constraint.ID for backward compatibility.
+var constraintNameToID = map[string]TypeConstraint{
+	ConstraintInt:        intConstraint,
+	ConstraintBool:       boolConstraint,
+	ConstraintFloat:      floatConstraint,
+	ConstraintAlpha:      alphaConstraint,
+	ConstraintDatetime:   datetimeConstraint,
+	ConstraintGUID:       guidConstraint,
+	ConstraintMinLen:     minLenConstraint,
+	ConstraintMaxLen:     maxLenConstraint,
+	ConstraintLen:        lenConstraint,
+	ConstraintBetweenLen: betweenLenConstraint,
+	ConstraintMin:        minConstraint,
+	ConstraintMax:        maxConstraint,
+	ConstraintRange:      rangeConstraint,
+	ConstraintRegex:      regexConstraint,
+}
+
+// list of possible parameter and segment delimiter
+var (
+	// slash has a special role, unlike the other parameters it must not be interpreted as a parameter
+	routeDelimiter = []byte{slashDelimiter, '-', '.'}
+	// slashDelimiterBytes is the byte-slice form of slashDelimiter for bytes.Count
+	slashDelimiterBytes = []byte{slashDelimiter}
+	// list of chars for the parameter recognizing
+	parameterStartChars = [256]bool{
+		wildcardParam:    true,
+		plusParam:        true,
+		paramStarterChar: true,
+	}
+	// list of chars of delimiters and the starting parameter name char
+	parameterDelimiterChars = append([]byte{paramStarterChar, escapeChar}, routeDelimiter...)
+	// list of chars to find the end of a parameter
+	parameterEndChars = paramdelim.PathEndChars()
+)
+
+// RoutePatternMatch reports whether path matches the provided Fiber route pattern.
+//
+// Patterns use the same syntax as routes registered on an App, including
+// parameters (for example `:id`), wildcards (`*`, `+`), and optional segments.
+// The optional Config argument can be used to control case sensitivity and
+// strict routing behavior. This helper allows checking potential matches
+// without registering a route.
+//
+// path is a rooted path, as c.Path() returns one. The empty string is read as
+// "/", so RoutePatternMatch("", "/") is true; any other string without a
+// leading slash matches no pattern. Request routing differs in one respect: it
+// roots the request target it is handed before matching, so "OPTIONS *" is
+// routed as "/*", whereas RoutePatternMatch("*", "/*") is false.
+func RoutePatternMatch(path, pattern string, cfg ...Config) bool {
+	// See logic in (*Route).match and (*App).register
+	var ctxParams [maxParams]string
+
+	config := Config{}
+	if len(cfg) > 0 {
+		config = cfg[0]
+	}
+	config.RegexHandler = validateRegexHandler(config.RegexHandler)
+
+	if path == "" {
+		path = "/"
+	}
+	// Every pattern starts with a slash, so a path without one matches none.
+	// (A request path is rooted before routing, see normalizeRequestPath.)
+	if path[0] != '/' {
+		return false
+	}
+
+	pattern, patternPretty, patternClean := normalizeRoutePattern(pattern, &config, false)
+
+	// Mirror DefaultCtx.configDependentPaths: normalize the path, then derive
+	// the detection path (lowercased when CaseSensitive is off, trailing slash
+	// stripped when StrictRouting is off). getMatch takes both, so constraints
+	// see the same bytes here as in the router.
+	if needsPathNormalization(path) {
+		path = utils.UnsafeString(normalizeRequestPath([]byte(path), config.UnescapePath))
+	}
+
+	detectionPath := path
+	if !config.CaseSensitive {
+		detectionPath = utilsstrings.ToLower(detectionPath)
+	}
+	if !config.StrictRouting && len(detectionPath) > 1 {
+		detectionPath = utils.TrimRight(detectionPath, '/')
+		if detectionPath == "" {
+			detectionPath = "/"
+		}
+	}
+
+	parser, _ := routerParserPool.Get().(*routeParser) //nolint:errcheck // only contains routeParser
+	parser.reset()
+	parser.parseRoute(patternPretty, config.RegexHandler)
+	defer routerParserPool.Put(parser)
+	if !config.CaseSensitive && strings.IndexByte(pattern, paramConstraintStart) >= 0 {
+		// The constraints come from the pattern as written; see adoptConstraints.
+		var raw routeParser
+		raw.parseRoute(pattern, config.RegexHandler)
+		parser.adoptConstraints(&raw)
+	}
+	if config.StrictRouting {
+		parser.applyStrictRouting()
+	}
+
+	// '*' wildcard matches any path; the star flag keeps an escaped "/\*" literal.
+	if (patternClean == "/" && detectionPath == "/") || patternPretty == "/*" {
+		return true
+	}
+
+	// Does this route have parameters
+	if len(parser.params) > 0 {
+		if match := parser.getMatch(detectionPath, path, &ctxParams, false); match {
+			return true
+		}
+	}
+	// Check for a simple match
+	return patternClean == detectionPath
+}
+
+// normalizeRoutePattern keeps the three forms needed by the router together:
+// raw preserves parameter names and constraint arguments, pretty applies the
+// routing configuration but retains escapes for parsing, and clean is the
+// literal comparison key. It does not decode or normalize request paths.
+// A prefix (use) drops its trailing slash under StrictRouting too: "/users/:id?"
+// answers "/users", so middleware on "/users/" has to cover it. See keepsSlash.
+//
+//nolint:nonamedreturns,revive // names distinguish the three forms; use marks a prefix route
+func normalizeRoutePattern(pattern string, config *Config, use bool) (raw, pretty, clean string) {
+	if pattern == "" {
+		pattern = "/"
+	}
+	if pattern[0] != '/' {
+		pattern = "/" + pattern
+	}
+	raw = pattern
+	pretty = raw
+	if !config.CaseSensitive {
+		pretty = utilsstrings.ToLower(pretty)
+	}
+	if (!config.StrictRouting || (use && !keepsSlash(pretty))) && len(pretty) > 1 {
+		pretty = utils.TrimRight(pretty, '/')
+		if pretty == "" {
+			// as for a request path: "//" is the root, not an empty pattern
+			pretty = "/"
+		}
+	}
+	clean = RemoveEscapeChar(pretty)
+	return raw, pretty, clean
+}
+
+// adoptConstraints takes the constraints of raw's parameters for this parser's.
+// The parser is built from the prettified, possibly lowercased pattern, which
+// would corrupt constraint names and arguments; raw is the pattern as written.
+func (parser *routeParser) adoptConstraints(raw *routeParser) {
+	if len(parser.params) != len(raw.params) {
+		return
+	}
+	j := 0
+	for _, seg := range parser.segs {
+		if !seg.IsParam {
+			continue
+		}
+		for j < len(raw.segs) && !raw.segs[j].IsParam {
+			j++
+		}
+		if j >= len(raw.segs) {
+			return
+		}
+		seg.Constraints = raw.segs[j].Constraints
+		j++
+	}
+	parser.constParam = isConstParamShape(parser.segs)
+}
+
+// applyStrictRouting makes a trailing slash on the last constant segment
+// mandatory under StrictRouting, so "/a/:id/" does not match "/a/x".
+func (parser *routeParser) applyStrictRouting() {
+	if n := len(parser.segs); n > 0 {
+		if last := parser.segs[n-1]; !last.IsParam && last.HasOptionalSlash {
+			last.HasOptionalSlash = false
+		}
+	}
+	parser.computeSlashBounds()
+}
+
+// unescapePath decodes the percent-encoded bytes of a path in place. Unlike the
+// form-argument decoder it leaves '+' alone and keeps a malformed escape as is.
+func unescapePath(b []byte) []byte {
+	i := bytes.IndexByte(b, '%')
+	if i == -1 {
+		return b
+	}
+	n := len(b)
+	dst := i
+	for i < n {
+		if b[i] == '%' && i+2 < n {
+			if hi, lo := unhex(b[i+1]), unhex(b[i+2]); hi >= 0 && lo >= 0 {
+				b[dst] = byte(hi<<4 | lo) //nolint:gosec // G115: both nibbles are 0-15
+				dst++
+				i += 3
+				continue
+			}
+		}
+		b[dst] = b[i]
+		dst++
+		i++
+	}
+	return b[:dst]
+}
+
+// unhex returns the value of a hexadecimal digit, or -1 for any other byte.
+func unhex(c byte) int {
+	switch {
+	case c >= '0' && c <= '9':
+		return int(c - '0')
+	case c >= 'a' && c <= 'f':
+		return int(c-'a') + 10
+	case c >= 'A' && c <= 'F':
+		return int(c-'A') + 10
+	default:
+		return -1
+	}
+}
+
+// pathUnreserved marks the unreserved characters of RFC 3986 Section 2.3.
+// Only their percent-encoded forms name the same resource as the characters
+// themselves (Section 6.2.2.2), so they are the escapes the router decodes.
+var pathUnreserved = newPathUnreserved()
+
+func newPathUnreserved() [256]bool {
+	var unreserved [256]bool
+	for c := byte('a'); c <= 'z'; c++ {
+		unreserved[c] = true
+		unreserved[c-'a'+'A'] = true
+	}
+	for c := byte('0'); c <= '9'; c++ {
+		unreserved[c] = true
+	}
+	for _, c := range []byte("-._~") {
+		unreserved[c] = true
+	}
+	return unreserved
+}
+
+// unescapeSafePath normalizes the percent escapes of b in place (RFC 3986
+// Section 6.2.2): an escape of an unreserved character is decoded, and any
+// other escape is kept with uppercase hex digits. A stray "%" that begins no
+// escape is kept as sent, unless the two bytes written after it are hex
+// digits, which only a decoded escape can produce: kept, it would read as an
+// escape no one sent, "%%370rivate" becoming "%70rivate", which decodes to
+// "private", a path the router never matched. Such a "%" is written as "%25".
+// The result is a valid path that normalizes to itself and holds no escape of
+// an unreserved character. The escapes the router keeps, such as "%2F", are
+// still meant to stay encoded: the result is not a path to percent-decode.
+// Since a stray "%" changes only next to a decoded escape, it comes out the
+// same in a path matched as sent (see pathNeedsNormalization) as in one
+// normalized for another reason, so "/files/100%" and "/files/./100%" both
+// end in "100%".
+func unescapeSafePath(b []byte) []byte {
+	const upperhex = "0123456789ABCDEF"
+	i := bytes.IndexByte(b, '%')
+	if i == -1 {
+		return b
+	}
+	n := len(b)
+	dst := i
+	for i < n {
+		if b[i] != '%' {
+			b[dst] = b[i]
+			dst++
+			i++
+			continue
+		}
+		if i+2 < n {
+			if hi, lo := unhex(b[i+1]), unhex(b[i+2]); hi >= 0 && lo >= 0 {
+				if v := byte(hi<<4 | lo); pathUnreserved[v] { //nolint:gosec // G115: both nibbles are 0-15
+					b[dst] = v
+					dst++
+				} else {
+					b[dst], b[dst+1], b[dst+2] = '%', upperhex[hi], upperhex[lo]
+					dst += 3
+				}
+				i += 3
+				continue
+			}
+		}
+		if strayPercentNeedsEscape(b, i+1) {
+			return escapeStrayPercent(b, dst, i)
+		}
+		b[dst] = '%'
+		dst++
+		i++
+	}
+	return b[:dst]
+}
+
+// escapeStrayPercent finishes unescapeSafePath from the stray "%" at b[i] that
+// has to be written as "%25", once the in-place pass has written its result so
+// far to b[:dst]. Writing "%25" there would overwrite the escape after it before
+// the pass has read it, so the rest is written to a new slice. Only a malformed
+// request path pays for the copy, and it is made once: every "%25" is paired
+// with the escape decoded within the two bytes after it, which is three bytes
+// shorter than it was, and no decoded escape completes two of them, so the
+// result is never longer than b.
+func escapeStrayPercent(b []byte, dst, i int) []byte {
+	const upperhex = "0123456789ABCDEF"
+	n := len(b)
+	out := make([]byte, dst, n)
+	copy(out, b[:dst])
+	for i < n {
+		if b[i] != '%' {
+			out = append(out, b[i])
+			i++
+			continue
+		}
+		if i+2 < n {
+			if hi, lo := unhex(b[i+1]), unhex(b[i+2]); hi >= 0 && lo >= 0 {
+				if v := byte(hi<<4 | lo); pathUnreserved[v] { //nolint:gosec // G115: both nibbles are 0-15
+					out = append(out, v)
+				} else {
+					out = append(out, '%', upperhex[hi], upperhex[lo])
+				}
+				i += 3
+				continue
+			}
+		}
+		if strayPercentNeedsEscape(b, i+1) {
+			out = append(out, '%', '2', '5')
+		} else {
+			out = append(out, '%')
+		}
+		i++
+	}
+	return out
+}
+
+// strayPercentNeedsEscape reports whether the stray "%" before b[j] has to be
+// written as "%25", that is whether the next two bytes unescapeSafePath writes
+// after it are hex digits.
+func strayPercentNeedsEscape(b []byte, j int) bool {
+	if first := nextNormalizedByte(b, &j); unhex(first) < 0 {
+		return false
+	}
+	second := nextNormalizedByte(b, &j)
+	return unhex(second) >= 0
+}
+
+// nextNormalizedByte returns the first byte unescapeSafePath writes for b[*j:]
+// and moves *j past the input that byte takes. An escape it keeps and a stray
+// "%" both write a '%' first, and past the end it returns 0; neither is a hex
+// digit.
+func nextNormalizedByte(b []byte, j *int) byte {
+	i := *j
+	if i >= len(b) {
+		return 0
+	}
+	if b[i] == '%' && i+2 < len(b) {
+		if hi, lo := unhex(b[i+1]), unhex(b[i+2]); hi >= 0 && lo >= 0 {
+			if v := byte(hi<<4 | lo); pathUnreserved[v] { //nolint:gosec // G115: both nibbles are 0-15
+				*j = i + 3
+				return v
+			}
+		}
+	}
+	*j = i + 1
+	return b[i]
+}
+
+// cleanPathSegments removes the "." and ".." segments of b in place, as
+// RFC 3986 Section 5.2.4 describes. ".." never climbs above the root, a path
+// ending in a removed segment keeps its trailing slash ("/a/b/.." is "/a/"),
+// and empty segments stay: "/a//b" and "/a/b" are different paths.
+func cleanPathSegments(b []byte) []byte {
+	if !hasDotSegment(b) {
+		return b
+	}
+	n := len(b)
+	rooted := b[0] == '/'
+	i := 0
+	if rooted {
+		i = 1
+	}
+	w := 0
+	trailingSlash := false
+	for i <= n {
+		j := i
+		for j < n && b[j] != '/' {
+			j++
+		}
+		seg := b[i:j]
+		last := j == n
+		switch {
+		case len(seg) == 1 && seg[0] == '.':
+			trailingSlash = last
+		case len(seg) == 2 && seg[0] == '.' && seg[1] == '.':
+			if k := bytes.LastIndexByte(b[:w], '/'); k >= 0 {
+				w = k
+			} else {
+				w = 0
+			}
+			trailingSlash = last
+		default:
+			if rooted || w > 0 {
+				b[w] = '/'
+				w++
+			}
+			w += copy(b[w:], seg)
+			trailingSlash = false
+		}
+		i = j + 1
+	}
+	if trailingSlash && (w == 0 || b[w-1] != '/') {
+		b[w] = '/'
+		w++
+	}
+	return b[:w]
+}
+
+// pairWindow is the span two words that overlap by one byte cover.
+const pairWindow = 2*swar.WordLen - 1
+
+// slashDotLanes flags the lanes of w holding a '/' followed within w by a
+// '.'. Load8 puts byte k in lane k, so a shift by one lane compares each byte
+// with its successor; callers overlap words by one byte for the pair that
+// straddles two words.
+func slashDotLanes(w uint64) uint64 {
+	return swar.MatchByteMask(w, '/') & (swar.MatchByteMask(w, '.') >> 8)
+}
+
+// needsPathNormalization reports whether normalizeRequestPath could change s:
+// it is unrooted, or holds a percent escape or a segment starting with a dot.
+// It scans a word at a time and serves where fasthttp's own normalization
+// cannot answer the question (see DefaultCtx.pathNeedsNormalization).
+func needsPathNormalization(s string) bool {
+	n := len(s)
+	if n == 0 || s[0] != '/' {
+		return true
+	}
+	if n >= swar.WordLen {
+		// Words overlap by one byte so every adjacent pair shares a word; a
+		// pinned two-word window keeps the loads at constant offsets.
+		percent := swar.Broadcast('%')
+		i := 0
+		for ; i+pairWindow <= n; i += pairWindow - 1 {
+			win := s[i : i+pairWindow]
+			w0, w1 := swar.Load8(win, 0), swar.Load8(win, swar.WordLen-1)
+			if swar.ZeroLanes(w0^percent)|swar.ZeroLanes(w1^percent)|slashDotLanes(w0)|slashDotLanes(w1) != 0 {
+				return true
+			}
+		}
+		for ; i+swar.WordLen <= n; i += swar.WordLen - 1 {
+			w := swar.Load8(s, i)
+			if swar.ZeroLanes(w^percent)|slashDotLanes(w) != 0 {
+				return true
+			}
+		}
+		// the loops covered the bytes up to i; a word aligned to the end takes the rest
+		if i >= n-1 {
+			return false
+		}
+		w := swar.Load8(s, n-swar.WordLen)
+		return swar.ZeroLanes(w^percent)|slashDotLanes(w) != 0
+	}
+	for i := range n {
+		switch s[i] {
+		case '%':
+			return true
+		case '/':
+			if i+1 < n && s[i+1] == '.' {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// hasDotSegment reports whether cleanPathSegments could change b: it holds a
+// segment starting with a dot.
+func hasDotSegment(b []byte) bool {
+	n := len(b)
+	if n == 0 {
+		return false
+	}
+	if b[0] == '.' {
+		return true
+	}
+	if n >= swar.WordLen {
+		i := 0
+		for ; i+pairWindow <= n; i += pairWindow - 1 {
+			win := b[i : i+pairWindow : i+pairWindow]
+			if slashDotLanes(swar.Load8(win, 0))|slashDotLanes(swar.Load8(win, swar.WordLen-1)) != 0 {
+				return true
+			}
+		}
+		for ; i+swar.WordLen <= n; i += swar.WordLen - 1 {
+			if slashDotLanes(swar.Load8(b, i)) != 0 {
+				return true
+			}
+		}
+		if i >= n-1 {
+			return false
+		}
+		return slashDotLanes(swar.Load8(b, n-swar.WordLen)) != 0
+	}
+	for i := range n - 1 {
+		if b[i] == '/' && b[i+1] == '.' {
+			return true
+		}
+	}
+	return false
+}
+
+// normalizeRequestPath normalizes a request path in place as RFC 3986
+// Section 6.2.2 describes: an unrooted path is rooted, percent escapes are
+// normalized, all of them decoded when unescapeAll (UnescapePath) is set and
+// otherwise only those of unreserved characters, and then "." and ".."
+// segments are removed. Decoding runs exactly once, so "%2570rivate" stays a
+// literal name, while "/%70rivate", "/./private" and "/x/../private" all
+// match a route or guard on "/private".
+//
+// The rooting covers the absolute-form target with an empty path
+// ("GET http://host?q") and the asterisk-form "OPTIONS *", which carry no
+// leading slash. fasthttp roots its own copy, which is how such a path gets
+// here, and routes and Use prefixes assume a rooted path: unrooted, it slipped
+// past every root-level middleware while a "/*" route still matched it.
+// RFC 9112 Section 3.2 reads the empty path as "/".
+func normalizeRequestPath(b []byte, unescapeAll bool) []byte { //nolint:revive // the flag mirrors Config.UnescapePath
+	if len(b) == 0 || b[0] != '/' {
+		b = append(b, 0)
+		copy(b[1:], b)
+		b[0] = '/'
+	}
+	if unescapeAll {
+		b = unescapePath(b)
+	} else {
+		b = unescapeSafePath(b)
+	}
+	return cleanPathSegments(b)
+}
+
+func (parser *routeParser) reset() {
+	parser.segs = parser.segs[:0]
+	parser.params = parser.params[:0]
+	parser.wildCardCount = 0
+	parser.plusCount = 0
+	parser.minSlashes = 0
+	parser.maxSlashes = 0
+	parser.maxBounded = false
+	parser.constParam = false
+	parser.probe = constProbe{}
+}
+
+// parseRoute analyzes the route and divides it into segments for constant areas and parameters,
+// this information is needed later when assigning the requests to the declared routes
+func (parser *routeParser) parseRoute(pattern string, regexHandler any, customConstraints ...CustomConstraint) {
+	var n int
+	var seg *routeSegment
+	for pattern != "" {
+		nextParamPosition := findNextParamPosition(pattern)
+		// handle the parameter part
+		if nextParamPosition == 0 {
+			n, seg = parser.analyseParameterPart(pattern, regexHandler, customConstraints...)
+			parser.params, parser.segs = append(parser.params, seg.ParamName), append(parser.segs, seg)
+		} else {
+			n, seg = parser.analyseConstantPart(pattern, nextParamPosition)
+			parser.segs = append(parser.segs, seg)
+		}
+		pattern = pattern[n:]
+	}
+	// mark last segment
+	if len(parser.segs) > 0 {
+		parser.segs[len(parser.segs)-1].IsLast = true
+	}
+	parser.segs = addParameterMetaInfo(parser.segs)
+	for _, s := range parser.segs {
+		parser.yields = parser.yields || s.CanYield
+	}
+	parser.constParam = isConstParamShape(parser.segs)
+}
+
+// isConstParamShape reports whether segs is the "/const/:param" shape that
+// matchConstParam specializes: exactly one constant segment followed by one
+// plain trailing parameter. Every condition here is one the specialized body
+// assumes rather than re-checks, so keep the two in step.
+func isConstParamShape(segs []*routeSegment) bool {
+	if len(segs) != 2 {
+		return false
+	}
+	c, p := segs[0], segs[1]
+	return !c.IsParam && !c.HasOptionalSlash &&
+		p.IsParam && p.IsLast && !p.IsGreedy && !p.IsOptional && len(p.Constraints) == 0
+}
+
+// computeSlashBounds precomputes the minimum and maximum number of '/' bytes a
+// detection path can contain and still match this pattern, so the router can
+// reject candidates with an integer compare before walking their segments.
+// The unbounded cases mirror the findParamLen branches that let a parameter
+// swallow '/'; Test_Route_Match_SlashBoundsDifferential guards the pairing.
+func (parser *routeParser) computeSlashBounds() {
+	minSlashes := 0
+	maxSlashes := 0
+	bounded := true
+	for _, seg := range parser.segs {
+		if seg.IsParam {
+			switch {
+			case seg.IsGreedy:
+				// '*' and '+' match across '/'
+				bounded = false
+			case !seg.IsLast && seg.Length == 1:
+				// adjacent parameters consume one byte each, possibly a '/'
+				bounded = false
+			case !seg.IsLast && len(seg.ComparePart) == 1 && seg.ComparePart[0] != slashDelimiter:
+				// findParamLen's single-byte IndexByte search has no slash guard
+				bounded = false
+			}
+			// otherwise a non-greedy parameter never contains '/': the last
+			// segment stops at the next '/', and the multi-byte ComparePart
+			// branch rejects parameters that would span one
+			continue
+		}
+		n := strings.Count(seg.Const, string(slashDelimiter))
+		minSlashes += n
+		maxSlashes += n
+		if seg.HasOptionalSlash {
+			// getMatch may drop the trailing '/' of this const part
+			minSlashes--
+		}
+	}
+	parser.minSlashes = int32(minSlashes)
+	if bounded {
+		parser.maxSlashes = int32(maxSlashes)
+		parser.maxBounded = true
+	}
+}
+
+// constProbe is the first constant after a parameter, packed like
+// pathHeadWord, which Route.match tests at the slash it must start at before
+// walking the segments: "/repos/:owner/:repo/issues/:number" and
+// "/repos/:owner/:repo/pulls/:number" pass the prefix filter and the slash
+// bounds alike and differ here. The slash is found per request: the first
+// parameter starts at from and ends at the next '/', and skip more slashes
+// separate it from the constant. A zero mask means no probe.
+type constProbe struct {
+	word uint64 // the constant's leading bytes, packed little-endian
+	mask uint64 // covers the packed bytes; 0 means no probe
+	from int32  // length of the leading constant, where the first parameter starts
+	skip int32  // slashes to pass over after from before the constant's own
+}
+
+// computeProbe picks the first constant after a parameter that is longer than
+// a lone '/'. Every segment before it must keep that constant's slash
+// predictable: parameters end at the next '/' (not greedy, optional or
+// fixed-length, and a compare part led by '/'), and no constant drops an
+// optional trailing '/'. Otherwise the route gets no probe.
+// Test_RouteParser_Probe pins the gate.
+func (parser *routeParser) computeProbe() {
+	parser.probe = constProbe{}
+	segs := parser.segs
+	if len(segs) == 0 || segs[0].IsParam || segs[0].HasOptionalSlash {
+		return
+	}
+	from := len(segs[0].Const)
+	skip := 0
+	for _, seg := range segs[1:] {
+		if seg.IsParam {
+			if seg.IsGreedy || seg.IsOptional || seg.Length != 0 ||
+				seg.ComparePart == "" || seg.ComparePart[0] != slashDelimiter {
+				return
+			}
+			continue
+		}
+		c := seg.Const
+		if seg.HasOptionalSlash {
+			// getMatch may match this constant without its trailing '/'
+			c = c[:len(c)-1]
+		}
+		// The parameter before this constant passed the gate above, and its
+		// compare part is derived from this constant, so c starts with '/'.
+		if len(c) > 1 {
+			parser.probe = newConstProbe(c, from, skip)
+			return
+		}
+		if seg.HasOptionalSlash {
+			return
+		}
+		// A constant this short is exactly "/": one more slash to pass over.
+		skip++
+	}
+}
+
+// newConstProbe packs the first word of c into a probe located by from and skip.
+func newConstProbe(c string, from, skip int) constProbe {
+	word, mask := packConst(c)
+	return constProbe{word: word, mask: mask, from: int32(from), skip: int32(skip)} //nolint:gosec // G115 - offsets into a route pattern
+}
+
+// packConst packs up to a word of s like pathHeadWord and returns it with the
+// mask covering its lanes; an empty s yields a zero mask.
+//
+//nolint:nonamedreturns // the pair is easier to read named than by position
+func packConst(s string) (word, mask uint64) {
+	if len(s) > swar.WordLen {
+		s = s[:swar.WordLen]
+	}
+	if s == "" {
+		return 0, 0
+	}
+	mask = ^uint64(0)
+	if n := len(s); n < swar.WordLen {
+		mask = uint64(1)<<(8*n) - 1
+	}
+	return pathHeadWord(s), mask
+}
+
+// rejects reports whether the probe's constant is not at its slash in
+// detectionPath, or the path is too short to reach it.
+func (p *constProbe) rejects(detectionPath string) bool {
+	w, ok := p.locate(detectionPath)
+	return !ok || w&p.mask != p.word
+}
+
+// locate returns the word of detectionPath at the probe's slash, packed like
+// pathHeadWord, or false when the path is too short to reach that slash. It
+// depends on from and skip alone, which is what lets probeMemo share one
+// search among the routes of a bucket that probe the same slash. The slashes
+// are found with an inline swar.MatchByteMask scan rather than
+// strings.IndexByte: a parameter spans a few bytes, so the slash is nearly
+// always in the first word and the call was most of the check.
+func (p *constProbe) locate(detectionPath string) (uint64, bool) {
+	n := len(detectionPath)
+	i := int(p.from)
+	if i > n {
+		return 0, false
+	}
+	for skip := p.skip; ; skip-- {
+		var m uint64
+		for ; i+swar.WordLen <= n; i += swar.WordLen {
+			if m = swar.MatchByteMask(swar.Load8(detectionPath, i), slashDelimiter); m != 0 {
+				break
+			}
+		}
+		switch {
+		case m != 0:
+			i += swar.FirstLane(m)
+		case i < n && n >= swar.WordLen:
+			from := n - swar.WordLen
+			m = swar.MatchByteMask(swar.Load8(detectionPath, from), slashDelimiter) & (^uint64(0) << (8 * (i - from)))
+			if m == 0 {
+				return 0, false
+			}
+			i = from + swar.FirstLane(m)
+		default:
+			for i < n && detectionPath[i] != slashDelimiter {
+				i++
+			}
+			if i == n {
+				return 0, false
+			}
+		}
+		if skip == 0 {
+			break
+		}
+		i++
+	}
+	// common case inline; wordAt handles the end of the path
+	if i+swar.WordLen <= n {
+		return swar.Load8(detectionPath, i), true
+	}
+	return wordAt(detectionPath, i), true
+}
+
+// probeMemo shares constProbe.locate among the candidates of one route scan.
+// Routes that differ only after a parameter, as a REST resource's endpoints
+// do, probe the same slash, so the scan finds it once and each such candidate
+// costs a masked compare. The zero value is an empty memo.
+type probeMemo struct {
+	// key is the from and skip of the probe locate last ran for, packed by
+	// probeMemo.headRejects: two probes with equal keys locate the same word
+	// of any detection path. It is 0 when none has, since a probe's from is
+	// never 0 (see scanHead.setProbe).
+	key  uint64
+	word uint64 // what locate returned for that probe
+	ok   bool   // what locate returned for that probe
+}
+
+// wordAt packs s[i:i+8] little-endian without reading past s: lanes past the
+// end are zero, and when s holds a word the tail is an overlapping load
+// shifted so that lane 0 is s[i]. Requires 0 <= i <= len(s).
+func wordAt(s string, i int) uint64 {
+	rest := len(s) - i
+	if rest >= swar.WordLen {
+		return swar.Load8(s, i)
+	}
+	if len(s) >= swar.WordLen {
+		return swar.Load8(s, len(s)-swar.WordLen) >> (8 * (swar.WordLen - rest))
+	}
+	return pathHeadWord(s[i:])
+}
+
+// parseRoute analyzes the route and divides it into segments for constant areas and parameters,
+// this information is needed later when assigning the requests to the declared routes
+func parseRoute(pattern string, regexHandler any, customConstraints ...CustomConstraint) routeParser {
+	parser := routeParser{}
+	parser.parseRoute(pattern, regexHandler, customConstraints...)
+	// The slash bounds and the probe only speed up the router's scan, so they
+	// are computed here rather than on RoutePatternMatch's per-call path.
+	parser.computeSlashBounds()
+	parser.computeProbe()
+
+	// Check if the route has too many parameters
+	if len(parser.params) > maxParams {
+		panic(fmt.Sprintf("Route '%s' has %d parameters, which exceeds the maximum of %d",
+			pattern, len(parser.params), maxParams))
+	}
+
+	return parser
+}
+
+// addParameterMetaInfo add important meta information to the parameter segments
+// to simplify the search for the end of the parameter
+func addParameterMetaInfo(segs []*routeSegment) []*routeSegment {
+	var comparePart string
+	segLen := len(segs)
+	// loop from end to begin
+	for i := segLen - 1; i >= 0; i-- {
+		// set the compare part for the parameter
+		if segs[i].IsParam {
+			// important for finding the end of the parameter
+			segs[i].ComparePart = RemoveEscapeChar(comparePart)
+		} else {
+			comparePart = segs[i].Const
+			if len(comparePart) > 1 {
+				comparePart = utils.TrimRight(comparePart, slashDelimiter)
+			}
+		}
+	}
+
+	// loop from beginning to end
+	for i := range segLen {
+		// check how often the compare part is in the following const parts
+		if segs[i].IsParam {
+			segs[i].CanYield = segs[i].IsOptional && !segs[i].IsGreedy && segLen > i+1 && segs[i+1].IsParam
+			// check if parameter segments are directly after each other;
+			// when neither this parameter nor the next parameter are greedy, we only want one character
+			if segLen > i+1 && !segs[i].IsGreedy && segs[i+1].IsParam && !segs[i+1].IsGreedy {
+				segs[i].Length = 1
+			}
+			if segs[i].ComparePart == "" {
+				continue
+			}
+			for j := i + 1; j <= len(segs)-1; j++ {
+				if !segs[j].IsParam {
+					// count is important for the greedy match
+					segs[i].PartCount += strings.Count(segs[j].Const, segs[i].ComparePart)
+				}
+			}
+			// check if the end of the segment is an optional slash and then if the segment is optional or the last one
+		} else if segs[i].Const != "" && segs[i].Const[len(segs[i].Const)-1] == slashDelimiter && (segs[i].IsLast || (segLen > i+1 && segs[i+1].IsOptional)) {
+			segs[i].HasOptionalSlash = true
+		}
+	}
+
+	return segs
+}
+
+// findNextParamPosition search for the next possible parameter start position
+func findNextParamPosition(pattern string) int {
+	// Find the first parameter position
+	next := -1
+	for i := range pattern {
+		if parameterStartChars[pattern[i]] && (i == 0 || pattern[i-1] != escapeChar) {
+			next = i
+			break
+		}
+	}
+	if next > 0 && pattern[next] != wildcardParam {
+		// checking the found parameterStartChar is a cluster
+		for i := next + 1; i < len(pattern); i++ {
+			if !parameterStartChars[pattern[i]] {
+				return i - 1
+			}
+		}
+		return len(pattern) - 1
+	}
+	return next
+}
+
+// analyseConstantPart find the end of the constant part and create the route segment
+func (*routeParser) analyseConstantPart(pattern string, nextParamPosition int) (int, *routeSegment) {
+	// handle the constant part
+	processedPart := pattern
+	if nextParamPosition != -1 {
+		// remove the constant part until the parameter
+		processedPart = pattern[:nextParamPosition]
+	}
+	constPart := RemoveEscapeChar(processedPart)
+	return len(processedPart), &routeSegment{
+		Const:  constPart,
+		Length: len(constPart),
+	}
+}
+
+// analyseParameterPart find the parameter end and create the route segment
+func (parser *routeParser) analyseParameterPart(pattern string, regexHandler any, customConstraints ...CustomConstraint) (int, *routeSegment) {
+	isWildCard := pattern[0] == wildcardParam
+	isPlusParam := pattern[0] == plusParam
+
+	paramEndPosition := 0
+	paramConstraintStartPosition := -1
+	paramConstraintEndPosition := -1
+
+	// handle wildcard end
+	if !isWildCard && !isPlusParam {
+		paramEndPosition = -1
+		search := pattern[1:]
+		for i := range search {
+			if paramConstraintStartPosition == -1 && search[i] == paramConstraintStart && (i == 0 || search[i-1] != escapeChar) {
+				paramConstraintStartPosition = i + 1
+				continue
+			}
+			if paramConstraintStartPosition != -1 && search[i] == paramConstraintEnd && (i == 0 || search[i-1] != escapeChar) {
+				paramConstraintEndPosition = i + 1
+				continue
+			}
+			if parameterEndChars[search[i]] {
+				if (paramConstraintStartPosition == -1 && paramConstraintEndPosition == -1) ||
+					(paramConstraintStartPosition != -1 && paramConstraintEndPosition != -1) {
+					paramEndPosition = i
+					break
+				}
+			}
+		}
+
+		switch {
+		case paramEndPosition == -1:
+			paramEndPosition = len(pattern) - 1
+		case bytes.IndexByte(parameterDelimiterChars, pattern[paramEndPosition+1]) == -1:
+			paramEndPosition++
+		default:
+			// do nothing
+		}
+	}
+
+	// cut params part
+	processedPart := pattern[0 : paramEndPosition+1]
+	n := paramEndPosition + 1
+	paramName := RemoveEscapeChar(GetTrimmedParam(processedPart))
+
+	// Check has constraint
+	var constraints []*Constraint
+
+	if hasConstraint := paramConstraintStartPosition != -1 && paramConstraintEndPosition != -1; hasConstraint {
+		constraintString := pattern[paramConstraintStartPosition+1 : paramConstraintEndPosition]
+		userConstraints := splitNonEscaped(constraintString, paramConstraintSeparator)
+		constraints = make([]*Constraint, 0, len(userConstraints))
+
+		for _, c := range userConstraints {
+			start := findNextNonEscapedCharPosition(c, paramConstraintDataStart)
+			end := strings.LastIndexByte(c, paramConstraintDataEnd)
+
+			var rawName string
+			var data []string
+
+			if start != -1 && end != -1 {
+				rawName = c[:start]
+				data = []string{c[start+1 : end]}
+			} else {
+				rawName = c
+				data = []string{}
+			}
+
+			handler := findConstraintHandler(rawName, regexHandler, customConstraints)
+			if handler == nil {
+				handler = findConstraintHandler(resolveConstraintName(rawName), regexHandler, customConstraints)
+			}
+			if handler == nil {
+				continue
+			}
+
+			constraint := newConstraint(handler, rawName, data)
+			constraints = append(constraints, constraint)
+		}
+
+		paramName = RemoveEscapeChar(GetTrimmedParam(pattern[0:paramConstraintStartPosition]))
+	}
+
+	if isWildCard {
+		parser.wildCardCount++
+		paramName += strconv.Itoa(parser.wildCardCount)
+	} else if isPlusParam {
+		parser.plusCount++
+		paramName += strconv.Itoa(parser.plusCount)
+	}
+
+	segment := &routeSegment{
+		ParamName:  paramName,
+		IsParam:    true,
+		IsOptional: isWildCard || pattern[paramEndPosition] == optionalParam,
+		IsGreedy:   isWildCard || isPlusParam,
+	}
+
+	if len(constraints) > 0 {
+		segment.Constraints = constraints
+	}
+
+	return n, segment
+}
+
+// findNextNonEscapedCharPosition searches the next char position and skips the escaped characters
+func findNextNonEscapedCharPosition(search string, char byte) int {
+	for i := 0; i < len(search); i++ {
+		if search[i] == char && (i == 0 || search[i-1] != escapeChar) {
+			return i
+		}
+	}
+	return -1
+}
+
+// splitNonEscaped slices s into all substrings separated by sep and returns a slice of the substrings between those separators
+// This function also takes a care of escape char when splitting.
+func splitNonEscaped(s string, sep byte) []string {
+	var result []string
+	i := findNextNonEscapedCharPosition(s, sep)
+
+	for i > -1 {
+		result = append(result, s[:i])
+		s = s[i+1:]
+		i = findNextNonEscapedCharPosition(s, sep)
+	}
+
+	return append(result, s)
+}
+
+func hasPartialMatchBoundary(path string, matchedLength int) bool {
+	if matchedLength < 0 || matchedLength > len(path) {
+		return false
+	}
+	if matchedLength == len(path) {
+		return true
+	}
+	if matchedLength == 0 {
+		return false
+	}
+	if path[matchedLength-1] == slashDelimiter {
+		return true
+	}
+	if matchedLength < len(path) && path[matchedLength] == slashDelimiter {
+		return true
+	}
+
+	return false
+}
+
+// getMatch parses the passed url and tries to match it against the route segments and determine the parameter positions
+func (parser *routeParser) getMatch(detectionPath, path string, params *[maxParams]string, partialCheck bool) bool { //nolint:revive // Accepting a bool param is fine here
+	if parser.constParam {
+		return parser.matchConstParam(detectionPath, path, params, partialCheck)
+	}
+	if parser.yields {
+		return parser.matchBacktrack(detectionPath, path, params, partialCheck)
+	}
+
+	originalDetectionPath := detectionPath
+	// offset indexes into the never-resliced path; it only advances by bytes consumed
+	// from detectionPath (never longer than path), so offset+i stays in bounds.
+	var i, paramsIterator, partLen, offset int
+	for _, segment := range parser.segs {
+		partLen = len(detectionPath)
+		// check const segment
+		if !segment.IsParam {
+			i = segment.Length
+			// is optional part or the const part must match with the given string
+			// check if the end of the segment is an optional slash
+			// the unsigned compare proves 0 <= i <= len(detectionPath), keeping detectionPath[:i] bounds-check free
+			// NOTE: computeSlashBounds' minSlashes accounts for this optional-slash drop
+			if segment.HasOptionalSlash && partLen == i-1 && detectionPath == segment.Const[:i-1] {
+				i--
+			} else if uint(i) > uint(len(detectionPath)) || detectionPath[:i] != segment.Const {
+				return false
+			}
+		} else {
+			// determine parameter length
+			i = findParamLen(detectionPath, segment)
+			if !segment.IsOptional && i == 0 {
+				return false
+			}
+			// take over the params positions
+			params[paramsIterator] = path[offset : offset+i]
+
+			if !segment.IsOptional || i != 0 {
+				// check constraint
+				for _, c := range segment.Constraints {
+					if matched := c.matchConstraint(params[paramsIterator]); !matched {
+						return false
+					}
+				}
+			}
+
+			paramsIterator++
+		}
+
+		// reduce founded part from the string
+		if partLen > 0 {
+			detectionPath = detectionPath[i:]
+			offset += i
+		}
+	}
+	if detectionPath != "" {
+		if !partialCheck {
+			return false
+		}
+		consumedLength := len(originalDetectionPath) - len(detectionPath)
+		if !hasPartialMatchBoundary(originalDetectionPath, consumedLength) {
+			return false
+		}
+	}
+
+	return true
+}
+
+type backtrackPoint struct {
+	detectionPath  string
+	segIdx         int
+	offset         int
+	paramsIterator int
+}
+
+// maxBacktrackRetries bounds optional-parameter retry attempts to prevent
+// exponential execution times on routes with many adjacent optional parameters.
+const maxBacktrackRetries = 16
+
+// matchBacktrack is getMatch for routes with an optional parameter directly before another
+// parameter: it retries that parameter as empty (/:a:b?:c on /ac), up to maxBacktrackRetries.
+func (parser *routeParser) matchBacktrack(detectionPath, path string, params *[maxParams]string, partialCheck bool) bool { //nolint:revive // mirrors getMatch's signature
+	originalDetectionPath := detectionPath
+	var i, paramsIterator, partLen, offset, retries, segIdx int
+	var backtrackStack [maxParams]backtrackPoint
+	backtrackLen := 0
+
+	restore := func() bool {
+		if backtrackLen > 0 && retries < maxBacktrackRetries {
+			retries++
+			backtrackLen--
+			if backtrackLen >= 0 && backtrackLen < len(backtrackStack) {
+				bp := backtrackStack[backtrackLen]
+				segIdx = bp.segIdx + 1
+				detectionPath = bp.detectionPath
+				offset = bp.offset
+				paramsIterator = bp.paramsIterator
+				params[paramsIterator-1] = ""
+				return true
+			}
+		}
+		return false
+	}
+
+segments:
+	for {
+		if segIdx >= len(parser.segs) {
+			if detectionPath != "" {
+				if !partialCheck {
+					if restore() {
+						continue
+					}
+					return false
+				}
+				consumedLength := len(originalDetectionPath) - len(detectionPath)
+				if !hasPartialMatchBoundary(originalDetectionPath, consumedLength) {
+					if restore() {
+						continue
+					}
+					return false
+				}
+			}
+			return true
+		}
+
+		segment := parser.segs[segIdx]
+		partLen = len(detectionPath)
+
+		if !segment.IsParam {
+			i = segment.Length
+			// is optional part or the const part must match with the given string
+			// check if the end of the segment is an optional slash
+			// the unsigned compare proves 0 <= i <= len(detectionPath), keeping detectionPath[:i] bounds-check free
+			// NOTE: computeSlashBounds' minSlashes accounts for this optional-slash drop
+			if segment.HasOptionalSlash && partLen == i-1 && detectionPath == segment.Const[:i-1] {
+				i--
+			} else if uint(i) > uint(len(detectionPath)) || detectionPath[:i] != segment.Const {
+				if restore() {
+					continue
+				}
+				return false
+			}
+		} else {
+			i = findParamLen(detectionPath, segment)
+			if !segment.IsOptional && i == 0 {
+				if restore() {
+					continue
+				}
+				return false
+			}
+
+			if !segment.IsOptional || i != 0 {
+				paramValue := path[offset : offset+i]
+				for _, c := range segment.Constraints {
+					if matched := c.matchConstraint(paramValue); !matched {
+						// an earlier optional may yield; this value itself is never retried as empty
+						if restore() {
+							continue segments
+						}
+						return false
+					}
+				}
+			}
+
+			// retry point: this parameter as empty
+			if segment.CanYield && i > 0 && backtrackLen < len(backtrackStack) {
+				backtrackStack[backtrackLen] = backtrackPoint{
+					segIdx:         segIdx,
+					offset:         offset,
+					paramsIterator: paramsIterator + 1,
+					detectionPath:  detectionPath,
+				}
+				backtrackLen++
+			}
+
+			params[paramsIterator] = path[offset : offset+i]
+			paramsIterator++
+		}
+
+		if partLen > 0 {
+			detectionPath = detectionPath[i:]
+			offset += i
+		}
+		segIdx++
+	}
+}
+
+// matchConstParam is getMatch specialized to the "/const/:param" shape, which
+// is what most REST endpoints look like ("/user/keys/:key_id"). It is a
+// straight-line rewrite of the generic segment walk for that shape, not a
+// different matcher: isConstParamShape gates on exactly the properties that
+// let each step below collapse.
+//
+// Walking the generic loop for two segments costs a pointer chase per segment,
+// the IsParam/IsOptional/IsLast branches, the constraint loop and the reslice
+// bookkeeping, all to reach the same three operations this does directly.
+func (parser *routeParser) matchConstParam(detectionPath, path string, params *[maxParams]string, partialCheck bool) bool { //nolint:revive // mirrors getMatch's signature
+	constSeg := parser.segs[0]
+
+	// Same guard as the generic const branch; HasOptionalSlash is excluded by
+	// the gate, so the trailing-slash-drop case cannot arise here.
+	n := constSeg.Length
+	if uint(n) > uint(len(detectionPath)) || detectionPath[:n] != constSeg.Const {
+		return false
+	}
+
+	// The parameter is last and non-greedy, so findParamLenForLastSegment would
+	// stop it at the next '/', or take the remainder when there is none.
+	rest := detectionPath[n:]
+	i := len(rest)
+	if idx := strings.IndexByte(rest, slashDelimiter); idx != -1 {
+		i = idx
+	}
+	// The gate excludes optional parameters, so an empty one is no match.
+	if i == 0 {
+		return false
+	}
+
+	// offset into path, never resliced, exactly as the generic loop tracks it
+	params[0] = path[n : n+i]
+
+	if i == len(rest) {
+		return true
+	}
+	// Leftover detection path: only prefix (use) routes may stop short, and
+	// only on a segment boundary.
+	if !partialCheck {
+		return false
+	}
+	return hasPartialMatchBoundary(detectionPath, n+i)
+}
+
+// findParamLen for the expressjs wildcard behavior (right to left greedy)
+// look at the other segments and take what is left for the wildcard from right to left
+//
+// NOTE: computeSlashBounds mirrors which branches here let a parameter consume
+// '/' (greedy, adjacent Length==1, single-byte ComparePart). When changing how
+// parameters consume '/', update computeSlashBounds or the router's slash-count
+// quick-reject will wrongly filter routes.
+// CanYield relies on a parameter ending at the first occurrence of its ComparePart.
+func findParamLen(s string, segment *routeSegment) int {
+	if segment.IsLast {
+		return findParamLenForLastSegment(s, segment)
+	}
+
+	if segment.Length != 0 && len(s) >= segment.Length {
+		return segment.Length
+	} else if segment.IsGreedy {
+		if segment.GreedyTail {
+			return findGreedyTailLen(s, segment.ComparePart)
+		}
+		// Search the parameters until the next constant part
+		// special logic for greedy params
+		searchCount := strings.Count(s, segment.ComparePart)
+		if searchCount > 1 {
+			return findGreedyParamLen(s, searchCount, segment)
+		}
+	}
+
+	if len(segment.ComparePart) == 1 {
+		if constPosition := strings.IndexByte(s, segment.ComparePart[0]); constPosition != -1 {
+			// An optional parameter that swallowed a '/' would make the route
+			// match a path with more segments than the pattern has, so the
+			// compare part must sit in the same path segment.
+			if segment.IsOptional && !segment.IsGreedy && strings.IndexByte(s[:constPosition], slashDelimiter) != -1 {
+				return 0
+			}
+			if segment.ParamTail {
+				return findParamTailLen(s, segment.ComparePart, constPosition)
+			}
+			return constPosition
+		}
+	} else if len(segment.ComparePart) > 1 && !segment.IsGreedy && segment.ComparePart[0] == slashDelimiter {
+		// A non-greedy parameter cannot span a '/', so it ends at the first
+		// '/' of s, and only if the compare part sits there. Otherwise the
+		// answer is 0 whether the compare part occurs later or not at all:
+		// the constant after the parameter fails either way.
+		slash := strings.IndexByte(s, slashDelimiter)
+		if slash == -1 {
+			return len(s)
+		}
+		if strings.HasPrefix(s[slash:], segment.ComparePart) {
+			return slash
+		}
+		return 0
+	} else if constPosition := strings.Index(s, segment.ComparePart); constPosition != -1 {
+		// if the compare part was found, but contains a slash although this part is not greedy, then it must not match
+		// example: /api/:param/fixedEnd -> path: /api/123/456/fixedEnd = no match , /api/123/fixedEnd = match
+		if !segment.IsGreedy && strings.IndexByte(s[:constPosition], slashDelimiter) != -1 {
+			return 0
+		}
+		if segment.ParamTail {
+			return findParamTailLen(s, segment.ComparePart, constPosition)
+		}
+		return constPosition
+	}
+
+	return len(s)
+}
+
+// findParamLenForLastSegment get the length of the parameter if it is the last segment
+func findParamLenForLastSegment(s string, seg *routeSegment) int {
+	if !seg.IsGreedy {
+		if i := strings.IndexByte(s, slashDelimiter); i != -1 {
+			return i
+		}
+	}
+
+	return len(s)
+}
+
+// findGreedyParamLen get the length of the parameter for greedy segments from right to left
+func findGreedyParamLen(s string, searchCount int, segment *routeSegment) int {
+	// check all from right to left segments
+	for i := segment.PartCount; i > 0 && searchCount > 0; i-- {
+		searchCount--
+
+		constPosition := strings.LastIndex(s, segment.ComparePart)
+		if constPosition == -1 {
+			break
+		}
+		s = s[:constPosition]
+	}
+
+	return len(s)
+}
+
+// findGreedyTailLen ends a prefix's greedy parameter before the last tail that ends s or a
+// path segment, so the prefix covers every path below it.
+func findGreedyTailLen(s, tail string) int {
+	for end := len(s); end >= len(tail); end = strings.LastIndexByte(s[:end], slashDelimiter) {
+		if strings.HasSuffix(s[:end], tail) {
+			return end - len(tail)
+		}
+	}
+	return len(s)
+}
+
+// findParamTailLen ends a prefix's parameter where tail ends its path segment, else at first:
+// the first match, which a one-byte tail lets cross a '/' as on an endpoint.
+func findParamTailLen(s, tail string, first int) int {
+	if i := strings.IndexByte(s, slashDelimiter); i != -1 {
+		s = s[:i]
+	}
+	if strings.HasSuffix(s, tail) {
+		return len(s) - len(tail)
+	}
+	return first
+}
+
+// greedyTail returns the only greedy parameter when the last segment, a constant that does
+// not end in '/', directly follows it.
+func (parser *routeParser) greedyTail() *routeSegment {
+	n := len(parser.segs)
+	if n < 2 || parser.wildCardCount+parser.plusCount != 1 {
+		return nil
+	}
+	g, last := parser.segs[n-2], parser.segs[n-1]
+	if !g.IsGreedy || last.IsParam || last.Const == "" || last.Const[len(last.Const)-1] == slashDelimiter {
+		return nil
+	}
+	return g
+}
+
+// markTail is for prefixes only: an endpoint keeps findParamLen's guess.
+func (parser *routeParser) markTail() {
+	if g := parser.greedyTail(); g != nil {
+		g.GreedyTail = true
+	}
+	n := len(parser.segs)
+	if n < 3 || parser.wildCardCount+parser.plusCount != 0 {
+		return
+	}
+	c, p, last := parser.segs[n-3], parser.segs[n-2], parser.segs[n-1]
+	if strings.IndexByte(c.Const, slashDelimiter) != -1 && p.IsParam && !p.IsOptional && len(p.Constraints) == 0 &&
+		last.Const != "" && strings.IndexByte(last.Const, slashDelimiter) == -1 {
+		p.ParamTail = true
+	}
+}
+
+// keepsSlash reports whether a StrictRouting prefix keeps its trailing '/', as in v3.6.1: a
+// greedy parameter that is not last ends where findGreedyParamLen guesses, which the '/' steers.
+func keepsSlash(pattern string) bool {
+	var parser routeParser
+	parser.parseRoute(utils.TrimRight(pattern, '/'), nil)
+	tail := parser.greedyTail()
+	for _, seg := range parser.segs {
+		if seg.IsGreedy && !seg.IsLast && seg != tail {
+			return true
+		}
+	}
+	return false
+}
+
+// GetTrimmedParam trims the ':' & '?' from a string
+func GetTrimmedParam(param string) string {
+	start := 0
+	end := len(param)
+
+	if end == 0 || param[start] != paramStarterChar { // is not a param
+		return param
+	}
+	start++
+	if param[end-1] == optionalParam { // is ?
+		end--
+	}
+
+	return param[start:end]
+}
+
+// RemoveEscapeChar removes escape characters
+func RemoveEscapeChar(word string) string {
+	// Fast path: check if there are any escape characters first
+	escapeIdx := strings.IndexByte(word, '\\')
+	if escapeIdx == -1 {
+		return word // No escape chars, return original string without allocation
+	}
+
+	// Slow path: copy and remove escape characters
+	b := []byte(word)
+	tail := RemoveEscapeCharBytes(b[escapeIdx:])
+	return string(b[:escapeIdx+len(tail)])
+}
+
+// RemoveEscapeCharBytes removes escape characters
+func RemoveEscapeCharBytes(word []byte) []byte {
+	dst := 0
+	for src := range word {
+		if word[src] != '\\' {
+			word[dst] = word[src]
+			dst++
+		}
+	}
+	return word[:dst]
+}
+
+// CheckConstraint validates if a param matches the given constraint.
+// Kept for backward compatibility with external callers.
+func (c *Constraint) CheckConstraint(param string) bool {
+	return c.matchConstraint(param)
+}

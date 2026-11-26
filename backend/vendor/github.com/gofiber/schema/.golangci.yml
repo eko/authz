@@ -1,0 +1,15 @@
+version: "2"
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+  go: "1.26"
+
+linters:
+  enable:
+    - modernize
+  settings:
+    modernize:
+      disable:
+        # reflect's Fields()/Methods() iterators cost a closure per loop
+        - stditerators

@@ -14,9 +14,6 @@ github.com/cenkalti/backoff/v5
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/clipperhouse/uax29/v2 v2.7.0
-## explicit; go 1.18
-github.com/clipperhouse/uax29/v2/graphemes
 # github.com/coreos/go-oidc/v3 v3.21.0
 ## explicit; go 1.25.0
 github.com/coreos/go-oidc/v3/oidc
@@ -127,23 +124,55 @@ github.com/go-playground/validator/v10
 # github.com/go-sql-driver/mysql v1.10.2
 ## explicit; go 1.24.0
 github.com/go-sql-driver/mysql
-# github.com/gofiber/adaptor/v2 v2.2.1
-## explicit; go 1.17
-github.com/gofiber/adaptor/v2
-# github.com/gofiber/contrib/otelfiber v1.0.10
-## explicit; go 1.18
-github.com/gofiber/contrib/otelfiber
-# github.com/gofiber/fiber/v2 v2.52.16
-## explicit; go 1.20
-github.com/gofiber/fiber/v2
-github.com/gofiber/fiber/v2/internal/schema
-github.com/gofiber/fiber/v2/log
-github.com/gofiber/fiber/v2/middleware/cors
-github.com/gofiber/fiber/v2/middleware/filesystem
-github.com/gofiber/fiber/v2/utils
-# github.com/gofiber/swagger v1.1.1
-## explicit; go 1.18
-github.com/gofiber/swagger
+# github.com/gofiber/contrib/v3/otel v1.3.6
+## explicit; go 1.26.0
+github.com/gofiber/contrib/v3/otel
+github.com/gofiber/contrib/v3/otel/internal
+# github.com/gofiber/contrib/v3/swaggo v1.0.19
+## explicit; go 1.26.0
+github.com/gofiber/contrib/v3/swaggo
+# github.com/gofiber/fiber/v3 v3.7.0
+## explicit; go 1.26.0
+github.com/gofiber/fiber/v3
+github.com/gofiber/fiber/v3/binder
+github.com/gofiber/fiber/v3/internal/appconfig
+github.com/gofiber/fiber/v3/internal/bodystream
+github.com/gofiber/fiber/v3/internal/bytepolicy
+github.com/gofiber/fiber/v3/internal/byterange
+github.com/gofiber/fiber/v3/internal/contextvalue
+github.com/gofiber/fiber/v3/internal/cookie
+github.com/gofiber/fiber/v3/internal/errorreplay
+github.com/gofiber/fiber/v3/internal/etag
+github.com/gofiber/fiber/v3/internal/fieldname
+github.com/gofiber/fiber/v3/internal/headerlist
+github.com/gofiber/fiber/v3/internal/headerlookup
+github.com/gofiber/fiber/v3/internal/hostname
+github.com/gofiber/fiber/v3/internal/ipv6host
+github.com/gofiber/fiber/v3/internal/logtemplate
+github.com/gofiber/fiber/v3/internal/mediatype
+github.com/gofiber/fiber/v3/internal/nilerror
+github.com/gofiber/fiber/v3/internal/origin
+github.com/gofiber/fiber/v3/internal/paramdelim
+github.com/gofiber/fiber/v3/internal/quotedstring
+github.com/gofiber/fiber/v3/internal/redact
+github.com/gofiber/fiber/v3/internal/schemehost
+github.com/gofiber/fiber/v3/internal/urlnorm
+github.com/gofiber/fiber/v3/internal/wiretarget
+github.com/gofiber/fiber/v3/log
+github.com/gofiber/fiber/v3/middleware/adaptor
+github.com/gofiber/fiber/v3/middleware/cors
+# github.com/gofiber/schema v1.10.2
+## explicit; go 1.26.0
+github.com/gofiber/schema
+# github.com/gofiber/utils/v2 v2.6.5
+## explicit; go 1.26.0
+github.com/gofiber/utils/v2
+github.com/gofiber/utils/v2/bytes
+github.com/gofiber/utils/v2/internal/caseconv
+github.com/gofiber/utils/v2/internal/unsafeconv
+github.com/gofiber/utils/v2/simd
+github.com/gofiber/utils/v2/strings
+github.com/gofiber/utils/v2/swar
 # github.com/golang-jwt/jwt/v5 v5.3.1
 ## explicit; go 1.21
 github.com/golang-jwt/jwt/v5
@@ -228,9 +257,6 @@ github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.24
 ## explicit; go 1.20
 github.com/mattn/go-isatty
-# github.com/mattn/go-runewidth v0.0.31
-## explicit; go 1.23
-github.com/mattn/go-runewidth
 # github.com/molecule-man/go-brrr v1.3.1
 ## explicit; go 1.22.0
 github.com/molecule-man/go-brrr
@@ -248,6 +274,9 @@ github.com/openzipkin/zipkin-go/model
 # github.com/pandatix/go-abnf v0.5.5
 ## explicit; go 1.26.0
 github.com/pandatix/go-abnf
+# github.com/philhofer/fwd v1.2.1
+## explicit; go 1.20
+github.com/philhofer/fwd
 # github.com/prometheus/client_golang v1.25.0
 ## explicit; go 1.26.0
 github.com/prometheus/client_golang/internal/github.com/golang/gddo/httputil
@@ -286,6 +315,9 @@ github.com/swaggo/files/v2
 # github.com/swaggo/swag v1.16.6
 ## explicit; go 1.18
 github.com/swaggo/swag
+# github.com/tinylib/msgp v1.6.5
+## explicit; go 1.24
+github.com/tinylib/msgp/msgp
 # github.com/valyala/bytebufferpool v1.0.0
 ## explicit
 github.com/valyala/bytebufferpool
@@ -294,6 +326,7 @@ github.com/valyala/bytebufferpool
 github.com/valyala/fasthttp
 github.com/valyala/fasthttp/fasthttpadaptor
 github.com/valyala/fasthttp/fasthttputil
+github.com/valyala/fasthttp/prefork
 github.com/valyala/fasthttp/reuseport
 github.com/valyala/fasthttp/stackless
 github.com/valyala/fasthttp/tcplisten
@@ -419,6 +452,8 @@ go.uber.org/zap/zapcore
 go.yaml.in/yaml/v3
 # golang.org/x/crypto v0.59.0
 ## explicit; go 1.26.0
+golang.org/x/crypto/acme
+golang.org/x/crypto/acme/autocert
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/sha3
