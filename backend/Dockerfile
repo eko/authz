@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=1 go build -mod vendor -ldflags "-s -w" -o authz ./cmd/
 
-FROM alpine:3.23
+FROM alpine:3.24
 
 RUN adduser -S app
 USER app
