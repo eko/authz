@@ -30,7 +30,7 @@ func NewClient(cfg *Config) (Client, error) {
 		interceptor.WithExpireDelay(cfg.ExpireDelay),
 	)
 
-	clientConn, err := grpc.Dial(cfg.GrpcAddr,
+	clientConn, err := grpc.NewClient(cfg.GrpcAddr,
 		grpc.WithTransportCredentials(
 			insecure.NewCredentials(),
 		),
@@ -42,7 +42,7 @@ func NewClient(cfg *Config) (Client, error) {
 		),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("cannot connect to gRPC backend: %v", err)
+		return nil, fmt.Errorf("cannot create gRPC client: %w", err)
 	}
 
 	apiClient := authz.NewApiClient(clientConn)
@@ -65,5 +65,10 @@ func (c *client) IsAllowed(ctx context.Context, check *authz.Check) (bool, error
 		return false, err
 	}
 
-	return response.GetChecks()[0].IsAllowed, nil
+	checks := response.GetChecks()
+	if len(checks) == 0 {
+		return false, fmt.Errorf("empty check response")
+	}
+
+	return checks[0].GetIsAllowed(), nil
 }

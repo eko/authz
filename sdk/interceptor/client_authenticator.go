@@ -2,54 +2,60 @@ package interceptor
 
 import (
 	"context"
-	"fmt"
+	"slices"
 	"time"
 
 	"github.com/eko/authz/backend/pkg/authz"
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 const (
 	authorizationKey = "authorization"
+	authenticateRPC  = "/authz.Api/Authenticate"
 )
 
 var (
 	// UnauthenticatedMethods specify gRPC methods that should not be authenticated.
 	// This means they can be call publicly.
 	UnauthenticatedMethods = []string{
-		"/authz.Api/Authenticate",
+		authenticateRPC,
 		"/authz.Api/Check",
 	}
 )
 
-func checkAndApply(ctx context.Context, cc *grpc.ClientConn, authenticator Authenticator, opts ...grpc.CallOption) (context.Context, error) {
-	authenticateRequest := &authz.AuthenticateRequest{
+// accessToken returns a valid access token, authenticating against the
+// backend only when no token is cached or when it is about to expire.
+func accessToken(ctx context.Context, cc *grpc.ClientConn, authenticator Authenticator, opts ...grpc.CallOption) (string, error) {
+	if token := authenticator.GetToken(); token.IsValid(time.Now().Add(authenticator.GetExpireDelay())) {
+		return token.AccessToken, nil
+	}
+
+	request := &authz.AuthenticateRequest{
 		ClientId:     authenticator.GetClientID(),
 		ClientSecret: authenticator.GetClientSecret(),
 	}
-	authenticateResponse := &authz.AuthenticateResponse{}
-	if err := cc.Invoke(ctx, "/authz.Api/Authenticate", authenticateRequest, authenticateResponse, opts...); err != nil {
+	response := &authz.AuthenticateResponse{}
+	if err := cc.Invoke(ctx, authenticateRPC, request, response, opts...); err != nil {
+		return "", err
+	}
+
+	token := &Token{
+		AccessToken: response.GetToken(),
+		ExpireAt:    time.Now().Add(time.Duration(response.GetExpiresIn()) * time.Second),
+	}
+	authenticator.SetToken(token)
+
+	return token.AccessToken, nil
+}
+
+func authenticatedContext(ctx context.Context, cc *grpc.ClientConn, authenticator Authenticator, opts ...grpc.CallOption) (context.Context, error) {
+	token, err := accessToken(ctx, cc, authenticator, opts...)
+	if err != nil {
 		return ctx, err
 	}
 
-	if authenticator.GetToken() == nil ||
-		authenticator.GetToken().ExpireAt.IsZero() ||
-		authenticator.GetToken().ExpireAt.Before(time.Now().Add(authenticator.GetExpireDelay())) {
-
-		authenticator.SetToken(&Token{
-			AccessToken: authenticateResponse.GetToken(),
-			ExpireAt:    time.Now().Add(time.Duration(authenticateResponse.GetExpiresIn()) * time.Second),
-		})
-	}
-
-	newCtx := metautils.
-		ExtractIncoming(ctx).
-		Set(authorizationKey, fmt.Sprintf("bearer %s", authenticator.GetToken().AccessToken)).
-		ToOutgoing(ctx)
-
-	return newCtx, nil
+	return metadata.AppendToOutgoingContext(ctx, authorizationKey, "bearer "+token), nil
 }
 
 func AuthenticationUnaryClientInterceptor(authenticator Authenticator) grpc.UnaryClientInterceptor {
@@ -58,7 +64,7 @@ func AuthenticationUnaryClientInterceptor(authenticator Authenticator) grpc.Unar
 			return invoker(ctx, method, req, reply, cc, opts...)
 		}
 
-		newCtx, err := checkAndApply(ctx, cc, authenticator, opts...)
+		newCtx, err := authenticatedContext(ctx, cc, authenticator, opts...)
 		if err != nil {
 			return err
 		}
@@ -73,7 +79,7 @@ func AuthenticationStreamClientInterceptor(authenticator Authenticator) grpc.Str
 			return streamer(ctx, desc, cc, method, opts...)
 		}
 
-		newCtx, err := checkAndApply(ctx, cc, authenticator, opts...)
+		newCtx, err := authenticatedContext(ctx, cc, authenticator, opts...)
 		if err != nil {
 			return nil, err
 		}

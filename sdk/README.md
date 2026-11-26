@@ -52,7 +52,7 @@ You can also declare a new policy this way:
 
 ```go
 import (
-    "github.com/eko/authz/backend/sdk/rule"
+    "github.com/eko/authz/sdk/rule"
 )
 
 response, err := authzClient.PolicyCreate(ctx, &authz.PolicyCreateRequest{
@@ -73,7 +73,7 @@ response, err := authzClient.PolicyCreate(ctx, &authz.PolicyCreateRequest{
 Then, you can perform a check with:
 
 ```go
-isAllowed, err := authzClient.IsAllowed(&authz.Check{
+isAllowed, err := authzClient.IsAllowed(ctx, &authz.Check{
     Principal: "user-123",
     ResourceKind: "post",
     ResourceValue: "456",

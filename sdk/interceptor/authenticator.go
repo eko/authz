@@ -1,6 +1,7 @@
 package interceptor
 
 import (
+	"sync"
 	"time"
 )
 
@@ -25,6 +26,11 @@ type Token struct {
 	ExpireAt    time.Time
 }
 
+// IsValid returns true when the token is still valid at the given time.
+func (t *Token) IsValid(at time.Time) bool {
+	return t != nil && t.AccessToken != "" && t.ExpireAt.After(at)
+}
+
 type Authenticator interface {
 	GetClientID() string
 	GetClientSecret() string
@@ -34,6 +40,7 @@ type Authenticator interface {
 }
 
 type authenticator struct {
+	mu           sync.RWMutex
 	clientID     string
 	clientSecret string
 	expireDelay  time.Duration
@@ -69,9 +76,15 @@ func (a *authenticator) GetExpireDelay() time.Duration {
 }
 
 func (a *authenticator) GetToken() *Token {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
 	return a.token
 }
 
 func (a *authenticator) SetToken(token *Token) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	a.token = token
 }

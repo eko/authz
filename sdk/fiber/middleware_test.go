@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/eko/authz/backend/pkg/authz"
-	gofiber "github.com/gofiber/fiber/v2"
+	gofiber "github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +20,7 @@ func (f checkerFunc) IsAllowed(ctx context.Context, check *authz.Check) (bool, e
 }
 
 func TestNew(t *testing.T) {
-	principalFromHeader := func(c *gofiber.Ctx) (string, error) {
+	principalFromHeader := func(c gofiber.Ctx) (string, error) {
 		return c.Get("X-User"), nil
 	}
 
@@ -91,7 +91,7 @@ func TestNew(t *testing.T) {
 				Action:        "edit",
 			})
 
-			ok := func(c *gofiber.Ctx) error { return c.SendStatus(http.StatusOK) }
+			ok := func(c gofiber.Ctx) error { return c.SendStatus(http.StatusOK) }
 
 			app := gofiber.New()
 			app.Get("/posts", middleware, ok)

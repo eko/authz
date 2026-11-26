@@ -1,6 +1,6 @@
 # Authz GoFiber middleware
 
-A [GoFiber](https://gofiber.io) (v2) middleware that authorizes requests against Authz.
+A [GoFiber](https://gofiber.io) (v3) middleware that authorizes requests against Authz.
 
 ## Installation
 
@@ -14,7 +14,7 @@ go get github.com/eko/authz/sdk/fiber
 import (
     "github.com/eko/authz/sdk"
     authzfiber "github.com/eko/authz/sdk/fiber"
-    "github.com/gofiber/fiber/v2"
+    "github.com/gofiber/fiber/v3"
 )
 
 authzClient, err := sdk.NewClient(&sdk.Config{
@@ -27,10 +27,10 @@ app := fiber.New()
 
 app.Put("/posts/:id", authzfiber.New(authzfiber.Config{
     Checker: authzClient,
-    Principal: func(c *fiber.Ctx) (string, error) {
+    Principal: func(c fiber.Ctx) (string, error) {
         // Return the principal identifier of the authenticated user,
         // for instance from a JWT or session set by a previous middleware.
-        return c.Locals("user_id").(string), nil
+        return fiber.Locals[string](c, "user_id"), nil
     },
     ResourceKind:  "post",
     ResourceValue: authzfiber.ResourceValueFromParam("id"),
