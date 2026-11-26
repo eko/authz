@@ -35,7 +35,10 @@ updates:
         - "*"
 
 - package-ecosystem: gomod
-  directory: "/backend"
+  directories:
+    - "/backend"
+    - "/sdk"
+    - "/sdk/fiber"
   schedule:
     interval: daily
     time: "05:00"
