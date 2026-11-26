@@ -2,6 +2,19 @@
   "name": "authz",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "vite",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
@@ -9,64 +22,35 @@
     "@hookform/resolvers": "^7.0.8",
     "@mui/icons-material": "^9.5.0",
     "@mui/material": "^9.5.0",
-    "@mui/styled-engine-sc": "^9.5.0",
     "@mui/system": "^9.5.0",
     "@mui/x-data-grid": "^9.18.0",
     "@mui/x-date-pickers": "^9.18.0",
     "@nivo/bar": "^0.99.0",
     "@nivo/core": "^0.99.0",
     "@nivo/pie": "^0.99.0",
-    "@testing-library/dom": "^10.4.2",
-    "@testing-library/jest-dom": "^8.0.0",
-    "@testing-library/react": "^16.3.3",
-    "@testing-library/user-event": "^14.6.13",
-    "@types/jest": "^30.0.0",
-    "@types/js-cookie": "^3.0.6",
-    "@types/node": "^26.6.6",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
     "axios": "^1.21.1",
+    "dayjs": "^1.11.23",
     "js-cookie": "^3.0.8",
     "jwt-decode": "^4.0.0",
-    "moment": "^2.31.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-hook-form": "^7.92.0",
     "react-router-dom": "^7.18.6",
-    "react-scripts": "5.0.1",
-    "styled-components": "^6.6.0",
-    "typescript": "^5.9.3",
-    "universal-cookie": "^8.1.2",
-    "web-vitals": "^6.2.3",
     "yup": "^1.7.1"
   },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test --transformIgnorePatterns \"node_modules/(?!(axios|@fontsource)/)\"",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  },
-  "jest": {
-    "moduleNameMapper": {
-      "^react-router/dom$": "<rootDir>/node_modules/react-router/dist/development/dom-export.js"
-    }
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^8.0.0",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.13",
+    "@types/js-cookie": "^3.0.6",
+    "@types/node": "^26.6.11",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "jsdom": "^31.0.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.2"
   }
 }

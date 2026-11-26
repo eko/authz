@@ -1,7 +1,7 @@
 import { Chip, List, ListItemButton, ListItemIcon, ListItemText } from "@mui/material";
 import { getGridBooleanOperators, getGridStringOperators, GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
 import LinkIcon from '@mui/icons-material/Link';
-import moment from "moment";
+import dayjs from 'helper/date';
 
 export const AuditColumns = (): GridColDef[] => [
     {
@@ -15,7 +15,7 @@ export const AuditColumns = (): GridColDef[] => [
           return (<i>Unknown</i>);
         }
 
-        const date = moment(params.row.date);
+        const date = dayjs(params.row.date);
         return (
           <div>
             {date.format('L')} at {date.format('LTS')}

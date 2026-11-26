@@ -1,4 +1,4 @@
 main.background, header.MuiPaper-root {
-  background-image: url('../public/background.svg');
+  background-image: url('/background.svg');
   background-position: center;
 }

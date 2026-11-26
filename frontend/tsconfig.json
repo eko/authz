@@ -1,28 +1,43 @@
 {
-  "baseUrl": "src",
   "compilerOptions": {
-    "baseUrl": "src",
-    "target": "es5",
+    "target": "es2022",
     "lib": [
       "dom",
       "dom.iterable",
-      "esnext"
+      "es2023"
     ],
-    "allowJs": true,
+    "types": [
+      "vite/client",
+      "vitest/globals",
+      "@testing-library/jest-dom/vitest"
+    ],
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "verbatimModuleSyntax": false,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "paths": {
+      "App": ["./src/App"],
+      "routes": ["./src/routes"],
+      "component/*": ["./src/component/*"],
+      "context/*": ["./src/context/*"],
+      "form/*": ["./src/form/*"],
+      "helper/*": ["./src/helper/*"],
+      "hook/*": ["./src/hook/*"],
+      "layout/*": ["./src/layout/*"],
+      "page/*": ["./src/page/*"],
+      "service/*": ["./src/service/*"]
+    }
   },
   "include": [
-    "src"
+    "src",
+    "vite.config.ts"
   ]
 }

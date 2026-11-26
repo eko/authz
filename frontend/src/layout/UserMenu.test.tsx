@@ -1,6 +1,5 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import Cookies from 'universal-cookie';
 import {
     createBrowserRouter,
     RouterProvider,
@@ -62,7 +61,7 @@ test('user menu: should be visible when user authenticated', async () => {
   // Given
   let router: DataRouter | null = null;
 
-  const logout = jest.fn();
+  const logout = vi.fn();
 
   const Wrapper = () => {
     router = initializeRouter({
@@ -96,7 +95,7 @@ test('user menu: click on logout button', async () => {
   // Given
   let router: DataRouter | null = null;
 
-  const logout = jest.fn();
+  const logout = vi.fn();
 
   const Wrapper = () => {
     router = initializeRouter({

@@ -5,7 +5,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import LinkIcon from '@mui/icons-material/Link';
 import { NavigateFunction } from "react-router";
-import moment from "moment";
+import dayjs from 'helper/date';
 import { Action, Resource } from "service/model/model";
 
 type DeleteFunc = (params: GridRenderCellParams) => void;
@@ -79,7 +79,7 @@ export const ListColumns = ({
           return (<i>Unknown</i>);
         }
 
-        const date = moment(params.row.created_at);
+        const date = dayjs(params.row.created_at);
         return (
           <div title={`${date.format('L')} at ${date.format('LT')}`}>
             {date.fromNow()}
@@ -98,7 +98,7 @@ export const ListColumns = ({
           return (<i>Unknown</i>);
         }
 
-        const date = moment(params.row.updated_at);
+        const date = dayjs(params.row.updated_at);
         return (
           <div title={`${date.format('L')} at ${date.format('LT')}`}>
             {date.fromNow()}

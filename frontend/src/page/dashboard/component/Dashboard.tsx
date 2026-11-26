@@ -6,7 +6,7 @@ import { ResponsivePie } from '@nivo/pie';
 import DataTable from 'component/DataTable';
 import { AuthContext } from 'context/auth';
 import { useToast } from 'context/toast';
-import moment from 'moment';
+import dayjs from 'helper/date';
 import { useContext, useEffect, useState } from 'react';
 import { isAPIError } from 'service/error/model';
 import { getAudits } from 'service/model/audit';
@@ -69,7 +69,7 @@ export default function Dashboard() {
     setAllowedVsDeniedPerDayData(
       stats.map(dayStat => {
         return {
-          day: moment(dayStat.date).format('D MMM'),
+          day: dayjs(dayStat.date).format('D MMM'),
           allowed: dayStat.checks_allowed_number,
           allowedColor: 'hsl(244, 70%, 50%)',
           denied: dayStat.checks_denied_number,

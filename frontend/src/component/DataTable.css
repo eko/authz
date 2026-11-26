@@ -5,7 +5,7 @@ div.MuiDataGrid-columnHeader:focus-within {
 
 /* Column headers */
 div.MuiDataGrid-columnHeaders {
-    background-image: url('../../public/background.svg');
+    background-image: url('/background.svg');
     color: #ffffff;
 }
 

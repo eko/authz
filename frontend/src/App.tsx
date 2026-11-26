@@ -5,7 +5,7 @@ import {
 import { ToastProvider } from 'context/toast';
 import { routes } from 'routes';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 
 import './App.css'
 
@@ -13,7 +13,7 @@ export default function App() {
   const router = createBrowserRouter(routes);
 
   return (
-    <LocalizationProvider dateAdapter={AdapterMoment}>
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
       <ToastProvider>
         <RouterProvider router={router} />
       </ToastProvider>

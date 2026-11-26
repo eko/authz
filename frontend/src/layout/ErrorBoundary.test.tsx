@@ -4,7 +4,7 @@ import ErrorBoundary from 'layout/ErrorBoundary';
 
 // Hide all console errors during tests output by mocking console.error.
 beforeEach(() => {
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 test('ErrorBoundary: render component when no error', async () => {
