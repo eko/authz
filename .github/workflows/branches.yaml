@@ -36,59 +36,25 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: "1.26"
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
       - uses: isbang/compose-action@cdaf49f2d715a87c3387e86cb35c772b14f0efe0 # v3.2.1
         with:
           compose-file: "./docker-compose.postgres.yaml"
 
-      - name: Install json-to-messages
-        run: npm install -g @cucumber/json-to-messages
-      - name: Install Godog binary
-        run: go install github.com/cucumber/godog/cmd/godog@v0.12.5
-
       - name: Run Godog tests
-        id: tests
         env:
-          # Test-only signing secret, avoids the random secret warning polluting the cucumber JSON output.
           AUTH_JWT_SIGN_STRING: "functional-tests-signing-secret-0123456789"
         run: |
-          set -o pipefail
           cd backend
-          go test -count=1 --tags=functional -v ./functional --godog.format=cucumber | grep -v -E "^(ok|FAIL)" | json-to-messages > messages.json
+          go test -count=1 --tags=functional -v ./functional \
+            --godog.format=pretty,junit:${{ github.workspace }}/backend/godog-report.xml
 
-      - name: Publish Cucumber report
-        id: report
-        if: ${{ always() && steps.tests.conclusion != 'skipped' }}
-        continue-on-error: true
-        env:
-          CUCUMBER_PUBLISH_TOKEN: "${{ secrets.CUCUMBER_PUBLISH_TOKEN }}"
-        run: |
-          cd backend
-          if [ -z "$CUCUMBER_PUBLISH_TOKEN" ] || [ ! -s messages.json ]; then
-            echo "Skipping Cucumber report publication"
-            exit 0
-          fi
-          OUTPUT=$(curl -s -D - -H "Authorization: Bearer $CUCUMBER_PUBLISH_TOKEN" "https://messages.cucumber.io/api/reports")
-          TARGET=$(echo $OUTPUT | grep -Eo 'https://cucumber-messages-app[^ ]+' | tr -d '\r')
-          if [ -z "$TARGET" ]; then
-            echo "Cucumber reports service did not return an upload URL, skipping"
-            exit 0
-          fi
-          curl -s --upload-file messages.json "$TARGET"
-          REPORT_LINK=$(echo $OUTPUT | grep -Eo 'https://reports.cucumber.io/reports/[0-9a-z-]+' | tr -d '\r')
-          echo "REPORT_LINK=$REPORT_LINK" >> "$GITHUB_OUTPUT"
-
-      - uses: mshick/add-pr-comment@ec328af66588ab8f77cdeb2c264f14aba45bbf59 # v3.12.0
-        if: ${{ github.event_name == 'pull_request' && steps.report.outputs.REPORT_LINK != '' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Godog report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          message: |
-            Cucumber reports available here:
-            ${{ steps.report.outputs.REPORT_LINK }}
-          allow-repeats: true
+          name: godog-report
+          path: backend/godog-report.xml
+          if-no-files-found: ignore
 
   frontend-test:
     runs-on: ubuntu-latest

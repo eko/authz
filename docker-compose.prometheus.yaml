@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   prometheus:
-    image: prom/prometheus:v2.41.0
+    image: prom/prometheus:v3.16.0
     ports:
       - 9000:9090
     volumes:
