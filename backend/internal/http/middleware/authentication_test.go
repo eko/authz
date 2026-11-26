@@ -11,9 +11,9 @@ import (
 	"github.com/eko/authz/backend/internal/log"
 	"github.com/eko/authz/backend/internal/security/jwt"
 	"github.com/gofiber/fiber/v2"
-	lib_jwt "github.com/golang-jwt/jwt/v4"
-	"go.uber.org/mock/gomock"
+	lib_jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 func TestAuthentication_WhenNoAuthorizationHeader(t *testing.T) {

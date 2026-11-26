@@ -7,9 +7,9 @@ import (
 
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/security/jwt"
-	lib_jwt "github.com/golang-jwt/jwt/v4"
-	"go.uber.org/mock/gomock"
+	lib_jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 func TestAuthorizationFunc_WhenIsAllowed(t *testing.T) {

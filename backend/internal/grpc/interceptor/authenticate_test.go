@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/eko/authz/backend/internal/security/jwt"
-	lib_jwt "github.com/golang-jwt/jwt/v4"
-	"go.uber.org/mock/gomock"
+	lib_jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
