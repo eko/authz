@@ -8,11 +8,17 @@ export default function PolicyListPage() {
     <AuthenticatedLayout title='Manage your application policies'>
       <Breadcrumb />
 
-      <Typography variant="h3" gutterBottom marginTop={1} marginBottom={2}>
+      <Typography
+        variant="h3"
+        gutterBottom
+        sx={{
+          marginTop: 1,
+          marginBottom: 2
+        }}>
           Policies
       </Typography>
 
       <PolicyList />
-   </AuthenticatedLayout>
+    </AuthenticatedLayout>
   );
 }

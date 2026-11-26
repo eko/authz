@@ -8,11 +8,17 @@ export default function UserListPage() {
     <AuthenticatedLayout title='Manage your users'>
       <Breadcrumb />
 
-      <Typography variant="h3" gutterBottom marginTop={1} marginBottom={2}>
+      <Typography
+        variant="h3"
+        gutterBottom
+        sx={{
+          marginTop: 1,
+          marginBottom: 2
+        }}>
           Users
       </Typography>
 
       <UserList />
-   </AuthenticatedLayout>
+    </AuthenticatedLayout>
   );
 }

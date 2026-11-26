@@ -54,7 +54,13 @@ export default function ResourceCreateOrEdit() {
 
   return (
     <div>
-      <Typography variant="h3" gutterBottom marginTop={1} marginBottom={2}>
+      <Typography
+        variant="h3"
+        gutterBottom
+        sx={{
+          marginTop: 1,
+          marginBottom: 2
+        }}>
         {resource?.id ? `Resource "${resource?.id}"` : `Create new resource`}
       </Typography>
 
@@ -75,8 +81,10 @@ export default function ResourceCreateOrEdit() {
                 defaultValue={defaultValues?.id}
                 error={errors?.id ? true : false}
                 helperText={errors?.id?.message}
-                InputLabelProps={{ shrink: defaultValues?.id !== '' ? true : undefined }}
                 sx={{ mb: 2, width: '100%' }}
+                slotProps={{
+                  inputLabel: { shrink: defaultValues?.id !== '' ? true : undefined }
+                }}
               />
 
               <TextField {...register('kind')}
@@ -84,8 +92,10 @@ export default function ResourceCreateOrEdit() {
                 defaultValue={defaultValues?.kind}
                 error={errors?.kind ? true : false}
                 helperText={errors?.kind?.message}
-                InputLabelProps={{ shrink: defaultValues?.kind !== '' ? true : undefined }}
                 sx={{ mb: 2, width: '100%' }}
+                slotProps={{
+                  inputLabel: { shrink: defaultValues?.kind !== '' ? true : undefined }
+                }}
               />
 
               <TextField {...register('value')}
@@ -93,8 +103,10 @@ export default function ResourceCreateOrEdit() {
                 defaultValue={defaultValues?.value}
                 error={errors?.value ? true : false}
                 helperText={errors?.value?.message}
-                InputLabelProps={{ shrink: defaultValues?.value !== '' ? true : undefined }}
                 sx={{ mb: 2, width: '100%' }}
+                slotProps={{
+                  inputLabel: { shrink: defaultValues?.value !== '' ? true : undefined }
+                }}
               />
             </Grid>
           </Grid>

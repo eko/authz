@@ -41,7 +41,7 @@ export default function UserMenu() {
                 open={anchorIsOpened}
                 onClose={handleClose}
                 onClick={handleClose}
-                PaperProps={{
+                slotProps={{ paper: {
                 elevation: 0,
                 sx: {
                     overflow: 'visible',
@@ -66,12 +66,14 @@ export default function UserMenu() {
                         zIndex: 0,
                     },
                 },
-                }}
+                } }}
                 transformOrigin={{ horizontal: 'right', vertical: 'top' }}
                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
             >
                 <MenuItem sx={{ height: 40 }}>
-                    <Typography variant='overline' display='block' gutterBottom>
+                    <Typography variant='overline' gutterBottom sx={{
+                        display: 'block'
+                    }}>
                         {user.username}
                     </Typography>
                 </MenuItem>
@@ -88,5 +90,5 @@ export default function UserMenu() {
                 </MenuItem>
             </Menu>
         </>
-    ) : null
+    ) : null;
 };

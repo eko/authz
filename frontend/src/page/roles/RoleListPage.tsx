@@ -8,11 +8,17 @@ export default function RoleListPage() {
     <AuthenticatedLayout title='Manage your application roles'>
       <Breadcrumb />
 
-      <Typography variant="h3" gutterBottom marginTop={1} marginBottom={2}>
+      <Typography
+        variant="h3"
+        gutterBottom
+        sx={{
+          marginTop: 1,
+          marginBottom: 2
+        }}>
           Roles
       </Typography>
 
       <RoleList />
-   </AuthenticatedLayout>
+    </AuthenticatedLayout>
   );
 }

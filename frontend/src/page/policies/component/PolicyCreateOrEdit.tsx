@@ -101,7 +101,13 @@ export default function PolicyCreateOrEdit() {
 
   return (
     <div>
-      <Typography variant="h3" gutterBottom marginTop={1} marginBottom={2}>
+      <Typography
+        variant="h3"
+        gutterBottom
+        sx={{
+          marginTop: 1,
+          marginBottom: 2
+        }}>
           {policy?.id ? `Policy "${policy?.id}"` : `Create new policy`}
       </Typography>
 
@@ -122,8 +128,10 @@ export default function PolicyCreateOrEdit() {
                 defaultValue={defaultValues?.id}
                 error={errors?.id ? true : false}
                 helperText={errors?.id?.message}
-                InputLabelProps={{ shrink: defaultValues?.id !== '' ? true : undefined }}
                 sx={{ mb: 2, width: '100%' }}
+                slotProps={{
+                  inputLabel: { shrink: defaultValues?.id !== '' ? true : undefined }
+                }}
               />
 
               {id ? (
@@ -133,8 +141,10 @@ export default function PolicyCreateOrEdit() {
                       disabled
                       label="Creation date"
                       value={moment(policy?.created_at).format('LLL')}
-                      InputLabelProps={{ shrink: true }}
                       sx={{ mr: 2, mb: 2, width: '200px' }}
+                      slotProps={{
+                        inputLabel: { shrink: true }
+                      }}
                     />
                   </Tooltip>
 
@@ -144,8 +154,10 @@ export default function PolicyCreateOrEdit() {
                         disabled
                         label="Update date"
                         value={moment(policy?.updated_at).format('LLL')}
-                        InputLabelProps={{ shrink: true }}
                         sx={{ width: '200px' }}
+                        slotProps={{
+                          inputLabel: { shrink: true }
+                        }}
                       />
                     </Tooltip>
                   ) : null}

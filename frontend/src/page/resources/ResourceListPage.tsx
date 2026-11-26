@@ -8,11 +8,17 @@ export default function ResourceListPage() {
     <AuthenticatedLayout title='Manage your application resources'>
       <Breadcrumb />
 
-      <Typography variant="h3" gutterBottom marginTop={1} marginBottom={2}>
+      <Typography
+        variant="h3"
+        gutterBottom
+        sx={{
+          marginTop: 1,
+          marginBottom: 2
+        }}>
           Resources
       </Typography>
 
       <ResourceList />
-   </AuthenticatedLayout>
+    </AuthenticatedLayout>
   );
 }

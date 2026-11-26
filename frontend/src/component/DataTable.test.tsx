@@ -107,7 +107,7 @@ test('DataTable: fetch data, render list and paginate', async () => {
 
     // When click on next page
     // the table should contain the next (and last) 5 elements
-    await userEvent.click(screen.getByTitle('Go to next page'));
+    await userEvent.click(screen.getByRole('button', { name: /next page/i }));
     await waitFor(() => {
         expect(screen.getByText('item-6')).toBeInTheDocument();
     });

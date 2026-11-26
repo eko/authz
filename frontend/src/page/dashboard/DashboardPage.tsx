@@ -9,11 +9,17 @@ export default function DashboardPage() {
     <AuthenticatedLayout title='What happens on your authorization backend'>
       <Breadcrumb />
 
-      <Typography variant="h3" gutterBottom marginTop={1} marginBottom={2}>
+      <Typography
+        variant="h3"
+        gutterBottom
+        sx={{
+          marginTop: 1,
+          marginBottom: 2
+        }}>
           Dashboard
       </Typography>
 
       <Dashboard />
-   </AuthenticatedLayout>
+    </AuthenticatedLayout>
   );
 }

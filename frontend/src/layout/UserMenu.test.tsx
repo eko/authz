@@ -5,14 +5,14 @@ import {
     createBrowserRouter,
     RouterProvider,
   } from 'react-router-dom';
-import type { Router } from "@remix-run/router";
+import type { DataRouter } from "react-router-dom";
 import { AuthContext, User } from 'context/auth';
 import UserMenu from './UserMenu';
 
 const initializeRouter = (
   user?: User,
   logout?: Function
-) : Router => {
+) : DataRouter => {
   if (logout === undefined) {
     logout = () => {}
   }
@@ -34,7 +34,7 @@ const initializeRouter = (
 
 test('user menu: should not be visible when user not authenticated', async () => {
   // Given
-  let router: Router | null = null;
+  let router: DataRouter | null = null;
 
   const Wrapper = () => {
     router = initializeRouter();
@@ -60,7 +60,7 @@ test('user menu: should not be visible when user not authenticated', async () =>
 
 test('user menu: should be visible when user authenticated', async () => {
   // Given
-  let router: Router | null = null;
+  let router: DataRouter | null = null;
 
   const logout = jest.fn();
 
@@ -89,12 +89,12 @@ test('user menu: should be visible when user authenticated', async () => {
 
   // Then
   expect(screen.queryByText('Logout')).toBeVisible();
-  expect(logout).toBeCalledTimes(0);
+  expect(logout).toHaveBeenCalledTimes(0);
 });
 
 test('user menu: click on logout button', async () => {
   // Given
-  let router: Router | null = null;
+  let router: DataRouter | null = null;
 
   const logout = jest.fn();
 
@@ -123,5 +123,5 @@ test('user menu: click on logout button', async () => {
   await userEvent.click(screen.getByText('Logout'));
 
   // Then
-  expect(logout).toBeCalledTimes(1);
+  expect(logout).toHaveBeenCalledTimes(1);
 });

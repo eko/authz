@@ -8,11 +8,17 @@ export default function CheckPage() {
     <AuthenticatedLayout title='Want to check an access? You can do it here'>
       <Breadcrumb />
 
-      <Typography variant="h3" gutterBottom marginTop={1} marginBottom={2}>
+      <Typography
+        variant="h3"
+        gutterBottom
+        sx={{
+          marginTop: 1,
+          marginBottom: 2
+        }}>
           Check access
       </Typography>
 
       <Check />
-   </AuthenticatedLayout>
+    </AuthenticatedLayout>
   );
 }

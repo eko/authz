@@ -58,7 +58,13 @@ export default function UserCreateOrEdit() {
 
   return (
     <div>
-      <Typography variant="h3" gutterBottom marginTop={1} marginBottom={2}>
+      <Typography
+        variant="h3"
+        gutterBottom
+        sx={{
+          marginTop: 1,
+          marginBottom: 2
+        }}>
         {user ? `User "${user?.username}"` : `Create new user`}
       </Typography>
 
@@ -85,8 +91,10 @@ export default function UserCreateOrEdit() {
                 defaultValue={defaultValues?.username}
                 error={errors?.username ? true : false}
                 helperText={errors?.username?.message}
-                InputLabelProps={{ shrink: defaultValues?.username !== '' ? true : undefined }}
                 sx={{ mb: 2, width: '100%' }}
+                slotProps={{
+                  inputLabel: { shrink: defaultValues?.username !== '' ? true : undefined }
+                }}
               />
             </Grid>
           </Grid>
