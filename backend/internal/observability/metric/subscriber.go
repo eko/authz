@@ -2,11 +2,11 @@ package metric
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/event"
 	"go.uber.org/fx"
-	"golang.org/x/exp/slog"
 )
 
 type subscriber struct {

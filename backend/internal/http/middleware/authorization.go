@@ -1,10 +1,11 @@
 package middleware
 
 import (
+	"log/slog"
+
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/gofiber/fiber/v2"
-	"golang.org/x/exp/slog"
 )
 
 func Authorization(
@@ -25,7 +26,7 @@ func Authorization(
 		if err != nil {
 			logger.Error(
 				"Error while checking if user is allowed",
-				err,
+				slog.Any("error", err),
 				slog.String("principal", principal),
 				slog.String("resource_kind", resourceKind),
 				slog.String("resource_value", resourceValue),

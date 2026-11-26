@@ -1,13 +1,13 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/event"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
-	"golang.org/x/exp/slog"
 )
 
 type CheckRequestQuery struct {

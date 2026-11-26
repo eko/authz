@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"log/slog"
 	"net"
 
 	"github.com/eko/authz/backend/configs"
@@ -13,7 +14,6 @@ import (
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/fx"
-	"golang.org/x/exp/slog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -90,7 +90,7 @@ func Run(lc fx.Lifecycle, logger *slog.Logger, server *Server) error {
 
 			go func() {
 				if err := server.GrpcServer.Serve(listener); err != nil {
-					logger.Error("Unable to start gRPC server", err)
+					logger.Error("Unable to start gRPC server", slog.Any("error", err))
 				}
 			}()
 			return nil

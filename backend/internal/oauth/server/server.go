@@ -2,11 +2,11 @@ package server
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/go-oauth2/oauth2/v4"
 	"github.com/go-oauth2/oauth2/v4/errors"
 	"github.com/go-oauth2/oauth2/v4/server"
-	"golang.org/x/exp/slog"
 )
 
 func NewServer(

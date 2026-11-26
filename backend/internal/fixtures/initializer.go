@@ -3,12 +3,12 @@ package fixtures
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/entity/manager"
 	"github.com/eko/authz/backend/internal/entity/model"
 	"github.com/eko/authz/backend/internal/entity/repository"
-	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
 
@@ -164,7 +164,7 @@ func (i *initializer) initializeUser() error {
 		"username": {Operator: "=", Value: defaultAdminUsername},
 	})
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		i.logger.Error("Unable to get default admin user", err)
+		i.logger.Error("Unable to get default admin user", slog.Any("error", err))
 		return err
 	}
 

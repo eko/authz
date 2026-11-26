@@ -1,6 +1,7 @@
 package audit
 
 import (
+	"log/slog"
 	"regexp"
 	"testing"
 	"time"
@@ -11,7 +12,6 @@ import (
 	"github.com/eko/authz/backend/internal/log"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/exp/slog"
 )
 
 func TestNewSubscriber(t *testing.T) {

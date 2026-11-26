@@ -1,6 +1,7 @@
 package metric
 
 import (
+	"log/slog"
 	"testing"
 
 	"github.com/eko/authz/backend/configs"
@@ -9,7 +10,6 @@ import (
 	"github.com/eko/authz/backend/internal/log"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/exp/slog"
 )
 
 func TestNewSubscriber(t *testing.T) {

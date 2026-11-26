@@ -1,6 +1,6 @@
 package configs
 
-import "golang.org/x/exp/slog"
+import "log/slog"
 
 type Logger struct {
 	Level string `config:"logger_level"`

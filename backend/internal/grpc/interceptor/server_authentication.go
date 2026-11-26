@@ -2,8 +2,8 @@ package interceptor
 
 import (
 	"context"
+	"slices"
 
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 )
 

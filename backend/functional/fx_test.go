@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	l "log"
+	"log/slog"
 
 	"github.com/eko/authz/backend/configs"
 	"github.com/eko/authz/backend/internal/compile"
@@ -24,7 +25,6 @@ import (
 	"github.com/eko/authz/backend/internal/security"
 	"github.com/eko/authz/backend/internal/stats"
 	"go.uber.org/fx"
-	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
 

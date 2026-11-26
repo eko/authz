@@ -2,11 +2,11 @@ package middleware
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 
 	"github.com/eko/authz/backend/internal/security/jwt"
 	"github.com/gofiber/fiber/v2"
-	"golang.org/x/exp/slog"
 )
 
 var (
@@ -32,7 +32,7 @@ func Authentication(
 
 		claims, err := tokenManager.Parse(token)
 		if err != nil {
-			logger.Error("unable to verify token", err)
+			logger.Error("unable to verify token", slog.Any("error", err))
 
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error":   true,

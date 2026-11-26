@@ -1,11 +1,11 @@
 package fx
 
 import (
+	"log/slog"
 	"strings"
 
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
-	"golang.org/x/exp/slog"
 )
 
 var (
@@ -28,7 +28,7 @@ func (l *SlogLogger) LogEvent(event fxevent.Event) {
 		)
 	case *fxevent.OnStartExecuted:
 		if e.Err != nil {
-			l.Logger.Error("OnStart hook failed", e.Err,
+			l.Logger.Error("OnStart hook failed", slog.Any("error", e.Err),
 				slog.String("callee", e.FunctionName),
 				slog.String("caller", e.CallerName),
 			)
@@ -46,7 +46,7 @@ func (l *SlogLogger) LogEvent(event fxevent.Event) {
 		)
 	case *fxevent.OnStopExecuted:
 		if e.Err != nil {
-			l.Logger.Debug("OnStop hook failed", e.Err,
+			l.Logger.Debug("OnStop hook failed", slog.Any("error", e.Err),
 				slog.String("callee", e.FunctionName),
 				slog.String("caller", e.CallerName),
 			)
@@ -58,7 +58,7 @@ func (l *SlogLogger) LogEvent(event fxevent.Event) {
 			)
 		}
 	case *fxevent.Supplied:
-		l.Logger.Debug("Supplied", e.Err,
+		l.Logger.Debug("Supplied", slog.Any("error", e.Err),
 			slog.String("type", e.TypeName),
 			moduleField(e.ModuleName),
 		)
@@ -71,7 +71,7 @@ func (l *SlogLogger) LogEvent(event fxevent.Event) {
 			)
 		}
 		if e.Err != nil {
-			l.Logger.Error("Error encountered while applying options", e.Err,
+			l.Logger.Error("Error encountered while applying options", slog.Any("error", e.Err),
 				moduleField(e.ModuleName),
 			)
 		}
@@ -83,7 +83,7 @@ func (l *SlogLogger) LogEvent(event fxevent.Event) {
 			)
 		}
 		if e.Err != nil {
-			l.Logger.Error("Error encountered while replacing", e.Err,
+			l.Logger.Error("Error encountered while replacing", slog.Any("error", e.Err),
 				moduleField(e.ModuleName),
 			)
 		}
@@ -96,7 +96,7 @@ func (l *SlogLogger) LogEvent(event fxevent.Event) {
 			)
 		}
 		if e.Err != nil {
-			l.Logger.Error("Error encountered while applying options", e.Err,
+			l.Logger.Error("Error encountered while applying options", slog.Any("error", e.Err),
 				moduleField(e.ModuleName),
 			)
 		}
@@ -108,7 +108,7 @@ func (l *SlogLogger) LogEvent(event fxevent.Event) {
 		)
 	case *fxevent.Invoked:
 		if e.Err != nil {
-			l.Logger.Error("Invoke failed", e.Err,
+			l.Logger.Error("Invoke failed", slog.Any("error", e.Err),
 				slog.String("stack", e.Trace),
 				slog.String("function", e.FunctionName),
 				moduleField(e.ModuleName),
@@ -119,25 +119,25 @@ func (l *SlogLogger) LogEvent(event fxevent.Event) {
 			slog.String("signal", strings.ToUpper(e.Signal.String())))
 	case *fxevent.Stopped:
 		if e.Err != nil {
-			l.Logger.Error("Stop failed", e.Err)
+			l.Logger.Error("Stop failed", slog.Any("error", e.Err))
 		} else {
 			l.Logger.Info("Stopped")
 		}
 	case *fxevent.RollingBack:
-		l.Logger.Error("Start failed, rolling back", e.StartErr)
+		l.Logger.Error("Start failed, rolling back", slog.Any("error", e.StartErr))
 	case *fxevent.RolledBack:
 		if e.Err != nil {
-			l.Logger.Error("Rollback failed", e.Err)
+			l.Logger.Error("Rollback failed", slog.Any("error", e.Err))
 		}
 	case *fxevent.Started:
 		if e.Err != nil {
-			l.Logger.Error("Start failed", e.Err)
+			l.Logger.Error("Start failed", slog.Any("error", e.Err))
 		} else {
 			l.Logger.Info("Started")
 		}
 	case *fxevent.LoggerInitialized:
 		if e.Err != nil {
-			l.Logger.Error("Custom logger initialization failed", e.Err)
+			l.Logger.Error("Custom logger initialization failed", slog.Any("error", e.Err))
 		} else {
 			l.Logger.Debug("Initialized custom fxevent.Logger", slog.String("function", e.ConstructorName))
 		}

@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"log/slog"
 	lib_time "time"
 
 	"github.com/eko/authz/backend/configs"
@@ -9,7 +10,6 @@ import (
 	"github.com/eko/authz/backend/internal/entity/repository"
 	"github.com/eko/authz/backend/internal/helper/time"
 	"go.uber.org/fx"
-	"golang.org/x/exp/slog"
 )
 
 type cleaner struct {
@@ -50,7 +50,7 @@ func RunCleaner(lc fx.Lifecycle, cleaner *cleaner) {
 							Value:    cleaner.clock.Now().AddDate(0, 0, -cleaner.daysToKeep),
 						},
 					}); err != nil {
-						cleaner.logger.Error("Stats: unable to clean stats", err)
+						cleaner.logger.Error("Stats: unable to clean stats", slog.Any("error", err))
 					}
 				}
 			}()
