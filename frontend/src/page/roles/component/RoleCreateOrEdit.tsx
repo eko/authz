@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import moment from "moment";
+import dayjs from 'helper/date';
 import { Button, Divider, Paper, TextField, Tooltip, Typography } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import SaveIcon from '@mui/icons-material/Save';
@@ -117,7 +117,7 @@ export default function RoleCreateOrEdit() {
                     <TextField
                       disabled
                       label="Creation date"
-                      value={moment(role?.created_at).format('LLL')}
+                      value={dayjs(role?.created_at).format('LLL')}
                       sx={{ mr: 2, mb: 2, width: '200px' }}
                       slotProps={{
                         inputLabel: { shrink: true }
@@ -130,7 +130,7 @@ export default function RoleCreateOrEdit() {
                       <TextField
                         disabled
                         label="Update date"
-                        value={moment(role?.updated_at).format('LLL')}
+                        value={dayjs(role?.updated_at).format('LLL')}
                         sx={{ width: '200px' }}
                         slotProps={{
                           inputLabel: { shrink: true }

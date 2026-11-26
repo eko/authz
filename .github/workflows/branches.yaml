@@ -63,11 +63,18 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run typecheck
       - name: Run tests
-        run: |
-          cd frontend
-          npm install --force
-          npm run test
+        working-directory: frontend
+        run: npm run test
+      - name: Build
+        working-directory: frontend
+        run: npm run build
 
   sdk-lint:
     runs-on: ubuntu-latest
