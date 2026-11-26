@@ -33,7 +33,7 @@ func (s *Server) setRoutes() {
 			AllowCredentials: s.cfg.CORSAllowCredentials,
 			MaxAge:           int(s.cfg.CORSCacheMaxAge.Seconds()),
 		}),
-		fiberotel.Middleware(),
+		fiberotel.New(),
 	)
 
 	base := s.app.Group("/v1")

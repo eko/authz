@@ -17,7 +17,7 @@ github.com/cespare/xxhash/v2
 # github.com/coreos/go-oidc/v3 v3.21.0
 ## explicit; go 1.25.0
 github.com/coreos/go-oidc/v3/oidc
-# github.com/cucumber/gherkin/go/v42 v42.0.0
+# github.com/cucumber/gherkin/go/v42 v42.0.1
 ## explicit; go 1.19
 github.com/cucumber/gherkin/go/v42
 # github.com/cucumber/godog v0.16.0
@@ -33,7 +33,7 @@ github.com/cucumber/godog/internal/parser
 github.com/cucumber/godog/internal/storage
 github.com/cucumber/godog/internal/tags
 github.com/cucumber/godog/internal/utils
-# github.com/cucumber/messages/go/v34 v34.2.0
+# github.com/cucumber/messages/go/v34 v34.2.1
 ## explicit; go 1.19
 github.com/cucumber/messages/go/v34
 # github.com/dustin/go-humanize v1.1.0
@@ -299,7 +299,7 @@ github.com/prometheus/procfs/internal/parsers
 # github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
 ## explicit; go 1.12
 github.com/remyoudompheng/bigfft
-# github.com/spf13/pflag v1.0.10
+# github.com/spf13/pflag v1.1.0
 ## explicit; go 1.12
 github.com/spf13/pflag
 # github.com/stretchr/testify v1.12.1
@@ -684,7 +684,7 @@ modernc.org/libc/wctype
 # modernc.org/mathutil v1.7.1
 ## explicit; go 1.21
 modernc.org/mathutil
-# modernc.org/memory v1.13.0
+# modernc.org/memory v1.13.1
 ## explicit; go 1.23.0
 modernc.org/memory
 # modernc.org/sqlite v1.63.0
