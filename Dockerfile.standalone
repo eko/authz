@@ -26,14 +26,14 @@ ENV REACT_APP_DEMO_ENABLED=$REACT_APP_DEMO_ENABLED
 
 WORKDIR /app
 
+COPY ./frontend/package.json ./frontend/package-lock.json ./
+RUN npm ci
+
+COPY ./frontend/index.html ./frontend/tsconfig.json ./frontend/vite.config.ts ./
 COPY ./frontend/public ./public/
 COPY ./frontend/src ./src/
-COPY ./frontend/package.json .
-COPY ./frontend/package-lock.json .
-COPY ./frontend/tsconfig.json .
 
-RUN npm install --force && \
-    npm run build
+RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:1.31-alpine
 
